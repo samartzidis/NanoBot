@@ -2,7 +2,7 @@
 
 **NanoBot** is a free, DIY Raspberry Pi-powered AI chat robot, ideal for kids' education and teaching assistance. It can answer challenging questions on a wide range of topics and serve as a live encyclopedia.
 
-It uses various technologies such as the Semantic Kernel with native Plug-ins to enhance its capabilities, an optional RAG pipeline for persistent memory, an ONNX runtime-based inference engine for a fully offline wake-word detection experience, etc.
+It uses various technologies such as the _Semantic Kernel_ with native plug-ins to enhance its capabilities, an optional _RAG_ pipeline for persistent memory, an _ONNX_ runtime-based inference engine for a fully offline wake-word detection experience, etc.
 
 <a href="collage.jpg"><img src="collage.jpg" height="320" title="Collage" />
 

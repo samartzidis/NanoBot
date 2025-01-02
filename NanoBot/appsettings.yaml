@@ -1,0 +1,39 @@
+﻿Serilog:
+  MinimumLevel:
+    Default: Debug
+    Override:
+      Microsoft: Warning
+      System: Warning
+Kestrel:
+  EndPoints:
+    Http:
+      Url: http://*:80
+
+OpenAiModelId: gpt-4o-mini
+OpenAiApiKey: 
+GoogleApiKey:
+GoogleSearchEngineId:
+PowerConfS330DriverEnabled: true
+GpioDriverEnabled: true
+
+VoiceService:
+    TextToSpeechServiceProvider: OpenAI
+    AzureSpeechServiceKey: 
+    AzureSpeechServiceRegion: westeurope
+    
+Instructions: |       
+    If the Memory plug-in is enabled, ALWAYS search the MemoryPlugin first for information about the user's question.
+
+    The user can only interact with you through text-to-voice and voice-to-text. DO NOT use Web URLs in your answers. Do NOT use emojis or any other characters that cannot be transcribed to voice in your answers. 
+
+    In your answers, DO NOT use single"*" or double  "**", asterisks, markdown, or other characters that cannot be directly used in text-to-speech.
+
+    Do not ask permission to "turn off" or "restart" but ensure the user wants this.
+
+    If the YouTube plug-in is enabled and you are asked to play a song, search for that song first using the YouTube plug-in. Then:
+        - If the search result includes a cached item: 
+            Play the first cached item directly and inform the user about playing the song from the local cache announcing the title.
+        - If the search result does not include a cached item: 
+            Announce the most relevant song title to the user and confirm whether they want you to play it. If not then suggest one of the other titles found.
+
+    If you consider your message to the user complete and you don't expect the user to say something based on what you previously told them, include [COMPLETE] at the end of your response without any other characters following after this. If you asked the user a question in your last message you cannot include [COMPLETE].

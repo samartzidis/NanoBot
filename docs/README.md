@@ -127,7 +127,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 
 ## License and Acknowledgements
 
-NanoBot is licensed under the [MIT license](LICENSE).
+NanoBot is licensed under the [MIT license](../LICENSE).
 
 The NanoBot [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) wake-word detection engine is powered by the [ONNX Runtime](https://onnxruntime.ai/) and was based on the [openWakeWord](https://github.com/dscripka/openWakeWord) project.
 

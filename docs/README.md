@@ -18,7 +18,7 @@ https://github.com/user-attachments/assets/a3b1ffc4-5398-4894-bc98-23dac8880478
 
 NanoBot has a Web configuration page where functionality can be further tailored to user needs.
 
-The baseline AI functionality is provided by the [ChatGPT Platform](https://platform.openai.com/) API, so to experience the minimum capabilities of Nanobot a ChatGPT Platform account is required at minimum.
+The baseline AI functionality is provided by the [OpenAI Platform](https://platform.openai.com/) API, so to experience the minimum capabilities of Nanobot a OpenAI Platform account is required at minimum.
 
 NanoBot keeps running costs to the bare minimum by combining OpenAI's chat completion engine with external APIs for the _STT_ (speech-to-text) and the _TTS_ (text-to-speech) robot capabilities. The default AI chat completion engine uses _gpt-4o-mini_, which is cheap. _STT_ is provided by OpenAI's _whisper-1_, incurring minimal extra costs but performing comparatively well. _TTS_ is provided by either OpenAI's _tts-1_ (incurs extra cost, average user experience but no other dependencies) or the Azure Speech Service API (excellent user experience and free but requires creation of an Azure account).
 

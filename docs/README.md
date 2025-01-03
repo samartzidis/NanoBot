@@ -22,7 +22,12 @@ NanoBot keeps running costs to the bare minimum by combining OpenAI's chat compl
 
 Speech generation is configurable at the Web configuration page and as said, can be provided by either ChatGPT (_tts-1_) or by the Azure Speech Service, which further requires the creation of an Azure account, but other than that it is free. The Azure Speech Service has a huge selection of voices and accents and its speech feels more realistic than the ChatGPT _whisper-1_ speech generation, but as said, its use is optional.
 
-NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as searching the Web, finding and playing videos on YouTube, knowing about the current date and time and remembering things from past conversations, if asked to do so. It can also control its eye colour or obey to user's "turn off" and "restart" commands.
+NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as: 
+- searching the Web (Google search), 
+- finding and playing videos on YouTube, 
+- knowing about the current date and time and 
+- remembering things from past conversations, if asked to do so. 
+- It can also control its eye colour and obey to user's "turn off" and "restart" commands.
 
 NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the talk/hangup button) on the top of its head or on the *Anker PowerConf S330* speakerphone, if available. Its wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot.
 

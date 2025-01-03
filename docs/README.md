@@ -79,7 +79,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 
 ## GPIO Interface Hardware Connections
 
-- **Ground** (physical **Pin 34**) ⇒ Push **button** terminal 1 (of 2) and to the 2 RGB LED common cathone pins. 
+- **Ground** (physical **Pin 34**) ⇒ Push **button** terminal 1 (of 2) and to the 2 RGB LED common cathode pins. 
 - **GPIO 16** (physical **Pin 36**) ⇒ **Red** RGB LED pins via 220K resistors.
 - **GPIO 20** (physical **Pin 38**) ⇒ **Green** RGB LED pins via 220K resistors.
 - **GPIO 21** (physical **Pin 40**) ⇒ **Blue** RGB LED pins via 220K resistors.

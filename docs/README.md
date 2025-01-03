@@ -2,6 +2,8 @@
 
 **NanoBot** is a free, DIY Raspberry Pi-powered AI chat robot, ideal for kids' education and teaching assistance. It can answer challenging questions on a wide range of topics and serve as a live encyclopedia.
 
+It uses various technologies such as the _Semantic Kernel_ with native plug-ins to enhance its capabilities, an optional _RAG_ pipeline for persistent memory, an _ONNX_ runtime-based inference engine for a fully offline wake-word detection experience, etc.
+
 <a href="collage.jpg"><img src="collage.jpg" height="320" title="Collage" />
 
 <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> <a href="image-9.png"><img src="image-9.png" height="320" title="Model" /></a>
@@ -16,11 +18,11 @@ https://github.com/user-attachments/assets/a3b1ffc4-5398-4894-bc98-23dac8880478
 
 NanoBot has a Web configuration page where functionality can be further tailored to user needs.
 
-The baseline AI functionality is provided by the [ChatGPT Platform](https://platform.openai.com/) API, so to experience the minimum capabilities of Nanobot a ChatGPT Platform account is required at minimum.
+The baseline AI functionality is provided by the [OpenAI Platform](https://platform.openai.com/) API, so to experience the minimum capabilities of Nanobot a OpenAI Platform account is required at minimum.
 
 NanoBot keeps running costs to the bare minimum by combining OpenAI's chat completion engine with external APIs for the _STT_ (speech-to-text) and the _TTS_ (text-to-speech) robot capabilities. The default AI chat completion engine uses _gpt-4o-mini_, which is cheap. _STT_ is provided by OpenAI's _whisper-1_, incurring minimal extra costs but performing comparatively well. _TTS_ is provided by either OpenAI's _tts-1_ (incurs extra cost, average user experience but no other dependencies) or the Azure Speech Service API (excellent user experience and free but requires creation of an Azure account).
 
-Speech generation is configurable at the Web configuration page and as said, can be provided by either ChatGPT (_tts-1_) or by the Azure Speech Service, which further requires the creation of an Azure account, but other than that it is free. The Azure Speech Service has a huge selection of voices and accents and its speech feels more realistic than the ChatGPT _whisper-1_ speech generation, but as said, its use is optional.
+Speech generation is configurable at the Web configuration page and as said, can be provided by either OpenAI (_tts-1_) or by the Azure Speech Service, which further requires the creation of an Azure account, but other than that it is free. The Azure Speech Service has a huge selection of voices and accents and its speech feels more realistic than the OpenAI _whisper-1_ speech generation, but as said, its use is optional.
 
 NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as: 
 - searching the Web (Google search), 
@@ -130,7 +132,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 
 ## License and Acknowledgements
 
-NanoBot is licensed under the [MIT license](LICENSE).
+NanoBot is licensed under the [MIT license](../LICENSE).
 
 The NanoBot [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) wake-word detection engine is powered by the [ONNX Runtime](https://onnxruntime.ai/) and was based on the [openWakeWord](https://github.com/dscripka/openWakeWord) project.
 

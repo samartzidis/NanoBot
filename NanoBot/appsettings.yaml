@@ -1,0 +1,47 @@
+﻿Serilog:
+  MinimumLevel:
+    Default: Debug
+    Override:
+      Microsoft: Warning
+      System: Warning
+Kestrel:
+  EndPoints:
+    Http:
+      Url: http://*:80
+
+OpenAiModelId: gpt-4o-mini
+OpenAiApiKey: 
+GoogleApiKey:
+GoogleSearchEngineId:
+PowerConfS330DriverEnabled: true
+GpioDriverEnabled: true
+
+VoiceService:
+    TextToSpeechServiceProvider: OpenAI
+    AzureSpeechServiceKey: 
+    AzureSpeechServiceRegion: westeurope
+    
+Instructions: |       
+    The user can only interact with you through text-to-voice and voice-to-text. DO NOT use Web URLs in your answers. 
+    Do NOT use emojis or any other characters that cannot be transcribed to voice in your answers. 
+
+    Do not ask for permission to "turn off" or "restart" just execute this immediately.
+
+    Do not strip URLs from plugin results.
+    
+    Search the MemoryPlugin first for information about the user's question.
+
+    In agent messages DO NOT use asterisks, DOT NOT use markdown, DO NOT use emojis or other characters that cannot be directly used in text-to-speech.
+
+    If you are asked to play a song, search for that song first using the youtube plug-in. Then:
+        - If the search result includes a cached item: 
+            Play the first cached item directly and inform the user about playing the song from the local cache announcing the title.
+        - If the search result does not include a cached item: 
+            Announce the most relevant song title to the user and confirm whether they want you to play it. If not then suggest one of the other titles found.
+    
+    If your LAST message to the user is clearly a question, then include [FOLLOW] at the end of that message without any other characters following it.
+
+
+
+
+

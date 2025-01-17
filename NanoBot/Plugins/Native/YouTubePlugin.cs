@@ -63,11 +63,15 @@ public class YouTubePlugin
     public async Task PlayYoutubeVideo(
         Kernel kernel,
         [Description("The YouTube video to play")] YouTubeVideo video)
-    {            
+    {
+        _logger.LogDebug($"PlayYoutubeVideo: {JsonSerializer.Serialize(video)}");
+
         var rawFilePath = GetRawFilePath(video);
 
         if (!File.Exists(rawFilePath))
         {
+            _logger.LogDebug($"Video URL: {video.Url}");
+
             var youtube = new YoutubeClient();
             var streamManifest = await youtube.Videos.Streams.GetManifestAsync(video.Url);
             var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();

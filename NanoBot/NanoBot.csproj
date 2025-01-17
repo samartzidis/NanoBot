@@ -12,32 +12,32 @@
     <PackageReference Include="Alsa.Net" Version="1.0.8" />
     <PackageReference Include="FluentScheduler" Version="5.5.1" />
     <PackageReference Include="HidSharp" Version="2.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.1.0" />
     <PackageReference Include="NanoWakeWord" Version="1.0.0" />
     <PackageReference Include="NetEscapades.Configuration.Yaml" Version="3.1.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
-    <PackageReference Include="PvSpeaker" Version="1.0.0" />
-    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
-    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
-    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
+    <PackageReference Include="PvSpeaker" Version="1.0.1" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="DataAnnotationsValidator.NETCore" Version="1.0.3" />
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.41.1" />
-    <PackageReference Include="PvRecorder" Version="1.2.6" />
-    <PackageReference Include="Microsoft.SemanticKernel" Version="1.29.0" />
+    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.42.0" />
+    <PackageReference Include="PvRecorder" Version="1.2.9" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.33.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.29.0-alpha" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.29.0-alpha" />
     <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.29.0-alpha" />
     <PackageReference Include="Microsoft.SemanticKernel.Plugins.Memory" Version="1.29.0-alpha" />
-    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.29.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.29.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.33.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.33.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.Sqlite" Version="1.29.0-preview" />
     <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.29.0-alpha" />    
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.1.0" />   
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />   
     <PackageReference Include="System.Device.Gpio" Version="3.2.0" />   
-    <PackageReference Include="YoutubeExplode" Version="6.4.4" />
+    <PackageReference Include="YoutubeExplode" Version="6.5.1" />
   </ItemGroup>
 
   <ItemGroup>

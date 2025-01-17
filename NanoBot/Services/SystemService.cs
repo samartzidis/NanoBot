@@ -202,12 +202,8 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         // Stop any potential playback
-        if (_audioPlayer.IsPlaying)
-        {
+        if (_audioPlayer.IsPlaying)        
             _audioPlayer.Stop();
-                
-            _history.AddAssistantMessage("Audio player stopped."); // So that the LLM knows the current state
-        }
 
         while (!cancellationToken.IsCancellationRequested)
         {            

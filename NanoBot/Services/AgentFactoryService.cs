@@ -4,7 +4,6 @@ using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Plugins.Core;
 using NanoBot.Configuration;
-using Microsoft.SemanticKernel.Agents.History;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
@@ -107,13 +106,6 @@ public class AgentFactoryService : IAgentFactoryService
             {
                 _logger.LogDebug($"Adding {nameof(EyesPlugin)}");
                 kernelBuilder.Plugins.AddFromType<EyesPlugin>(nameof(EyesPlugin));
-            }
-
-            // YouTube plugin
-            if (agentConfig.YouTubePluginEnabled)
-            {
-                _logger.LogDebug($"Adding {nameof(YouTubePlugin)}");
-                kernelBuilder.Plugins.AddFromType<YouTubePlugin>(nameof(YouTubePlugin));
             }
 
             // Time plugin

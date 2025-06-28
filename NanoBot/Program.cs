@@ -12,10 +12,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using NanoBot.Jobs;
-using NanoBot.Plugins.Native;
-using FluentScheduler;
-using Microsoft.AspNetCore.Http;
 using NanoBot.Util;
 
 namespace NanoBot;
@@ -62,22 +58,9 @@ public class Program
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
                 services.AddSingleton<IEventBus, EventBus>();
                 services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation                
-                //services.AddSingleton<IAppConfigValidator, AppConfigValidator>();
 
                 // Bind AppConfig section to a strongly typed class
                 services.Configure<AppConfig>(context.Configuration);               
-
-                // Register DirectoryCleanupJob
-                services.AddTransient<YouTubeDataDirectoryCleanupJob>(provider =>
-                {
-                    var logger = provider.GetRequiredService<ILogger<YouTubeDataDirectoryCleanupJob>>();
-                    var dataDir = Path.Combine(AppContext.BaseDirectory, YouTubePlugin.DownloadFolder);
-
-                    return new YouTubeDataDirectoryCleanupJob(logger, dataDir, 2048, 1024);
-                });
-
-                // Register DirectoryCleanupRegistry
-                services.AddTransient<Registry, YouTubeDataDirectoryCleanupRegistry>(provider => new YouTubeDataDirectoryCleanupRegistry(provider));
 
                 // Enable selected drivers                
 
@@ -173,19 +156,7 @@ public class Program
             logger.LogInformation($"Listening on: {@listenAddresses}");
         }
 
-        // Start the background job manager
-        StartJobManager(host);
-
         // Wait for host to exit
         await host.WaitForShutdownAsync();
-    }
-
-    private static void StartJobManager(IHost host)
-    {
-        var serviceProvider = host.Services.GetRequiredService<IServiceProvider>();
-
-        // Get all registrations of type Registry and register them with the JobManager
-        var registries = serviceProvider.GetServices<Registry>();
-        JobManager.Initialize(registries.ToArray());
     }
 }

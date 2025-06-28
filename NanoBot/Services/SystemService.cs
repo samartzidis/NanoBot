@@ -340,12 +340,12 @@ public class SystemService : BackgroundService, ISystemService
             _logger.LogDebug("Invoking LLM...");
 
             var contentItemCollection = new ChatMessageContentItemCollection { new TextContent(userMessage) };
-            history.Add(new Microsoft.SemanticKernel.ChatMessageContent(AuthorRole.User, contentItemCollection));
+            history.Add(new ChatMessageContent(AuthorRole.User, contentItemCollection));
 
             await foreach (var responseMessage in agent.InvokeAsync(history, null, null, cancellationToken))
             {
-                if (responseMessage.Role == AuthorRole.Assistant)
-                    yield return responseMessage.Content;
+                if (responseMessage.Message.Role == AuthorRole.Assistant)
+                    yield return responseMessage.Message.Content;
 
                 history.Add(responseMessage);
             }

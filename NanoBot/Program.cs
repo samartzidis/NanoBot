@@ -54,7 +54,6 @@ public class Program
                 services.AddSingleton(typeof(IDynamicOptions<>), typeof(DynamicOptions<>));
                 services.AddSingleton<IAgentFactoryService, AgentFactoryService>();
                 services.AddSingleton<IVoiceService, VoiceService>();
-                services.AddSingleton<IExternalAudioPlayerService, ExternalAudioPlayerService>();
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
                 services.AddSingleton<IEventBus, EventBus>();
                 services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation                

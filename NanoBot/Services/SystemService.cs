@@ -30,7 +30,6 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IAgentFactoryService _agentFactoryService;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;
     private readonly ChatHistory _history;
-    private readonly IExternalAudioPlayerService _audioPlayer;
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
     private readonly IHostApplicationLifetime _applicationLifetime;
@@ -46,7 +45,6 @@ public class SystemService : BackgroundService, ISystemService
         IDynamicOptions<AppConfig> appConfigOptions, 
         IVoiceService voiceService, 
         IAgentFactoryService agentFactoryService, 
-        IExternalAudioPlayerService wavPlayer,
         IEventBus bus,
         IAlsaControllerService alsaControllerService,
         IHostApplicationLifetime applicationLifetime)
@@ -56,7 +54,6 @@ public class SystemService : BackgroundService, ISystemService
         _voiceService = voiceService;
         _agentFactoryService = agentFactoryService;
         _history = new ChatHistory();
-        _audioPlayer = wavPlayer;
         _bus = bus;
         _alsaControllerService = alsaControllerService;
         _applicationLifetime = applicationLifetime;
@@ -201,10 +198,6 @@ public class SystemService : BackgroundService, ISystemService
             return;
         }
 
-        // Stop any potential playback
-        if (_audioPlayer.IsPlaying)        
-            _audioPlayer.Stop();
-
         while (!cancellationToken.IsCancellationRequested)
         {            
             byte[] userAudioBuffer;
@@ -316,10 +309,6 @@ public class SystemService : BackgroundService, ISystemService
                 _hangupCancellationTokenSource?.Cancel();
                 _hangupCancellationTokenSource = null;
             }
-
-            // If we started playing audio, complete the conversation
-            if (_audioPlayer.IsPlaying)
-                return; // Complete the conversation loop
 
             // Heuristically detect if the agent message was a question (only works for English)
             if (agentMessage.Contains("?"))

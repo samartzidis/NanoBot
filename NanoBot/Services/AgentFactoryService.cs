@@ -187,7 +187,7 @@ public class AgentFactoryService : IAgentFactoryService
         // Forward register registrations from the parent container
         kernelBuilder.Services.AddTransient<IConfiguration>(_ => _serviceProvider.GetRequiredService<IConfiguration>());
         kernelBuilder.Services.AddTransient<ILoggerFactory>(_ => _serviceProvider.GetRequiredService<ILoggerFactory>());
-        kernelBuilder.Services.AddTransient<IExternalAudioPlayerService>(_ => _serviceProvider.GetRequiredService<IExternalAudioPlayerService>());
+        //kernelBuilder.Services.AddTransient<IExternalAudioPlayerService>(_ => _serviceProvider.GetRequiredService<IExternalAudioPlayerService>());
         kernelBuilder.Services.AddTransient<IEventBus>(_ => _serviceProvider.GetRequiredService<IEventBus>());
         kernelBuilder.Services.AddTransient<IVoiceService>(_ => _serviceProvider.GetRequiredService<IVoiceService>());
         kernelBuilder.Services.AddTransient<IGpioDeviceService>(_ => _serviceProvider.GetRequiredService<IGpioDeviceService>());

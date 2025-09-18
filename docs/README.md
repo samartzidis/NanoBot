@@ -25,10 +25,9 @@ NanoBot keeps running costs to the bare minimum by combining OpenAI's chat compl
 Speech generation is configurable at the Web configuration page and as said, can be provided by either OpenAI (_tts-1_) or by the Azure Speech Service, which further requires the creation of an Azure account, but other than that it is free. The Azure Speech Service has a huge selection of voices and accents and its speech feels more realistic than the OpenAI _whisper-1_ speech generation, but as said, its use is optional.
 
 NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as: 
-- searching the Web (Google search), 
-- finding and playing videos on YouTube, 
-- knowing about the current date and time and 
-- remembering things from past conversations, if asked to do so. 
+- Searching the Web (Google search). 
+- Knowing about the current date and time.
+- Remembering things from past conversations, if asked to do so. 
 - It can also control its eye colour and obey to user's "turn off" and "restart" commands.
 
 NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the talk/hangup button) on the top of its head or on the *Anker PowerConf S330* speakerphone, if available. Its wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot.
@@ -91,7 +90,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 
 1. Install the latest [Raspberry Pi OS Lite (64-bit)](https://www.raspberrypi.com/software/operating-systems/) Operating System, currently Debian version: 12 (bookworm), on the `Raspberry Pi Zero 2 W` device configuring WiFi network connectivity with internet access. Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. After finishing installation, SSH to the Pi and install the required OS packages via:
-    `sudo apt-get install mplayer libasound2-dev`
+    `sudo apt-get install libasound2-dev`
 3. Disable the Raspberry Pi on-board audio functionality:
     Edit: `/boot/firmware/config.txt`
     Add this line in the end: `dtoverlay=vc4-kms-v3d,noaudio`

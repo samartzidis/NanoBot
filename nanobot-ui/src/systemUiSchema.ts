@@ -8,7 +8,6 @@ const systemUiSchema = {
       { type: "Control", scope: "#/properties/GoogleApiKey" },
       { type: "Control", scope: "#/properties/GoogleSearchEngineId" },
       { type: "Control", scope: "#/properties/PowerConfS330DriverEnabled" },
-      { type: "Control", scope: "#/properties/MPlayerPath" },
       { type: "Control", scope: "#/properties/ChatHistoryTimeToLiveMinutes" },
       {
         type: "Group",

@@ -123,7 +123,17 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
     [Install]
     WantedBy=default.target
     ```
-4. Enable and start the `nanobot` service:
+4. Add permissions to user `pi` to open hidraw devices. Only needed if using a USB speakerphone such as the *Anker PowerConf S330* speakerphone for enabling control of the consumer controls (buttons) and lights. Create and edit the file: `/etc/udev/rules.d/99-hidraw-permissions.rules` and set the content:
+   ```
+   KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="pi"
+   ```
+   Save the file and exit.
+   Reload rules and re-trigger:
+   ```
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger
+   ```
+5. Enable and start the `nanobot` service:
     ```
     systemctl enable nanobot.service
     systemctl start nanobot

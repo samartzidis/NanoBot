@@ -116,7 +116,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
     Description=nanobot service
 
     [Service]
-    ExecStart=sudo /opt/dotnet8/dotnet /home/pi/nanobot/NanoBot.dll
+    ExecStart=/opt/dotnet8/dotnet /home/pi/nanobot/NanoBot.dll
     WorkingDirectory=/home/pi/nanobot/
     User=pi
 

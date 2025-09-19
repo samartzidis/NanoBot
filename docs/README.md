@@ -103,13 +103,18 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
     ```
 5. Reboot.
 6. You can now connect the *Anker PowerConf S330* speakerphone device to the USB port and use the `alsamixer` command to check if it is detected and if everything looks right. You can also adjust the S330 mic sensitivity to about 80%.
-7. Install the .NET 8 platform in the `/opt/dotnet8/dotnet` directory, by following the official installation guides for the Raspberry Pi (e.g. https://learn.microsoft.com/en-us/dotnet/iot/deployment).
+7. Install the .NET 8 platform in the `/opt/dotnet8` directory, by following the official installation guides for the Raspberry Pi (e.g. https://learn.microsoft.com/en-us/dotnet/iot/deployment). Also set the following in the bottom of your of `/etc/profile`:
+   ```
+   export DOTNET_ROOT=/opt/dotnet8
+   export PATH="$DOTNET_ROOT:$PATH"
+   ```
+   The DOTNET_ROOT environment variable is needed when running .NET executables published as a single file, so it is best to set it as well.
 8. Ensure that the `dotnet` command is in the PATH of the `pi` user.
 
 ## Software Installation
 
 1. Create the directory `/home/pi/nanobot` and copy/extract the release build files there.
-2. Check if NanoBot works when running from the console by running: `sudo dotnet NanoBot.dll`.
+2. Check if NanoBot works when running from the console by running: `dotnet NanoBot.dll`.
 3. Now install NanoBot as a service. Create and edit the file `/etc/systemd/system/nanobot.service` with the following content:
     ```
     [Unit]

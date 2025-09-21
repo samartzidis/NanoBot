@@ -59,6 +59,10 @@ public class AgentConfig
     [Description("Provides a set of functions to get the current time and date.")]
     public bool TimePluginEnabled { get; set; }
 
+    [DisplayName("Calculator Plug-in")]
+    [Description("Provides a set of calculator functions for accurate mathematical operations.")]
+    public bool CalculatorPluginEnabled { get; set; }
+
     [DisplayName("Google Plug-in")]
     [Description("Provides methods to search using Google Custom Search API.")]
     public bool GooglePluginEnabled { get; set; }

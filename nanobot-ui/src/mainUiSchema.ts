@@ -22,6 +22,7 @@ const mainUiSchema = {
               { "type": "Control", "scope": "#/properties/StopWord" },
               { "type": "Control", "scope": "#/properties/SpeechSynthesisVoiceName" },
               { "type": "Control", "scope": "#/properties/TimePluginEnabled" },
+              { "type": "Control", "scope": "#/properties/CalculatorPluginEnabled" },
               { "type": "Control", "scope": "#/properties/GooglePluginEnabled" },
               { "type": "Control", "scope": "#/properties/MemoryPluginEnabled" }
             ]

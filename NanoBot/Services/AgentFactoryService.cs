@@ -136,6 +136,13 @@ public class AgentFactoryService : IAgentFactoryService
                 kernelBuilder.Plugins.AddFromObject(memoryPlugin, "MemoryPlugin");
             }
 
+            // Calculator plugin
+            if (agentConfig.CalculatorPluginEnabled)
+            {
+                _logger.LogDebug($"Adding {nameof(CalculatorPlugin)}");
+                kernelBuilder.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin));
+            }
+
             // Custom kernel config action
             configAction?.Invoke(kernelBuilder);
         });

@@ -37,7 +37,7 @@ public class AgentConfig
     public string WakeWord { get; set; } = DefaultWakeWord;
 
     [Description("Wake word trigger threshold (0.1 - 0.9). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '0.9'.")]
-    [Range(0.1f, 0.99f, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'. Defaults to: '0.9'.")]
+    [Range(0.09f, 0.99f, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'. Defaults to: '0.9'.")]
     [DefaultValue(0.9f)]
     public float WakeWordThreshold { get; set; } = 0.9f;
     

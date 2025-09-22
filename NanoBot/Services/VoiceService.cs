@@ -1,13 +1,13 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.CognitiveServices.Speech;
+using Microsoft.Extensions.Logging;
+using NanoBot.Configuration;
+using NanoBot.Util;
+using NanoWakeWord;
+using OpenAI;
+using OpenAI.Audio;
 using Pv;
 using System.Text;
 using System.Text.RegularExpressions;
-using OpenAI;
-using OpenAI.Audio;
-using NanoBot.Configuration;
-using Microsoft.CognitiveServices.Speech;
-using NanoBot.Util;
-using NanoWakeWord;
 
 namespace NanoBot.Services;
 
@@ -31,6 +31,16 @@ public interface IVoiceService
 
 public class VoiceService : IVoiceService
 {
+    // Calibration parameters for silence detection
+    public const int SilenceSampleAmplitudeThreshold = 800;
+    public const int SilenceSampleCountThreshold = 50;
+
+    //User voice message max recording duration if no silence is detected
+    public const int MaxRecordingDurationSeconds = 30;
+
+    //Silence duration to mark end of recording of user voice message
+    public const int StopRecordingSilenceSeconds = 5;
+
     private readonly string[] _openAiVoiceNames = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
     private List<VoiceInfo> _cachedVoices; // Cache variable for storing OpenAI voices
@@ -342,12 +352,12 @@ public class VoiceService : IVoiceService
             }
 
             var frame = recorder.Read();
-            var isSilent = frame.All(t => Math.Abs(t) < appConfig.VoiceService.SilenceSampleAmplitudeThreshold);
+            var isSilent = frame.All(t => Math.Abs(t) < SilenceSampleAmplitudeThreshold);
 
             // Return on silence threshold exceeded
-            if (!hasStartedRecording && (DateTime.UtcNow - startTime).TotalSeconds > appConfig.VoiceService.StopRecordingSilenceSeconds)
+            if (!hasStartedRecording && (DateTime.UtcNow - startTime).TotalSeconds > StopRecordingSilenceSeconds)
             {
-                _logger.LogDebug($"Timeout: No voice detected within {appConfig.VoiceService.StopRecordingSilenceSeconds} seconds.");
+                _logger.LogDebug($"Timeout: No voice detected within {StopRecordingSilenceSeconds} seconds.");
                 recorder.Stop();
 
                 audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
@@ -389,16 +399,16 @@ public class VoiceService : IVoiceService
 
                 recordingBuffer.AddRange(frame);
 
-                if ((DateTime.UtcNow - startTime).TotalSeconds > appConfig.VoiceService.MaxRecordingDurationSeconds)
+                if ((DateTime.UtcNow - startTime).TotalSeconds > MaxRecordingDurationSeconds)
                 {
-                    _logger.LogDebug($"Recording exceeded maximum duration of {appConfig.VoiceService.MaxRecordingDurationSeconds} seconds.");
+                    _logger.LogDebug($"Recording exceeded maximum duration of {MaxRecordingDurationSeconds} seconds.");
                     recorder.Stop();
 
                     audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
                     return ReceiveVoiceMessageResult.RecordingTimeExceeded;
                 }
 
-                if (silenceCount > appConfig.VoiceService.SilenceSampleCountThreshold)
+                if (silenceCount > SilenceSampleCountThreshold)
                 {
                     _logger.LogDebug("Stopped recording due to silence.");
                     recorder.Stop();

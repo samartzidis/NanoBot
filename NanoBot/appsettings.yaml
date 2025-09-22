@@ -9,7 +9,7 @@ Kestrel:
     Http:
       Url: http://*:8080
 
-OpenAiModelId: gpt-4o-mini
+OpenAiModelId: Gpt4oMini
 OpenAiApiKey: 
 GoogleApiKey:
 GoogleSearchEngineId:

@@ -194,7 +194,6 @@ public class AgentFactoryService : IAgentFactoryService
         // Forward register registrations from the parent container
         kernelBuilder.Services.AddTransient<IConfiguration>(_ => _serviceProvider.GetRequiredService<IConfiguration>());
         kernelBuilder.Services.AddTransient<ILoggerFactory>(_ => _serviceProvider.GetRequiredService<ILoggerFactory>());
-        //kernelBuilder.Services.AddTransient<IExternalAudioPlayerService>(_ => _serviceProvider.GetRequiredService<IExternalAudioPlayerService>());
         kernelBuilder.Services.AddTransient<IEventBus>(_ => _serviceProvider.GetRequiredService<IEventBus>());
         kernelBuilder.Services.AddTransient<IVoiceService>(_ => _serviceProvider.GetRequiredService<IVoiceService>());
         kernelBuilder.Services.AddTransient<IGpioDeviceService>(_ => _serviceProvider.GetRequiredService<IGpioDeviceService>());
@@ -205,34 +204,35 @@ public class AgentFactoryService : IAgentFactoryService
         kernelBuilder.Services.ConfigureHttpClientDefaults(c =>
         {
             // TooManyRequests resiliency handler
-            c.AddStandardResilienceHandler().Configure(o =>
-            {
-                o.Retry.ShouldHandle = args =>
-                    ValueTask.FromResult(args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests);
+            //c.AddStandardResilienceHandler().Configure(o =>
+            //{
+            //    o.Retry.ShouldHandle = args =>
+            //        ValueTask.FromResult(args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests);
 
-                // Retry backoff type
-                o.Retry.BackoffType = DelayBackoffType.Exponential;
+            //    // Retry backoff type
+            //    o.Retry.BackoffType = DelayBackoffType.Exponential;
 
-                // Individual attempt timeout (5 seconds for responsiveness)
-                o.AttemptTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(15) };
+            //    // Individual attempt timeout (5 seconds for responsiveness)
+            //    o.AttemptTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(15) };
 
-                // Circuit breaker sampling duration (30 seconds to stabilize under load)
-                o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
+            //    // Circuit breaker sampling duration (30 seconds to stabilize under load)
+            //    o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
 
-                // Total timeout for all retries (15 seconds for quick failover)
-                o.TotalRequestTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(30) };
-            });
+            //    // Total timeout for all retries (15 seconds for quick failover)
+            //    o.TotalRequestTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(30) };
+            //});
         });
-
 
 
         // If IChatCompletionService has not already been registered externally
         if (kernelBuilder.Services.All(descriptor => descriptor.ServiceType != typeof(IChatCompletionService)))
         {
+            _logger.LogInformation($"Adding OpenAI Chat Completion: {appConfig.OpenAiModelId.ToModelString()}");
+
             // Add Azure OpenAI Chat Completion
             kernelBuilder.AddOpenAIChatCompletion(
                 apiKey: appConfig.OpenAiApiKey,
-                modelId: appConfig.OpenAiModelId);
+                modelId: appConfig.OpenAiModelId.ToModelString());
         }
 
         //if (_appConfig.SemanticPluginsPath != null)

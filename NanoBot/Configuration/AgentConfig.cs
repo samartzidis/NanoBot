@@ -36,12 +36,12 @@ public class AgentConfig
     [DefaultValue(DefaultWakeWord)]
     public string WakeWord { get; set; } = DefaultWakeWord;
 
-    [Description("Wake word threshold. Defaults to: '0.5'.")]
-    [Range(0, 1, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0' and '1'. Defaults to: '0.5'.")]
-    [DefaultValue(0.5f)]
-    public float WakeWordThreshold { get; set; } = 0.5f;
-
-    [Description("Wake word trigger level. Defaults to: '4'.")]
+    [Description("Wake word trigger threshold (0.1 - 0.9). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '0.9'.")]
+    [Range(0.1f, 0.99f, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'. Defaults to: '0.9'.")]
+    [DefaultValue(0.9f)]
+    public float WakeWordThreshold { get; set; } = 0.9f;
+    
+    [Description("Wake word trigger level (1 - 10). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '4'.")]
     [Range(1, 10, ErrorMessage = $"{nameof(WakeWordTriggerLevel)} must be an integer value between '1' and '10'. Defaults to: '4'.")]
     [DefaultValue(4)]
     public int WakeWordTriggerLevel { get; set; } = 4;

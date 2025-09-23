@@ -143,16 +143,12 @@ public class AgentFactoryService : IAgentFactoryService
                 kernelBuilder.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin));
             }
 
-
-            // Add user plugins
             // Add user plugins
             if (agentConfig.UserPluginsEnabled)
             {
                 _logger.LogInformation("Adding user plugins");
 
-                var appDir = Path.GetDirectoryName(GetType().Assembly.Location);
-                var pluginPath = Path.Combine(appDir, "Plugins", "User");
-
+                var pluginPath = Path.Combine(AppContext.BaseDirectory, "Plugins", "User");
                 if (Directory.Exists(pluginPath))
                 {
                     _logger.LogWarning($"Adding user plugins from {pluginPath}");

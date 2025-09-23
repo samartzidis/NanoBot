@@ -1,16 +1,18 @@
-﻿using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
-using System.Text.RegularExpressions;
-using Microsoft.SemanticKernel;
-using NanoBot.Configuration;
-using System.Runtime.CompilerServices;
-using System.Globalization;
-using System.Text;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Identity.Client;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.ChatCompletion;
+using NanoBot.Configuration;
 using NanoBot.Events;
 using NanoBot.Util;
+using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace NanoBot.Services;
 
@@ -80,7 +82,9 @@ public class SystemService : BackgroundService, ISystemService
     }        
 
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
-    {        
+    {
+        var appConfig = _appConfigOptions.Value;
+
         return Task.Run(async () =>
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -89,7 +93,10 @@ public class SystemService : BackgroundService, ISystemService
                 {                    
                     _bus.Publish<SystemOkEvent>(this);
                     
-                    await ConversationLoop(cancellationToken);                    
+                    if (!appConfig.ConsoleDebug)
+                        await ConversationLoop(appConfig, cancellationToken);
+                    else
+                        await ConsoleDebugConversationLoop(appConfig,cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -99,59 +106,79 @@ public class SystemService : BackgroundService, ISystemService
                 {
                     _bus.Publish<SystemErrorEvent>(this);
 
-                    _logger.LogError(m, m.Message);                    
+                    _logger.LogError(m, m.Message);
+                    
+
 
                     await Task.Delay(5000, cancellationToken);
                 }
             }
         }, cancellationToken);
     }
-    
-    private async Task ConversationLoop(CancellationToken cancellationToken)
-    {        
+
+    private async Task ConsoleDebugConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
+    {
+        var agentConfig = appConfig.Agents?.FirstOrDefault(a => !a.Disabled);
+
+        if (agentConfig == null)
+        {
+            Console.WriteLine("No enabled agents found in config.");
+            return;
+        }
+
+        _establishedAgentConfig = agentConfig;
+
+        var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kb =>
+        {
+            kb.Services.AddSingleton<ISystemService>(this);
+            kb.Services.AddSingleton(agentConfig);
+        }, cancellationToken: cancellationToken);
+
+        if (agent == null)
+        {
+            Console.WriteLine($"Failed to create agent: {agentConfig.Name}");
+            return;
+        }
+
+        Console.WriteLine($"[Console mode] Agent: {agentConfig.Name}");
+        Console.WriteLine("Type 'quit' to exit.");
+        Console.WriteLine();
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            Console.Write("You> ");
+            var line = Console.ReadLine();
+            if (line == null || line.Trim().Equals("quit", StringComparison.OrdinalIgnoreCase))
+                break;
+
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var sb = new StringBuilder();
+            await foreach (var msg in InvokeAgentAsync(agent, _history, line, cancellationToken))
+                sb.Append(msg);
+
+            var response = sb.ToString();            
+            Console.WriteLine($"Agent> {response}");
+        }
+    }
+
+
+    private async Task ConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
+    {
         // Update the last conversation timestamp
         _lastConversationTimestamp = DateTime.Now;
 
-        // Wait for wake word, 
-        _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        string wakeWord = null;
-        try
-        {
-            wakeWord = await _voiceService.WaitForWakeWordAsync(null, _hangupCancellationTokenSource.Token);
-            if (wakeWord == null) // Got cancelled
-            {
-                // Establish source of cancellation
-
-                if (cancellationToken.IsCancellationRequested)// Was the cancellation request triggered from shutdown (cancellationToken method parameter)?
-                {
-                    _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled.");
-                    return;
-                }
-
-                _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled due to hangup event.");
-            }
-            else // Got wake word
-            {                
-                _logger.LogDebug($"Got wake word: {wakeWord}");
-            }                
-        }
-        finally
-        {
-            _hangupCancellationTokenSource?.Cancel();
-            _hangupCancellationTokenSource = null;
-        }
-
-        // Get current config
-        var appConfig = _appConfigOptions.Value;
-
+        // Wait for wake word
+        var wakeWord = await WaitForWakeWord(cancellationToken);
+       
         // Transient notification that we got out of wake word waiting 
         _bus.Publish<WakeWordDetectedEvent>(this);
 
         // Retrieve agent associated to wake word       
         if (wakeWord == null)
         {
-            if (_establishedAgentConfig == null)
-                _establishedAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
+            _establishedAgentConfig ??= appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
         }
         else
         {
@@ -224,55 +251,9 @@ public class SystemService : BackgroundService, ISystemService
                 _hangupCancellationTokenSource = null;
             }
                 
-            // Invoke LLM
-            string agentMessage;
-            try
-            {
-                _bus.Publish<StartThinkingEvent>(this);
-
-                var audioTranscriptionLanguage = "en";
-                if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
-                {
-                    
-                    var idx = _establishedAgentConfig.SpeechSynthesisVoiceName.IndexOf('-');
-                    if (idx < 0)
-                    {
-                        _logger.LogError($"Invalid {nameof(AgentConfig.SpeechSynthesisVoiceName)} string format: {_establishedAgentConfig.SpeechSynthesisVoiceName}");
-                        return; // Complete the conversation loop
-                    }
-
-                    audioTranscriptionLanguage = _establishedAgentConfig.SpeechSynthesisVoiceName.Substring(0, idx);
-                    
-                }
-                _logger.LogDebug($"Using AudioTranscriptionLanguage: {audioTranscriptionLanguage}");
-
-                // Transcribe user speech message
-                var userMessage = _voiceService.GenerateSpeechToText(userAudioBuffer, audioTranscriptionLanguage);
-                _logger.LogDebug($"User: {userMessage}");
-
-                // Ignore blank transcribed message (e.g. noise)
-                if (string.IsNullOrEmpty(userMessage))
-                {
-                    _logger.LogWarning("Ignoring blank transcribed user message (noise?).");
-                    return; // Complete the conversation loop
-                }
-
-                // Stop on receiving custom "stop" message
-                if (IsStopWord(_establishedAgentConfig, userMessage))
-                {
-                    _logger.LogDebug("Received stop message.");
-                    return; // Complete the conversation loop
-                }
-
-                var agentMessageBuilder = new StringBuilder();
-                await foreach (var message in InvokeAgentAsync(agent, _history, userMessage, cancellationToken: cancellationToken))
-                    agentMessageBuilder.AppendLine(message);
-                agentMessage = agentMessageBuilder.ToString();
-            }
-            finally
-            {
-                _bus.Publish<StopThinkingEvent>(this);
-            }
+            var agentMessage = await TranscribeAndThink(appConfig, userAudioBuffer, agent, cancellationToken);
+            if (agentMessage == null)
+                return;
 
             _logger.LogDebug($"Agent: {agentMessage}");
 
@@ -281,34 +262,7 @@ public class SystemService : BackgroundService, ISystemService
             if (followMarker != -1)
                 agentMessage = agentMessage.Remove(followMarker, FollowResponseMarker.Length);
 
-            // Speak back to user BUT allow interruption
-            _hangupCancellationTokenSource?.Cancel();  // Cancel any previous token
-            _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            try
-            {      
-                _bus.Publish<StartTalkingEvent>(this);
-
-                var wakeTask = _voiceService.WaitForWakeWordAsync(t => {
-                    _hangupCancellationTokenSource.Cancel();
-                }, _hangupCancellationTokenSource.Token);
-
-                var speakTask =  _voiceService.GenerateTextToSpeechAsync(agentMessage, _establishedAgentConfig.SpeechSynthesisVoiceName, _hangupCancellationTokenSource.Token);
-
-                var completedTask = await Task.WhenAny(wakeTask, speakTask);
-                if (completedTask == speakTask)
-                    _logger.LogDebug("Speech complete.");
-                else if (completedTask == wakeTask)
-                    _logger.LogDebug("Speech interrupted by wake word.");
-                else
-                    _logger.LogDebug("Speech interrupted.");
-            }
-            finally
-            {
-                _bus.Publish<StopTalkingEvent>(this);
-
-                _hangupCancellationTokenSource?.Cancel();
-                _hangupCancellationTokenSource = null;
-            }
+            await VoiceReply(agentMessage, cancellationToken);
 
             // Heuristically detect if the agent message was a question (only works for English)
             if (agentMessage.Contains("?"))
@@ -320,6 +274,123 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
 
+    public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)
+    {
+        // Wait for wake word, 
+        _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
+        {
+            var wakeWord = await _voiceService.WaitForWakeWordAsync(null, _hangupCancellationTokenSource.Token);
+            if (wakeWord == null) // Got cancelled
+            {
+                // Establish source of cancellation
+
+                if (cancellationToken.IsCancellationRequested)// Was the cancellation request triggered from shutdown (cancellationToken method parameter)?
+                {
+                    _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled.");
+                    return null;
+                }
+
+                _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled due to hangup event.");
+                return null;
+            }
+            else // Got wake word
+            {
+                _logger.LogDebug($"Got wake word: {wakeWord}");
+                return wakeWord;
+            }
+        }
+        finally
+        {
+            _hangupCancellationTokenSource?.Cancel();
+            _hangupCancellationTokenSource = null;
+        }
+    }
+
+    public async Task<string> TranscribeAndThink(AppConfig appConfig, byte[] userAudioBuffer, ChatCompletionAgent agent, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _bus.Publish<StartThinkingEvent>(this);
+
+            var audioTranscriptionLanguage = "en";
+            if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
+            {
+
+                var idx = _establishedAgentConfig.SpeechSynthesisVoiceName.IndexOf('-');
+                if (idx < 0)
+                {
+                    _logger.LogError($"Invalid {nameof(AgentConfig.SpeechSynthesisVoiceName)} string format: {_establishedAgentConfig.SpeechSynthesisVoiceName}");
+                    return null; // Complete the conversation loop
+                }
+
+                audioTranscriptionLanguage = _establishedAgentConfig.SpeechSynthesisVoiceName.Substring(0, idx);
+
+            }
+            _logger.LogDebug($"Using AudioTranscriptionLanguage: {audioTranscriptionLanguage}");
+
+            // Transcribe user speech message
+            var userMessage = _voiceService.GenerateSpeechToText(userAudioBuffer, audioTranscriptionLanguage);
+            _logger.LogDebug($"User: {userMessage}");
+
+            // Ignore blank transcribed message (e.g. noise)
+            if (string.IsNullOrEmpty(userMessage))
+            {
+                _logger.LogWarning("Ignoring blank transcribed user message (noise?).");
+                return null; // Complete the conversation loop
+            }
+
+            // Stop on receiving custom "stop" message
+            if (IsStopWord(_establishedAgentConfig, userMessage))
+            {
+                _logger.LogDebug("Received stop message.");
+                return null; // Complete the conversation loop
+            }
+
+            var agentMessageBuilder = new StringBuilder();
+            await foreach (var message in InvokeAgentAsync(agent, _history, userMessage, cancellationToken: cancellationToken))
+                agentMessageBuilder.AppendLine(message);
+            var agentMessage = agentMessageBuilder.ToString();
+
+            return agentMessage;
+        }
+        finally
+        {
+            _bus.Publish<StopThinkingEvent>(this);
+        }
+    }
+
+    public async Task VoiceReply(string agentMessage, CancellationToken cancellationToken)
+    {
+        // Speak back to user BUT allow interruption
+        _hangupCancellationTokenSource?.Cancel();  // Cancel any previous token
+        _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        try
+        {
+            _bus.Publish<StartTalkingEvent>(this);
+
+            var wakeTask = _voiceService.WaitForWakeWordAsync(t => {
+                _hangupCancellationTokenSource.Cancel();
+            }, _hangupCancellationTokenSource.Token);
+
+            var speakTask = _voiceService.GenerateTextToSpeechAsync(agentMessage, _establishedAgentConfig.SpeechSynthesisVoiceName, _hangupCancellationTokenSource.Token);
+
+            var completedTask = await Task.WhenAny(wakeTask, speakTask);
+            if (completedTask == speakTask)
+                _logger.LogDebug("Speech complete.");
+            else if (completedTask == wakeTask)
+                _logger.LogDebug("Speech interrupted by wake word.");
+            else
+                _logger.LogDebug("Speech interrupted.");
+        }
+        finally
+        {
+            _bus.Publish<StopTalkingEvent>(this);
+
+            _hangupCancellationTokenSource?.Cancel();
+            _hangupCancellationTokenSource = null;
+        }
+    }
 
 
     private async IAsyncEnumerable<string> InvokeAgentAsync(ChatCompletionAgent agent, ChatHistory history, string userMessage, [EnumeratorCancellation] CancellationToken cancellationToken = default)

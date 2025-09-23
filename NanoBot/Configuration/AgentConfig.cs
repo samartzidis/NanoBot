@@ -67,9 +67,9 @@ public class AgentConfig
     [Description("Provides methods to search using Google Custom Search API.")]
     public bool GooglePluginEnabled { get; set; }
 
-    [DisplayName("YouTube Plug-in")]
-    [Description("Provides access to YouTube videos for playing audio streams.")]
-    public bool YouTubePluginEnabled { get; set; }
+    [DisplayName("User Plug-ins")]
+    [Description("Enable YAML user plug-ins under the 'Plugins/Yaml' folder.")]
+    public bool UserPluginsEnabled { get; set; }
 
     [DisplayName("Memory Plug-in")]
     [Description("Allows persistent memories.")]

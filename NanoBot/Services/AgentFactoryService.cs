@@ -1,5 +1,4 @@
-﻿using System.Net;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Plugins.Core;
@@ -12,9 +11,7 @@ using System.Text;
 using Microsoft.SemanticKernel.Plugins.Memory;
 using Microsoft.SemanticKernel.Memory;
 using Microsoft.SemanticKernel.Connectors.Sqlite;
-using Microsoft.Extensions.Http.Resilience;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Polly;
 using NanoBot.Filters;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,7 +30,7 @@ public interface IAgentFactoryService
 public class AgentFactoryService : IAgentFactoryService
 {
     private const string MemoryPluginDataFolder = "MemoryPluginData";
-    private const string TextEmbeddingModelId = "text-embedding-ada-002";
+    private const string TextEmbeddingModelId = "text-embedding-ada-002";    
 
     private readonly ILogger<AgentFactoryService> _logger;
     private readonly ILoggerFactory _loggerFactory;
@@ -73,7 +70,7 @@ public class AgentFactoryService : IAgentFactoryService
             // Configure Google plugin
             if (agentConfig.GooglePluginEnabled)
             {
-                _logger.LogDebug("Adding GooglePlugin");
+                _logger.LogInformation("Adding Google plugin");
 
                 if (string.IsNullOrEmpty(appConfig.GoogleApiKey) || string.IsNullOrEmpty(appConfig.GoogleSearchEngineId))
                 {
@@ -89,7 +86,7 @@ public class AgentFactoryService : IAgentFactoryService
                         searchEngineId: appConfig.GoogleSearchEngineId,
                         _loggerFactory);
 
-                    kernelBuilder.Plugins.AddFromObject(new WebSearchEnginePlugin(googleConnector), "google");
+                    kernelBuilder.Plugins.AddFromObject(new WebSearchEnginePlugin(googleConnector), "Google");
                 }
             }
             else
@@ -98,27 +95,29 @@ public class AgentFactoryService : IAgentFactoryService
             }
 
             // SystemManager plugin
-            _logger.LogDebug($"Adding {nameof(SystemManagerPlugin)}");
+            _logger.LogInformation($"Adding {nameof(SystemManagerPlugin)}");
             kernelBuilder.Plugins.AddFromType<SystemManagerPlugin>(nameof(SystemManagerPlugin));
 
             // EyesPlugin plugin
             if (PlatformUtil.IsRaspberryPi())
             {
-                _logger.LogDebug($"Adding {nameof(EyesPlugin)}");
+                _logger.LogInformation($"Adding {nameof(EyesPlugin)}");
+
                 kernelBuilder.Plugins.AddFromType<EyesPlugin>(nameof(EyesPlugin));
             }
 
             // Time plugin
             if (agentConfig.TimePluginEnabled)
             {
-                _logger.LogDebug($"Adding {nameof(TimePlugin)}");
+                _logger.LogInformation($"Adding {nameof(TimePlugin)}");
+
                 kernelBuilder.Plugins.AddFromType<TimePlugin>(nameof(TimePlugin));
             }
 
             // Memory plugin
             if (agentConfig.MemoryPluginEnabled)
             {
-                _logger.LogDebug("Adding MemoryPlugin");
+                _logger.LogInformation("Adding Memory plugin");
 
                 var dataDir = Path.Combine(AppContext.BaseDirectory, MemoryPluginDataFolder);
                 if (!Directory.Exists(dataDir))
@@ -133,14 +132,48 @@ public class AgentFactoryService : IAgentFactoryService
                     .Build();
                 var memoryPlugin = new TextMemoryPlugin(textMemory, _loggerFactory);
 
-                kernelBuilder.Plugins.AddFromObject(memoryPlugin, "MemoryPlugin");
+                kernelBuilder.Plugins.AddFromObject(memoryPlugin, "Memory");
             }
 
             // Calculator plugin
             if (agentConfig.CalculatorPluginEnabled)
             {
-                _logger.LogDebug($"Adding {nameof(CalculatorPlugin)}");
+                _logger.LogInformation($"Adding {nameof(CalculatorPlugin)}");
+
                 kernelBuilder.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin));
+            }
+
+
+            // Add user plugins
+            // Add user plugins
+            if (agentConfig.UserPluginsEnabled)
+            {
+                _logger.LogInformation("Adding user plugins");
+
+                var appDir = Path.GetDirectoryName(GetType().Assembly.Location);
+                var pluginPath = Path.Combine(appDir, "Plugins", "User");
+
+                if (Directory.Exists(pluginPath))
+                {
+                    _logger.LogWarning($"Adding user plugins from {pluginPath}");
+
+                    foreach (var subDir in Directory.EnumerateDirectories(pluginPath))
+                    {
+                        try
+                        {
+                            _logger.LogInformation($"Adding user plugin from {subDir}");
+                            kernelBuilder.Plugins.AddFromPromptDirectoryYaml(subDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"Failed to add user plugin from {subDir}");
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning($"User plugins path {pluginPath} does not exist");
+                }
             }
 
             // Custom kernel config action
@@ -234,18 +267,7 @@ public class AgentFactoryService : IAgentFactoryService
                 apiKey: appConfig.OpenAiApiKey,
                 modelId: appConfig.OpenAiModelId.ToModelString());
         }
-
-        //if (_appConfig.SemanticPluginsPath != null)
-        //{
-        //    // Add directory of Semantic plugins
-        //    var appDir = Path.GetDirectoryName(GetType().Assembly.Location);
-        //    var pluginPath = Path.Combine(appDir, _appConfig.SemanticPluginsPath);
-        //    if (Directory.Exists(pluginPath))
-        //        kernelBuilder.Plugins.AddFromPromptDirectory(pluginPath);
-        //    else
-        //        _logger.LogWarning($"Specified plug-in directory {pluginPath} does not exist.");
-        //}
-
+        
         var kernel = kernelBuilder.Build();
 
         return kernel;

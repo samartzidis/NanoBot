@@ -33,7 +33,9 @@ public static class OpenAiModelIdConfigExtensions
 }
 
 public class AppConfig
-{
+{   
+    public bool ConsoleDebug { get; set; }  = false;
+
     [Required]
     [DisplayName("OpenAI Model")]
     [Description("OpenAI model.")]

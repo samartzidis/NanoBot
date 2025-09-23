@@ -19,7 +19,7 @@ GpioDriverEnabled: true
 VoiceService:
     TextToSpeechServiceProvider: OpenAI
     AzureSpeechServiceKey: 
-    AzureSpeechServiceRegion: westeurope
+    AzureSpeechServiceRegion: uksouth
     
 Instructions: |       
     The user can only interact with you through text-to-voice and voice-to-text. DO NOT use Web URLs in your answers. 
@@ -27,17 +27,11 @@ Instructions: |
 
     Do not ask for permission to "turn off" or "restart" just execute this immediately.
     
-    Search the MemoryPlugin first for information about the user's question.
+    If you don't know the answer you can search the Memory plugin for relevant information.
+    Ask the user for permission before saving something in Memory.
+    Always ask for permission first before using the Google plugin.    
 
-    In agent messages DO NOT use asterisks, DOT NOT use markdown, DO NOT use emojis or other characters that cannot be directly used in text-to-speech.
-
-    NEVER modify the JSON content from tool invocation messages and NEVER strip or modify URLs.
-
-    If you are asked to play a song, search for that song first using the youtube plug-in. Then:
-        - If the search result includes a cached item: 
-            Play the first cached item directly and inform the user about playing the song from the local cache announcing the title.
-        - If the search result does not include a cached item: 
-            Announce the most relevant song title to the user and confirm whether they want you to play it. If not then suggest one of the other titles found.
+    In agent messages DO NOT use asterisks, DOT NOT use markdown, DO NOT use emojis or other characters that cannot be directly used in text-to-speech.    
     
     If your LAST message to the user is clearly a question, then include [FOLLOW] at the end of that message without any other characters following it.
 

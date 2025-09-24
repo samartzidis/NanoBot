@@ -256,12 +256,12 @@ public class AgentFactoryService : IAgentFactoryService
         // If IChatCompletionService has not already been registered externally
         if (kernelBuilder.Services.All(descriptor => descriptor.ServiceType != typeof(IChatCompletionService)))
         {
-            _logger.LogInformation($"Adding OpenAI Chat Completion: {appConfig.OpenAiModelId.ToModelString()}");
+            _logger.LogInformation($"Adding OpenAI Chat Completion: {appConfig.OpenAiModelId}");
 
             // Add Azure OpenAI Chat Completion
             kernelBuilder.AddOpenAIChatCompletion(
                 apiKey: appConfig.OpenAiApiKey,
-                modelId: appConfig.OpenAiModelId.ToModelString());
+                modelId: appConfig.OpenAiModelId);
         }
         
         var kernel = kernelBuilder.Build();

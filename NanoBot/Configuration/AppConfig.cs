@@ -15,32 +15,15 @@ public enum OpenAiModelIdConfig
     Gpt5
 }
 
-public static class OpenAiModelIdConfigExtensions
-{
-    public static string ToModelString(this OpenAiModelIdConfig model)
-    {
-        return model switch
-        {
-            OpenAiModelIdConfig.Gpt35Turbo => "gpt-3.5-turbo",
-            OpenAiModelIdConfig.Gpt4oMini => "gpt-4o-mini",
-            OpenAiModelIdConfig.Gpt4o => "gpt-4o",
-            OpenAiModelIdConfig.Gpt5Mini => "gpt-5-mini",
-            OpenAiModelIdConfig.Gpt5Nano => "gpt-5-nano",
-            OpenAiModelIdConfig.Gpt5 => "gpt-5",
-            _ => "gpt-4o-mini"
-        };
-    }
-}
-
 public class AppConfig
 {   
     public bool ConsoleDebug { get; set; }  = false;
 
     [Required]
     [DisplayName("OpenAI Model")]
-    [Description("OpenAI model.")]
-    [DefaultValue(Configuration.OpenAiModelIdConfig.Gpt4oMini)]
-    public OpenAiModelIdConfig OpenAiModelId { get; set; } = OpenAiModelIdConfig.Gpt4oMini;
+    [Description("OpenAI model id (e.g. 'gpt-4o-mini').")]
+    [DefaultValue("gpt-4o-mini")]
+    public string OpenAiModelId { get; set; } = "gpt-4o-mini";
 
     [DisplayName("OpenAI API Key")]
     [Description("OpenAI API access key.")]

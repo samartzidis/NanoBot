@@ -324,8 +324,6 @@ public class VoiceService : IVoiceService
         out byte[] audioBuffer,
         CancellationToken cancellationToken = default)
     {
-        var appConfig = _appConfigOptions.Value;
-
         audioBuffer = null;
 
         using var recorder = PvRecorder.Create(frameLength: 512, deviceIndex: _pvRecordingDeviceIndex);

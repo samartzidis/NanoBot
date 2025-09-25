@@ -61,7 +61,7 @@ const Config: React.FC = () => {
   return (
     <Container>
       <CssBaseline />
-      <h1 className="mb-4">NanoBot Agents Configuration</h1>
+      <h1 className="mb-4">👥 Agents Configuration</h1>
       <JsonForms
         schema={schema}
         uischema={uischema}

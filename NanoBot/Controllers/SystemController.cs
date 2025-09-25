@@ -109,7 +109,7 @@ public class SystemController : ControllerBase
     }
 
     [HttpGet("StreamLogs")]
-    public async Task StreamLogs(CancellationToken cancellationToken)
+    public async Task StreamLogs(int tailLines = 50, CancellationToken cancellationToken = default)
     {
         Response.ContentType = "text/event-stream";
 
@@ -132,9 +132,22 @@ public class SystemController : ControllerBase
             await Response.WriteAsync($"File: {logFiles.Name}\n\n", cancellationToken);
             await Response.Body.FlushAsync(cancellationToken); // Ensure the filename is sent immediately
 
-            // Open the log file in a way that allows both reading and writing, to prevent conflicts with Serilog's logging process
+            // Read the last N lines from the file
+            var lastLines = await ReadLastLinesAsync(logFiles.FullName, tailLines, cancellationToken);
+            
+            // Send the last N lines first
+            foreach (var line in lastLines)
+            {
+                await Response.WriteAsync($"{line}\n", cancellationToken);
+            }
+            await Response.Body.FlushAsync(cancellationToken);
+
+            // Now start streaming new lines in real-time
             await using var fileStream = new FileStream(logFiles.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var streamReader = new StreamReader(fileStream);
+
+            // Position the stream at the end of the file to only read new content
+            fileStream.Seek(0, SeekOrigin.End);
 
             // Start streaming new lines
             while (!cancellationToken.IsCancellationRequested)
@@ -159,5 +172,23 @@ public class SystemController : ControllerBase
             _logger.LogError(ex, "Error streaming log file in real-time.");
             await Response.WriteAsync($"An error occurred while streaming the log file ({ex.Message}).\n", cancellationToken);
         }
+    }
+
+    private async Task<List<string>> ReadLastLinesAsync(string filePath, int lineCount, CancellationToken cancellationToken)
+    {
+        var lines = new List<string>();
+        
+        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var streamReader = new StreamReader(fileStream);
+        
+        // Read all lines into a list
+        string line;
+        while ((line = await streamReader.ReadLineAsync(cancellationToken)) != null)
+        {
+            lines.Add(line);
+        }
+        
+        // Return the last N lines, or all lines if the file has fewer than N lines
+        return lines.Count <= lineCount ? lines : lines.Skip(lines.Count - lineCount).ToList();
     }
 }

@@ -37,9 +37,9 @@ public class AgentConfig
     public string WakeWord { get; set; } = DefaultWakeWord;
 
     [Description("Wake word trigger threshold (0.1 - 0.9). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '0.9'.")]
-    [Range(0.09f, 0.99f, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'. Defaults to: '0.9'.")]
+    [Range(0, 10, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'. Defaults to: '0.9'.")]
     [DefaultValue(0.9f)]
-    public float WakeWordThreshold { get; set; } = 0.9f;
+    public float WakeWordThreshold { get; set; } = 0.8f;
     
     [Description("Wake word trigger level (1 - 10). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '4'.")]
     [Range(1, 10, ErrorMessage = $"{nameof(WakeWordTriggerLevel)} must be an integer value between '1' and '10'. Defaults to: '4'.")]
@@ -55,10 +55,6 @@ public class AgentConfig
     [Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]
     public string SpeechSynthesisVoiceName { get; set; }
 
-    [DisplayName("Time Plug-in")]
-    [Description("Provides a set of functions to get the current time and date.")]
-    public bool TimePluginEnabled { get; set; }
-
     [DisplayName("Calculator Plug-in")]
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]
     public bool CalculatorPluginEnabled { get; set; }
@@ -71,7 +67,19 @@ public class AgentConfig
     [Description("Enable YAML user plug-ins under the 'Plugins/Yaml' folder.")]
     public bool UserPluginsEnabled { get; set; }
 
-    [DisplayName("Memory Plug-in")]
-    [Description("Allows persistent memories.")]
-    public bool MemoryPluginEnabled { get; set; }
+    [DisplayName("Word Maths Problems Plug-in")]
+    [Description("Provides word maths problems with questions, answers, and calculations.")]
+    public bool WordMathsProblemsPluginEnabled { get; set; }
+
+    [DisplayName("DateTime Plug-in")]
+    [Description("Provides functions for date and time operations, formatting, and calculations.")]
+    public bool DateTimePluginEnabled { get; set; }
+
+    [DisplayName("GeoIP Plug-in")]
+    [Description("Provides functions to retrieve current location details based on IP address.")]
+    public bool GeoIpPluginEnabled { get; set; }
+
+    [DisplayName("Weather Plug-in")]
+    [Description("Provides functions to retrieve weather information and forecasts for specific coordinates.")]
+    public bool WeatherPluginEnabled { get; set; }
 }

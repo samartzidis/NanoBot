@@ -56,7 +56,10 @@ public class Program
                 services.AddSingleton<IVoiceService, VoiceService>();
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
                 services.AddSingleton<IEventBus, EventBus>();
-                services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation                
+                services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation
+                
+                // Register HttpClient for external API calls
+                services.AddHttpClient();                
 
                 // Bind AppConfig section to a strongly typed class
                 services.Configure<AppConfig>(context.Configuration);               

@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Identity.Client;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -12,7 +11,6 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 
 namespace NanoBot.Services;
 
@@ -141,8 +139,6 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         Console.WriteLine($"[Console mode] Agent: {agentConfig.Name}");
-        Console.WriteLine("Type 'quit' to exit.");
-        Console.WriteLine();
 
         while (!cancellationToken.IsCancellationRequested)
         {

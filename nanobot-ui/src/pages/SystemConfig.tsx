@@ -1,19 +1,53 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { JsonForms } from '@jsonforms/react';
 import { materialRenderers, materialCells } from '@jsonforms/material-renderers';
 import { CssBaseline, Container, Button, Stack, Box, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material';
-import { JsonSchema, UISchemaElement } from '@jsonforms/core';
+import { JsonSchema, UISchemaElement, JsonFormsRendererRegistryEntry, RankedTester } from '@jsonforms/core';
 import { createAjv } from '@jsonforms/core';
 
 import defaultUiSchema from '../systemUiSchema';
 import { apiBaseUrl } from '../config';
+import FileUploadDownloadRenderer from '../components/FileUploadDownloadRenderer';
 
 const SystemConfig: React.FC = () => {
   const [schema, setSchema] = useState<JsonSchema | null>(null);
   const [uischema, setUiSchema] = useState<UISchemaElement | null>(null);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [isValid, setIsValid] = useState(true);
-  const [openDialog, setOpenDialog] = useState(false);  
+  const [openDialog, setOpenDialog] = useState(false);
+  const [isJsonValid, setIsJsonValid] = useState(true);
+
+  // Stable callback to prevent re-renders
+  const handleJsonValidationChange = useCallback((isValid: boolean) => {
+    setIsJsonValid(isValid);
+  }, []);
+
+  // Create stable renderer component
+  const FileUploadDownloadRendererWrapper = useCallback((props: Record<string, unknown>) => {
+    const uischema = props.uischema as Record<string, unknown>;
+    const options = uischema?.options as Record<string, unknown>;
+    const contentType = options?.contentType as 'json' | 'text' | undefined;
+    
+    const componentProps = {
+      ...props,
+      onJsonValidationChange: handleJsonValidationChange,
+      contentType: contentType || 'text'
+    };
+    // @ts-expect-error - onJsonValidationChange and contentType are custom props not in ControlProps
+    return <FileUploadDownloadRenderer {...componentProps} />;
+  }, [handleJsonValidationChange]);
+
+  // Custom renderers
+  const customRenderers: JsonFormsRendererRegistryEntry[] = [
+    ...materialRenderers,
+    {
+      tester: ((uischema: UISchemaElement) => {
+        const options = (uischema as unknown as Record<string, unknown>)?.options as Record<string, unknown>;
+        return options?.customRenderer === 'file-upload-download' ? 10 : -1;
+      }) as RankedTester,
+      renderer: FileUploadDownloadRendererWrapper,
+    },
+  ];  
 
   useEffect(() => {
     const fetchSchemaAndSettings = async () => {
@@ -33,7 +67,7 @@ const SystemConfig: React.FC = () => {
     };
 
     fetchSchemaAndSettings();
-  }, [apiBaseUrl]);
+  }, []);
 
   const saveSettings = async () => {
     try {
@@ -86,12 +120,12 @@ const SystemConfig: React.FC = () => {
   return (
     <Container>
       <CssBaseline />
-      <h1 className="mb-4">NanoBot System Configuration</h1>
+      <h1 className="mb-4">⚙️ System Configuration</h1>
       <JsonForms
         schema={schema}
         uischema={uischema}
         data={data}
-        renderers={materialRenderers}
+        renderers={customRenderers}
         cells={materialCells}
         onChange={({ data, errors = [] }) => {
           setData(data);
@@ -105,7 +139,7 @@ const SystemConfig: React.FC = () => {
             variant="contained"
             color="primary"
             onClick={saveSettings}
-            disabled={!isValid}
+            disabled={!isValid || !isJsonValid}
           >
             Save
           </Button>

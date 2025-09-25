@@ -10,10 +10,11 @@
 
   <ItemGroup>
     <PackageReference Include="Alsa.Net" Version="1.0.8" />
-    <PackageReference Include="HidSharp" Version="2.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.6" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.6.0" />    
-    <PackageReference Include="NanoWakeWord" Version="1.0.0" />
+    <PackageReference Include="HidSharp" Version="2.6.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.9.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.65.0-preview" />    
+    <PackageReference Include="NanoWakeWord" Version="1.1.0" />
     <PackageReference Include="NetEscapades.Configuration.Yaml" Version="3.1.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageReference Include="PvSpeaker" Version="1.0.2" />
@@ -23,18 +24,16 @@
     <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="DataAnnotationsValidator.NETCore" Version="1.0.3" />
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.44.0" />
+    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.46.0" />
     <PackageReference Include="PvRecorder" Version="1.2.13" />    
-    <PackageReference Include="Microsoft.SemanticKernel" Version="1.58.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.58.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.58.0-preview" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.58.0-preview" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Memory" Version="1.58.0-alpha" />
-    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.58.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.58.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.58.0-alpha" />
-    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Sqlite" Version="1.51.0-preview" />    
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.1" />   
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.65.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.65.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.65.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.65.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.65.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.65.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.65.0-alpha" />    
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />   
     <PackageReference Include="System.Device.Gpio" Version="4.0.1" />   
   </ItemGroup>
 
@@ -49,6 +48,9 @@
     <None Update="appsettings.yaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Resources\media\notify.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="wwwroot\jsonforms\index.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -59,15 +61,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Resources\media\notify.wav" />
     <None Remove="Resources\models\constantina.onnx" />
     <None Remove="Resources\models\hey_anna.onnx" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\media\notify.wav">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
     <EmbeddedResource Include="Resources\models\constantina.onnx" />
     <EmbeddedResource Include="Resources\models\hey_anna.onnx" />
   </ItemGroup>

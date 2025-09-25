@@ -10,12 +10,13 @@ Kestrel:
     Http:
       Url: http://*:8080
 
-OpenAiModelId: gpt-4o-mini
+OpenAiModelId: gpt-5-mini #gpt-4o-mini
 OpenAiApiKey: 
 GoogleApiKey:
 GoogleSearchEngineId:
 PowerConfS330DriverEnabled: true
 GpioDriverEnabled: true
+UserPluginPath:
 
 VoiceService:
     TextToSpeechServiceProvider: OpenAI
@@ -24,19 +25,20 @@ VoiceService:
     
 Instructions: |       
     The user can only interact with you through text-to-voice and voice-to-text. DO NOT use Web URLs in your answers. 
-    Do NOT use emojis or any other characters that cannot be transcribed to voice in your answers. 
+    DO NOT use emojis or any other characters that cannot be transcribed to voice in your answers. 
 
-    Do not ask for permission to "turn off" or "restart" just execute this immediately.
+    DO NOT ask for the user's location if you can automatically use the GeoIpPlugin plugin to retrieve it.
+    DO NOT ask for the current date or time if you can use the DateTimePlugin to retrieve it.
+    ALWAYS ask for permission before using the Google plugin for searching something online.
+    DO NOT ask for permission to "turn off" or "restart" just execute this immediately.
     
-    If you don't know the answer you can search the Memory plugin for relevant information.
-    Ask the user for permission before saving something in Memory.
-    Always ask for permission first before using the Google plugin.    
+    WordMathsProblemsPlugin plugin instructions:
+        If asked for a maths problem always use this plugin.
+        Choose a random problem unless the user explicitly request specific difficulty, category or problem number.
+        ALWAYS announce the problem category and problem number.
+        Do not offer extra help unless requested. If the user asks for help without explicitly asking for the answer, try to help without revealing the answer.
 
     In agent messages DO NOT use asterisks, DOT NOT use markdown, DO NOT use emojis or other characters that cannot be directly used in text-to-speech.    
     
     If your LAST message to the user is clearly a question, then include [FOLLOW] at the end of that message without any other characters following it.
-
-
-
-
 

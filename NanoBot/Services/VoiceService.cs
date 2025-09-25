@@ -32,7 +32,7 @@ public interface IVoiceService
 public class VoiceService : IVoiceService
 {
     // Calibration parameters for silence detection
-    public const int SilenceSampleAmplitudeThreshold = 800;
+    public const int SilenceSampleAmplitudeThreshold = 400;
     public const int SilenceSampleCountThreshold = 50;
 
     //User voice message max recording duration if no silence is detected
@@ -42,13 +42,9 @@ public class VoiceService : IVoiceService
     public const int StopRecordingSilenceSeconds = 5;
 
     private readonly string[] _openAiVoiceNames = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
-
     private List<VoiceInfo> _cachedVoices; // Cache variable for storing OpenAI voices
-    private WakeWordRuntimeConfig _wakeWordRuntimeConfig;
-    private WakeWordRuntime _wakeWordRuntime;
-
     private readonly ILogger _logger;
-    private readonly IDynamicOptions<AppConfig> _appConfigOptions;    
+    private readonly IDynamicOptions<AppConfig> _appConfigOptions;
     private readonly int _pvRecordingDeviceIndex = -1; // use default
 
     public VoiceService(
@@ -58,37 +54,7 @@ public class VoiceService : IVoiceService
         _logger = logger;
         _appConfigOptions = appConfigOptions;
 
-        InitializeWakeWordRuntime(true);
-    }
-
-    private void InitializeWakeWordRuntime(bool extractLocalModels = false)
-    {
-        if (extractLocalModels)
-            typeof(VoiceService).Assembly.ExtractModels(); // Extract local wake word models
-
-        _wakeWordRuntimeConfig = new WakeWordRuntimeConfig
-        {
-            Debug = false,
-            WakeWords = GetWakeWordConfig()
-        };
-        _wakeWordRuntime = new WakeWordRuntime(_wakeWordRuntimeConfig);
-    }
-
-    private WakeWordConfig[] GetWakeWordConfig()
-    {
-        var appConfig = _appConfigOptions.Value;
-
-        WakeWordConfig[] wakeWords;
-        if (appConfig.Agents != null)
-            wakeWords = appConfig.Agents.Where(t => !t.Disabled).Select(t => new WakeWordConfig { 
-                Model = t.WakeWord, 
-                Threshold = t.WakeWordThreshold > 0 ? t.WakeWordThreshold : 0.5f,
-                TriggerLevel = t.WakeWordTriggerLevel > 0 ? t.WakeWordTriggerLevel : 4,
-            }).ToArray();
-        else
-            wakeWords = [];
-
-        return wakeWords;
+        typeof(VoiceService).Assembly.ExtractModels(); // Extract local wake word models (from embedded resources)
     }
 
     public string GenerateSpeechToText(byte[] audioBuffer, string audioTranscriptionLanguage)
@@ -105,8 +71,8 @@ public class VoiceService : IVoiceService
         });
 
         return at.Text;
-    }      
-        
+    }
+
     /*
     // Commented out as "whisper-1" currently gives more accurate results
     public string TranscribeSpeech(byte[] audioBuffer, string audioTranscriptionLanguage)
@@ -162,33 +128,59 @@ public class VoiceService : IVoiceService
         return deviceIndex;
     }
     */
-      
+
+    private WakeWordConfig[] GetWakeWordConfig()
+    {
+        var appConfig = _appConfigOptions.Value;
+
+        WakeWordConfig[] wakeWords;
+        if (appConfig.Agents != null)
+            wakeWords = appConfig.Agents.Where(t => !t.Disabled).Select(t => new WakeWordConfig
+            {
+                Model = t.WakeWord,
+                Threshold = t.WakeWordThreshold > 0 ? t.WakeWordThreshold : 0.5f,
+                TriggerLevel = t.WakeWordTriggerLevel > 0 ? t.WakeWordTriggerLevel : 4,
+            }).ToArray();
+        else
+            wakeWords = [];
+
+        return wakeWords;
+    }
+
     public async Task<string> WaitForWakeWordAsync(Action<string> receivedAction = null, CancellationToken cancellationToken = default)
     {
-        // Re-initialize the WakeWordRuntime if the wake words have changed in configuration
-        var currentWakeWords = GetWakeWordConfig();
-        if (!_wakeWordRuntimeConfig.WakeWords.SequenceEqual(currentWakeWords))
+        var wakeWordRuntimeConfig = new WakeWordRuntimeConfig
         {
-            _wakeWordRuntimeConfig = new WakeWordRuntimeConfig
-            {
-                Debug = false,
-                WakeWords = currentWakeWords
-            };
-            _wakeWordRuntime = new WakeWordRuntime(_wakeWordRuntimeConfig);
-        }
+            DebugCallback = (model, probability, detected) => { _logger.LogDebug($"{model} {probability:F5} - {detected}", model, probability, detected); },
+            WakeWords = GetWakeWordConfig()
+        };
+        var wakeWordRuntime = new WakeWordRuntime(wakeWordRuntimeConfig);
+
+        // Pre-warm the wake word engine with silent frames to avoid first-activation delay
+        _logger.LogDebug("Pre-warming wake word engine...");
+        var silentFrame = new short[512]; // 512 samples of silence
+        for (var i = 0; i < 50; i++) // Process 50 silent frames to warm up
+            wakeWordRuntime.Process(silentFrame);
 
         _logger.LogDebug($"{nameof(WaitForWakeWordAsync)} ENTER.");
 
         // Initialize and start PvRecorder
         using var recorder = PvRecorder.Create(frameLength: 512, deviceIndex: _pvRecordingDeviceIndex);
         _logger.LogDebug($"Using device: {recorder.SelectedDevice}");
-        var listenWakeWords = string.Join(',', _wakeWordRuntimeConfig.WakeWords.Select(t => t.Model));
+        var listenWakeWords = string.Join(',', wakeWordRuntimeConfig.WakeWords.Select(t => t.Model));
         _logger.LogDebug($"Listening for [{@listenWakeWords}]...");
         recorder.Start();
 
         // Run the speech processing loop as a separate task
         var res = await Task.Run(async () =>
         {
+            // We only invoke the expensive wake-word engine when non-silence persists.
+            var preBuffer = new Queue<short[]>();
+            var preBufferLength = 10; // keep a small history to include wake onset
+            var nonSilentFrameCount = 0;
+            var silenceCount = 0;
+            var detectionActive = false;
+
             try
             {
                 while (recorder.IsRecording)
@@ -197,17 +189,71 @@ public class VoiceService : IVoiceService
                         return null;
 
                     var frame = recorder.Read();
+                    var isSilent = frame.All(t => Math.Abs(t) < SilenceSampleAmplitudeThreshold);
 
-                    var index = _wakeWordRuntime.Process(frame);
-
-                    if (index >= 0)
+                    if (!detectionActive)
                     {
-                        var wakeWord = _wakeWordRuntimeConfig.WakeWords[index].Model;
-                        _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{wakeWord}'.");
+                        if (!isSilent)
+                        {
+                            nonSilentFrameCount++;
 
-                        receivedAction?.Invoke(wakeWord);
+                            // Activate detection after a few consecutive non-silent frames
+                            if (nonSilentFrameCount >= 5)
+                            {
+                                detectionActive = true;
+                                silenceCount = 0;
+                                _logger.LogDebug("Wake engine activated due to non-silence.");
 
-                        return wakeWord;
+                                // Flush pre-buffer first so the detector sees the start
+                                while (preBuffer.Count > 0)
+                                {
+                                    var buffered = preBuffer.Dequeue();
+                                    var idxBuffered = wakeWordRuntime.Process(buffered);
+                                    if (idxBuffered >= 0)
+                                    {
+                                        var ww = wakeWordRuntimeConfig.WakeWords[idxBuffered].Model;
+                                        _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{ww}' from pre-buffer.");
+                                        receivedAction?.Invoke(ww);
+                                        return ww;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            nonSilentFrameCount = 0; // reset if we dip back to silence
+                        }
+
+                        // Maintain pre-buffer while idle
+                        preBuffer.Enqueue(frame);
+                        if (preBuffer.Count > preBufferLength)
+                            preBuffer.Dequeue();
+                    }
+                    else // detectionActive
+                    {
+                        if (isSilent)
+                            silenceCount++;
+                        else
+                            silenceCount = 0;
+
+                        var index = wakeWordRuntime.Process(frame);
+                        if (index >= 0)
+                        {
+                            var wakeWord = wakeWordRuntimeConfig.WakeWords[index].Model;
+                            _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{wakeWord}'.");
+                            receivedAction?.Invoke(wakeWord);
+                            return wakeWord;
+                        }
+
+                        // If sustained silence resumes, pause detection to save CPU
+                        if (silenceCount > SilenceSampleCountThreshold)
+                        {
+                            detectionActive = false;
+                            nonSilentFrameCount = 0;
+                            silenceCount = 0;
+                            preBuffer.Clear(); // start fresh pre-buffer for next activation
+                            _logger.LogDebug("Wake engine paused due to sustained silence.");
+                        }
                     }
                 }
 
@@ -221,7 +267,7 @@ public class VoiceService : IVoiceService
 
         return res;
     }
-       
+
     public async Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -232,7 +278,7 @@ public class VoiceService : IVoiceService
 
         var appConfig = _appConfigOptions.Value;
 
-        if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)            
+        if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
             await GenerateTextToSpeechAzureAsync(text, speechSynthesisVoiceName, cancellationToken);
         else if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.OpenAI)
             await GenerateTextToSpeechOpenAiAsync(text, speechSynthesisVoiceName, cancellationToken);
@@ -297,8 +343,8 @@ public class VoiceService : IVoiceService
         var speechVoice = new GeneratedSpeechVoice(speechSynthesisVoiceName);
 
         BinaryData res = await audioClient.GenerateSpeechAsync(
-            text, 
-            speechVoice, 
+            text,
+            speechVoice,
             new SpeechGenerationOptions { ResponseFormat = GeneratedSpeechFormat.Wav }, cancellationToken);
 
         var dataStream = res.ToStream();
@@ -364,7 +410,6 @@ public class VoiceService : IVoiceService
 
             if (!hasStartedRecording)
             {
-
                 if (!isSilent)
                 {
                     nonSilentFrameCount++;
@@ -421,7 +466,7 @@ public class VoiceService : IVoiceService
     }
 
     public async Task<List<VoiceInfo>> GetAvailableVoicesAsync(TextToSpeechServiceProviderConfig config, CancellationToken cancellationToken = default)
-    {        
+    {
         if (config == TextToSpeechServiceProviderConfig.OpenAI)
         {
             return _openAiVoiceNames.Select(v => new VoiceInfo { ShortName = v.ToString() }).ToList();

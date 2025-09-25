@@ -1,20 +1,17 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Plugins.Core;
 using NanoBot.Configuration;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using NanoBot.Plugins.Native;
 using System.Text;
-using Microsoft.SemanticKernel.Plugins.Memory;
-using Microsoft.SemanticKernel.Memory;
-using Microsoft.SemanticKernel.Connectors.Sqlite;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NanoBot.Filters;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using NanoBot.Util;
 
 namespace NanoBot.Services;
@@ -29,9 +26,6 @@ public interface IAgentFactoryService
 
 public class AgentFactoryService : IAgentFactoryService
 {
-    private const string MemoryPluginDataFolder = "MemoryPluginData";
-    private const string TextEmbeddingModelId = "text-embedding-ada-002";    
-
     private readonly ILogger<AgentFactoryService> _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;
@@ -106,35 +100,6 @@ public class AgentFactoryService : IAgentFactoryService
                 kernelBuilder.Plugins.AddFromType<EyesPlugin>(nameof(EyesPlugin));
             }
 
-            // Time plugin
-            if (agentConfig.TimePluginEnabled)
-            {
-                _logger.LogInformation($"Adding {nameof(TimePlugin)}");
-
-                kernelBuilder.Plugins.AddFromType<TimePlugin>(nameof(TimePlugin));
-            }
-
-            // Memory plugin
-            if (agentConfig.MemoryPluginEnabled)
-            {
-                _logger.LogInformation("Adding Memory plugin");
-
-                var dataDir = Path.Combine(AppContext.BaseDirectory, MemoryPluginDataFolder);
-                if (!Directory.Exists(dataDir))
-                    Directory.CreateDirectory(dataDir);
-
-                var memoryStore = SqliteMemoryStore.ConnectAsync($"{dataDir}/{agentName}.sqlite", cancellationToken).GetAwaiter().GetResult();
-                var embeddingGenerator = new OpenAITextEmbeddingGenerationService(modelId: TextEmbeddingModelId, apiKey: appConfig.OpenAiApiKey);
-                var textMemory = new MemoryBuilder()
-                    .WithLoggerFactory(_loggerFactory)
-                    .WithTextEmbeddingGeneration(embeddingGenerator)
-                    .WithMemoryStore(memoryStore)
-                    .Build();
-                var memoryPlugin = new TextMemoryPlugin(textMemory, _loggerFactory);
-
-                kernelBuilder.Plugins.AddFromObject(memoryPlugin, "Memory");
-            }
-
             // Calculator plugin
             if (agentConfig.CalculatorPluginEnabled)
             {
@@ -143,15 +108,44 @@ public class AgentFactoryService : IAgentFactoryService
                 kernelBuilder.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin));
             }
 
+
+            // WordMathsProblems plugin
+            if (agentConfig.WordMathsProblemsPluginEnabled)
+            {
+                _logger.LogInformation($"Adding {nameof(WordMathsProblemsPlugin)}");
+                kernelBuilder.Plugins.AddFromType<WordMathsProblemsPlugin>(nameof(WordMathsProblemsPlugin));
+            }
+
+            // DateTime plugin
+            if (agentConfig.DateTimePluginEnabled)
+            {
+                _logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
+                kernelBuilder.Plugins.AddFromType<DateTimePlugin>(nameof(DateTimePlugin));
+            }
+
+            // GeoIP plugin
+            if (agentConfig.GeoIpPluginEnabled)
+            {
+                _logger.LogInformation($"Adding {nameof(GeoIpPlugin)}");
+                kernelBuilder.Plugins.AddFromType<GeoIpPlugin>(nameof(GeoIpPlugin));
+            }
+
+            // Weather plugin
+            if (agentConfig.WeatherPluginEnabled)
+            {
+                _logger.LogInformation($"Adding {nameof(WeatherPlugin)}");
+                kernelBuilder.Plugins.AddFromType<WeatherPlugin>(nameof(WeatherPlugin));
+            }
+
             // Add user plugins
             if (agentConfig.UserPluginsEnabled)
             {
                 _logger.LogInformation("Adding user plugins");
 
-                var pluginPath = Path.Combine(AppContext.BaseDirectory, "Plugins", "User");
+                var pluginPath = ResolvePluginPath(appConfig.UserPluginPath);
                 if (Directory.Exists(pluginPath))
                 {
-                    _logger.LogWarning($"Adding user plugins from {pluginPath}");
+                    _logger.LogInformation($"Adding user plugins from {pluginPath}");
 
                     foreach (var subDir in Directory.EnumerateDirectories(pluginPath))
                     {
@@ -222,6 +216,7 @@ public class AgentFactoryService : IAgentFactoryService
 
         // Forward register registrations from the parent container
         kernelBuilder.Services.AddTransient<IConfiguration>(_ => _serviceProvider.GetRequiredService<IConfiguration>());
+        kernelBuilder.Services.AddTransient<IOptions<AppConfig>>(_ => _serviceProvider.GetRequiredService<IOptions<AppConfig>>());
         kernelBuilder.Services.AddTransient<ILoggerFactory>(_ => _serviceProvider.GetRequiredService<ILoggerFactory>());
         kernelBuilder.Services.AddTransient<IEventBus>(_ => _serviceProvider.GetRequiredService<IEventBus>());
         kernelBuilder.Services.AddTransient<IVoiceService>(_ => _serviceProvider.GetRequiredService<IVoiceService>());
@@ -267,5 +262,28 @@ public class AgentFactoryService : IAgentFactoryService
         var kernel = kernelBuilder.Build();
 
         return kernel;
+    }
+
+    /// <summary>
+    /// Resolves the plugin path, handling both absolute and relative paths.
+    /// Relative paths are resolved relative to the application base directory.
+    /// </summary>
+    /// <param name="pluginPath">The configured plugin path (absolute or relative)</param>
+    /// <returns>The resolved absolute path</returns>
+    private static string ResolvePluginPath(string pluginPath)
+    {
+        if (string.IsNullOrWhiteSpace(pluginPath))
+        {
+            return Path.Combine(AppContext.BaseDirectory, "Plugins", "User");
+        }
+
+        // If the path is already absolute, return it as-is
+        if (Path.IsPathRooted(pluginPath))
+        {
+            return pluginPath;
+        }
+
+        // For relative paths, combine with the application base directory
+        return Path.Combine(AppContext.BaseDirectory, pluginPath);
     }
 }

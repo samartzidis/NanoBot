@@ -3,8 +3,10 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <OutputType>Exe</OutputType>
+    <Version>1.0.0</Version>
+    <IsPackable>false</IsPackable>    
     <Nullable>disable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>enable</ImplicitUsings>    
     <NoWarn>1701;1702;1998;CS1591;SKEXP0050;SKEXP0101;SKEXP0101;SKEXP0110;SKEXP0001;OPENAI001;SKEXP0010;SKEXP0020</NoWarn>
   </PropertyGroup>
 
@@ -45,6 +47,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="appsettings.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Plugins\User\README.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Resources\media\notify.wav">

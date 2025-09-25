@@ -156,6 +156,17 @@ public class Program
         {
             var listenAddresses = string.Join(", ", serverAddressesFeature.Addresses);
             logger.LogInformation($"Listening on: {@listenAddresses}");
+            
+            // Extract port and show localhost URL
+            foreach (var address in serverAddressesFeature.Addresses)
+            {
+                if (Uri.TryCreate(address, UriKind.Absolute, out var uri))
+                {
+                    var localhostUrl = $"http://localhost:{uri.Port}";
+                    logger.LogInformation($"Open your browser and navigate to: {@localhostUrl}");
+                    break; // Only show the first valid URL
+                }
+            }
         }
 
         // Wait for host to exit

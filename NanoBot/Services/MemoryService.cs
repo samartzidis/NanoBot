@@ -10,7 +10,7 @@ namespace NanoBot.Services;
 public interface IMemoryService
 {
     Task<string> SaveMemoryAsync(string key, string content);
-    Task<string?> GetMemoryAsync(string key);
+    Task<string> GetMemoryAsync(string key);
     Task<List<MemoryItem>> GetRelevantMemoriesAsync(string userPrompt, int maxResults = 5);
     Task<List<MemoryItem>> GetAllMemoriesAsync();
     Task<bool> DeleteMemoryAsync(string key);
@@ -39,7 +39,7 @@ public class MemoryItem
     public DateTime? LastAccessedAt { get; set; }
 
     [JsonPropertyName("embedding")]
-    public float[]? Embedding { get; set; }
+    public float[] Embedding { get; set; }
 }
 
 public class MemoryService : IMemoryService
@@ -48,19 +48,21 @@ public class MemoryService : IMemoryService
     private readonly string _memoryFilePath;
     private readonly Dictionary<string, MemoryItem> _memories;
     private readonly SemaphoreSlim _fileLock = new(1, 1);
-    private readonly IEmbeddingGenerator<string, Embedding<float>> _embeddingGenerator;
+    private readonly IDynamicEmbeddingService _dynamicEmbeddingService;
     private readonly int _maxMemories;
 
-    public MemoryService(ILogger<MemoryService> logger, IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator, IOptions<AppConfig> appConfig)
+    public MemoryService(ILogger<MemoryService> logger, IDynamicEmbeddingService dynamicEmbeddingService, IOptions<AppConfig> appConfig)
     {
         _logger = logger;
         _memoryFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "memories.json");
         _memories = new Dictionary<string, MemoryItem>();
         _maxMemories = appConfig.Value.MemoryServiceMaxMemories;
-        _embeddingGenerator = embeddingGenerator;
+        _dynamicEmbeddingService = dynamicEmbeddingService;
 
         _logger.LogInformation($"MemoryService initialized with max memories limit: {_maxMemories}");
-        _logger.LogInformation("OpenAI embedding service available for semantic memory search");
+        
+        // Try to initialize embedding service if API key is available
+        _ = Task.Run(async () => await _dynamicEmbeddingService.TryInitializeEmbeddingAsync());
         
         LoadMemoriesFromFile();
     }
@@ -155,12 +157,13 @@ public class MemoryService : IMemoryService
             };
 
             // Generate embedding if embedding service is available
-            if (_embeddingGenerator != null)
+            if (_dynamicEmbeddingService.IsEmbeddingAvailable)
             {
+                var embeddingGenerator = _dynamicEmbeddingService.GetEmbeddingGenerator();
                 try
                 {
                     _logger.LogDebug($"Attempting to generate embedding for memory: {key}");
-                    var embedding = await _embeddingGenerator.GenerateAsync(content);
+                    var embedding = await embeddingGenerator.GenerateAsync(content);
                     memory.Embedding = embedding.Vector.ToArray();
                     _logger.LogInformation($"Successfully generated embedding for memory: {key} (dimensions: {memory.Embedding.Length})");
                 }
@@ -171,7 +174,7 @@ public class MemoryService : IMemoryService
             }
             else
             {
-                _logger.LogWarning($"No embedding generator available for memory: {key}");
+                _logger.LogDebug($"No embedding generator available for memory: {key}");
             }
 
             _memories[key] = memory;
@@ -219,8 +222,15 @@ public class MemoryService : IMemoryService
     {
         try
         {
+            if (!_dynamicEmbeddingService.IsEmbeddingAvailable)
+            {
+                _logger.LogDebug("No embedding generator available for semantic search");
+                return new List<MemoryItem>();
+            }
+
+            var embeddingGenerator = _dynamicEmbeddingService.GetEmbeddingGenerator();
             // Generate embedding for the user prompt
-            var promptEmbedding = await _embeddingGenerator.GenerateAsync(userPrompt);
+            var promptEmbedding = await embeddingGenerator.GenerateAsync(userPrompt);
             var promptVector = promptEmbedding.Vector.ToArray();
 
             // Calculate semantic similarity scores for all memories with embeddings
@@ -228,7 +238,7 @@ public class MemoryService : IMemoryService
             
             foreach (var memory in _memories.Values)
             {
-                if (memory.Embedding != null)
+                if (memory.Embedding != null && memory.Embedding.Length > 0)
                 {
                     var similarity = CalculateCosineSimilarity(promptVector, memory.Embedding);
                     
@@ -351,11 +361,12 @@ public class MemoryService : IMemoryService
                 memory.UpdatedAt = DateTime.UtcNow;
                 
                 // Regenerate embedding if embedding service is available
-                if (_embeddingGenerator != null)
+                if (_dynamicEmbeddingService.IsEmbeddingAvailable)
                 {
+                    var embeddingGenerator = _dynamicEmbeddingService.GetEmbeddingGenerator();
                     try
                     {
-                        var embedding = await _embeddingGenerator.GenerateAsync(content);
+                        var embedding = await embeddingGenerator.GenerateAsync(content);
                         memory.Embedding = embedding.Vector.ToArray();
                         _logger.LogDebug($"Regenerated embedding for memory: {key}");
                     }

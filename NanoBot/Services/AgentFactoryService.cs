@@ -230,7 +230,6 @@ public class AgentFactoryService : IAgentFactoryService
         kernelBuilder.Services.AddTransient<IEventBus>(_ => _serviceProvider.GetRequiredService<IEventBus>());
         kernelBuilder.Services.AddTransient<IVoiceService>(_ => _serviceProvider.GetRequiredService<IVoiceService>());
         kernelBuilder.Services.AddTransient<IGpioDeviceService>(_ => _serviceProvider.GetRequiredService<IGpioDeviceService>());
-        kernelBuilder.Services.AddTransient<IEmbeddingGenerator<string, Embedding<float>>>(_ => _serviceProvider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>());        
         kernelBuilder.Services.AddTransient<IMemoryService>(_ => _serviceProvider.GetRequiredService<IMemoryService>());
 
         // Register filters
@@ -270,17 +269,6 @@ public class AgentFactoryService : IAgentFactoryService
             kernelBuilder.AddOpenAIChatCompletion(
                 apiKey: appConfig.OpenAiApiKey,
                 modelId: appConfig.OpenAiModelId);
-        }
-
-        // Add OpenAI Text Embedding service for semantic memory search
-        if (kernelBuilder.Services.All(descriptor => descriptor.ServiceType != typeof(IEmbeddingGenerator<string, Embedding<float>>)))
-        {
-            _logger.LogInformation("Adding OpenAI Text Embedding service for semantic memory search");
-
-            // Add OpenAI Text Embedding service using Semantic Kernel
-            kernelBuilder.Services.AddOpenAIEmbeddingGenerator(
-                modelId: "text-embedding-3-small",
-                apiKey: appConfig.OpenAiApiKey);
         }
         
         var kernel = kernelBuilder.Build();

@@ -64,15 +64,11 @@ public class Program
                 // Register HttpClient for external API calls
                 services.AddHttpClient();
 
-                if (!string.IsNullOrEmpty(appConfig.OpenAiApiKey))
-                {
-                    // Register OpenAI Embedding service for semantic memory search using Semantic Kernel
-                    services.AddOpenAIEmbeddingGenerator(
-                        modelId: "text-embedding-3-small",
-                        apiKey: context.Configuration["OpenAiApiKey"] ?? string.Empty
-                    );
-                    services.AddSingleton<IMemoryService, MemoryService>();
-                }
+                // Register dynamic embedding service that can be initialized at runtime
+                services.AddSingleton<IDynamicEmbeddingService, DynamicEmbeddingService>();
+                
+                // Always register MemoryService - it will handle missing embedding service gracefully
+                services.AddSingleton<IMemoryService, MemoryService>();
 
                 // Bind AppConfig section to a strongly typed class
                 services.Configure<AppConfig>(context.Configuration);               

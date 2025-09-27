@@ -28,15 +28,14 @@ public class SystemService : BackgroundService, ISystemService
     private readonly ILogger<SystemService> _logger;
     private readonly IVoiceService _voiceService;
     private readonly IAgentFactoryService _agentFactoryService;
-    private readonly IDynamicOptions<AppConfig> _appConfigOptions;
-    private readonly ChatHistory _history;
+    private readonly IDynamicOptions<AppConfig> _appConfigOptions;   
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
-    private readonly IHostApplicationLifetime _applicationLifetime;
+    private readonly IHostApplicationLifetime _applicationLifetime;    
 
     private CancellationTokenSource _hangupCancellationTokenSource;
-    private AgentConfig _establishedAgentConfig;
     private DateTime _lastConversationTimestamp;
+    private readonly ChatHistory _history;
 
     public ChatHistory History => _history;
 
@@ -106,60 +105,55 @@ public class SystemService : BackgroundService, ISystemService
 
                     _logger.LogError(m, m.Message);
                     
-
-
                     await Task.Delay(5000, cancellationToken);
                 }
             }
         }, cancellationToken);
     }
-
+    
     private async Task ConsoleDebugConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
     {
         var agentConfig = appConfig.Agents?.FirstOrDefault(a => !a.Disabled);
-
         if (agentConfig == null)
-        {
-            Console.WriteLine("No enabled agents found in config.");
-            return;
-        }
+            throw new Exception("No enabled agents found in config.");
 
-        _establishedAgentConfig = agentConfig;
-
-        var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kb =>
+        // Create agent for this conversation
+        var currentAgent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kb =>
         {
             kb.Services.AddSingleton<ISystemService>(this);
             kb.Services.AddSingleton(agentConfig);
         }, cancellationToken: cancellationToken);
 
-        if (agent == null)
-        {
-            Console.WriteLine($"Failed to create agent: {agentConfig.Name}");
-            return;
-        }
+        if (currentAgent == null)
+            throw new Exception($"Failed to create agent: {agentConfig.Name}");
 
         Console.WriteLine($"[Console mode] Agent: {agentConfig.Name}");
+        Console.WriteLine("Press Enter to rebuild agent.");
 
         while (!cancellationToken.IsCancellationRequested)
         {
             Console.Write("You> ");
             var line = Console.ReadLine();
-            if (line == null || line.Trim().Equals("quit", StringComparison.OrdinalIgnoreCase))
+            if (line == null)
                 break;
 
+            // If user presses Enter (empty line), rebuild the agent
             if (string.IsNullOrWhiteSpace(line))
-                continue;
+            {
+                Console.WriteLine("Rebuilding agent...");
+                return;
+            }
 
             var sb = new StringBuilder();
-            await foreach (var msg in InvokeAgentAsync(agent, _history, line, cancellationToken))
+            await foreach (var msg in InvokeAgentAsync(currentAgent, _history, line, cancellationToken))
                 sb.Append(msg);
 
             var response = sb.ToString();            
             Console.WriteLine($"Agent> {response}");
         }
     }
-
-
+    
+    
     private async Task ConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
     {
         // Update the last conversation timestamp
@@ -171,31 +165,32 @@ public class SystemService : BackgroundService, ISystemService
         // Transient notification that we got out of wake word waiting 
         _bus.Publish<WakeWordDetectedEvent>(this);
 
-        // Retrieve agent associated to wake word       
+        // Retrieve agent associated to wake word
+        AgentConfig agentConfig = null;
         if (wakeWord == null)
         {
-            _establishedAgentConfig ??= appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
+            agentConfig ??= appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
         }
         else
         {
             var newAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled && string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase));
 
-            if(_establishedAgentConfig?.Name != newAgentConfig?.Name)
+            if(agentConfig?.Name != newAgentConfig?.Name)
             {
                 _logger.LogDebug("Clearing history.");
                 _history.Clear();
             }
 
-            _establishedAgentConfig = newAgentConfig;
+            agentConfig = newAgentConfig;
         }
 
-        if (_establishedAgentConfig == null)
+        if (agentConfig == null)
         {
             _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
             return;
         }
 
-        _logger.LogDebug($"Established agent: {_establishedAgentConfig.Name}");
+        _logger.LogDebug($"Established agent: {agentConfig.Name}");
 
         if (appConfig.ChatHistoryTimeToLiveMinutes > 0)
         {
@@ -210,14 +205,14 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         // Instantiate agent - inject dynamic dependencies
-        var agent = await _agentFactoryService.CreateAgentAsync(_establishedAgentConfig.Name, kernelBuilder => {
+        var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kernelBuilder => {
             kernelBuilder.Services.AddSingleton<ISystemService>(this);
-            kernelBuilder.Services.AddSingleton<AgentConfig>(_establishedAgentConfig);
+            kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
         }, cancellationToken: cancellationToken);
 
         if (agent == null)
         {
-            _logger.LogError($"Failed to instantiate agent: {_establishedAgentConfig.Name}");
+            _logger.LogError($"Failed to instantiate agent: {agentConfig.Name}");
             return;
         }
 
@@ -247,7 +242,7 @@ public class SystemService : BackgroundService, ISystemService
                 _hangupCancellationTokenSource = null;
             }
                 
-            var agentMessage = await TranscribeAndThink(appConfig, userAudioBuffer, agent, cancellationToken);
+            var agentMessage = await TranscribeAndThink(appConfig, agentConfig, userAudioBuffer, agent, cancellationToken);
             if (agentMessage == null)
                 return;
 
@@ -258,7 +253,7 @@ public class SystemService : BackgroundService, ISystemService
             if (followMarker != -1)
                 agentMessage = agentMessage.Remove(followMarker, FollowResponseMarker.Length);
 
-            await VoiceReply(agentMessage, cancellationToken);
+            await VoiceReply(agentConfig, agentMessage, cancellationToken);
 
             // Heuristically detect if the agent message was a question (only works for English)
             if (agentMessage.Contains("?"))
@@ -269,7 +264,7 @@ public class SystemService : BackgroundService, ISystemService
                 return; // Complete the conversation loop
         }
     }
-
+    
     public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)
     {
         // Wait for wake word, 
@@ -303,7 +298,7 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
 
-    public async Task<string> TranscribeAndThink(AppConfig appConfig, byte[] userAudioBuffer, ChatCompletionAgent agent, CancellationToken cancellationToken)
+    public async Task<string> TranscribeAndThink(AppConfig appConfig, AgentConfig agentConfig, byte[] userAudioBuffer, ChatCompletionAgent agent, CancellationToken cancellationToken)
     {
         try
         {
@@ -313,14 +308,14 @@ public class SystemService : BackgroundService, ISystemService
             if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
             {
 
-                var idx = _establishedAgentConfig.SpeechSynthesisVoiceName.IndexOf('-');
+                var idx = agentConfig.SpeechSynthesisVoiceName.IndexOf('-');
                 if (idx < 0)
                 {
-                    _logger.LogError($"Invalid {nameof(AgentConfig.SpeechSynthesisVoiceName)} string format: {_establishedAgentConfig.SpeechSynthesisVoiceName}");
+                    _logger.LogError($"Invalid {nameof(AgentConfig.SpeechSynthesisVoiceName)} string format: {agentConfig.SpeechSynthesisVoiceName}");
                     return null; // Complete the conversation loop
                 }
 
-                audioTranscriptionLanguage = _establishedAgentConfig.SpeechSynthesisVoiceName.Substring(0, idx);
+                audioTranscriptionLanguage = agentConfig.SpeechSynthesisVoiceName.Substring(0, idx);
 
             }
             _logger.LogDebug($"Using AudioTranscriptionLanguage: {audioTranscriptionLanguage}");
@@ -337,7 +332,7 @@ public class SystemService : BackgroundService, ISystemService
             }
 
             // Stop on receiving custom "stop" message
-            if (IsStopWord(_establishedAgentConfig, userMessage))
+            if (IsStopWord(agentConfig, userMessage))
             {
                 _logger.LogDebug("Received stop message.");
                 return null; // Complete the conversation loop
@@ -356,7 +351,7 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
 
-    public async Task VoiceReply(string agentMessage, CancellationToken cancellationToken)
+    public async Task VoiceReply(AgentConfig agentConfig, string agentMessage, CancellationToken cancellationToken)
     {
         // Speak back to user BUT allow interruption
         _hangupCancellationTokenSource?.Cancel();  // Cancel any previous token
@@ -369,7 +364,7 @@ public class SystemService : BackgroundService, ISystemService
                 _hangupCancellationTokenSource.Cancel();
             }, _hangupCancellationTokenSource.Token);
 
-            var speakTask = _voiceService.GenerateTextToSpeechAsync(agentMessage, _establishedAgentConfig.SpeechSynthesisVoiceName, _hangupCancellationTokenSource.Token);
+            var speakTask = _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, _hangupCancellationTokenSource.Token);
 
             var completedTask = await Task.WhenAny(wakeTask, speakTask);
             if (completedTask == speakTask)

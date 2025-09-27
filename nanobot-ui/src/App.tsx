@@ -5,7 +5,6 @@ import AgentsConfig from './pages/AgentsConfig';
 import SystemConfig from './pages/SystemConfig';
 import MemoryConfig from './pages/MemoryConfig';
 import LogsConfig from './pages/LogsConfig';
-import { apiBaseUrl } from './config';
 
 const App: React.FC = () => {
   return (

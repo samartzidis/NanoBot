@@ -5,6 +5,7 @@ using NanoBot.Configuration;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.Extensions.AI;
 using NanoBot.Plugins.Native;
 using System.Text;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -59,7 +60,7 @@ public class AgentFactoryService : IAgentFactoryService
         _logger.LogInformation($"Building Agent: '{agentName}'");
 
         // Create the Kernel
-        var kernel = await CreateKernel(kernelBuilder =>
+        var kernel = await CreateKernel(agentConfig, kernelBuilder =>
         {
             // Configure Google plugin
             if (agentConfig.GooglePluginEnabled)
@@ -92,13 +93,20 @@ public class AgentFactoryService : IAgentFactoryService
             _logger.LogInformation($"Adding {nameof(SystemManagerPlugin)}");
             kernelBuilder.Plugins.AddFromType<SystemManagerPlugin>(nameof(SystemManagerPlugin));
 
+            // Memory plugin
+            if (agentConfig.MemoryPluginEnabled)
+            {
+                _logger.LogInformation($"Adding {nameof(MemoryPlugin)}");
+                kernelBuilder.Plugins.AddFromType<MemoryPlugin>(nameof(MemoryPlugin));
+            }
+
             // EyesPlugin plugin
             if (PlatformUtil.IsRaspberryPi())
             {
                 _logger.LogInformation($"Adding {nameof(EyesPlugin)}");
 
                 kernelBuilder.Plugins.AddFromType<EyesPlugin>(nameof(EyesPlugin));
-            }
+            }            
 
             // Calculator plugin
             if (agentConfig.CalculatorPluginEnabled)
@@ -107,7 +115,6 @@ public class AgentFactoryService : IAgentFactoryService
 
                 kernelBuilder.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin));
             }
-
 
             // WordMathsProblems plugin
             if (agentConfig.WordMathsProblemsPluginEnabled)
@@ -205,7 +212,7 @@ public class AgentFactoryService : IAgentFactoryService
         return agent;
     }
 
-    public async Task<Kernel> CreateKernel(Action<IKernelBuilder> configAction = null)
+    public async Task<Kernel> CreateKernel(AgentConfig agentConfig, Action<IKernelBuilder> configAction = null)
     {
         var appConfig = _appConfigOptions.Value;
 
@@ -214,6 +221,8 @@ public class AgentFactoryService : IAgentFactoryService
         // Optional further configuration by caller
         configAction?.Invoke(kernelBuilder);
 
+        kernelBuilder.Services.AddLogging();
+
         // Forward register registrations from the parent container
         kernelBuilder.Services.AddTransient<IConfiguration>(_ => _serviceProvider.GetRequiredService<IConfiguration>());
         kernelBuilder.Services.AddTransient<IOptions<AppConfig>>(_ => _serviceProvider.GetRequiredService<IOptions<AppConfig>>());
@@ -221,32 +230,36 @@ public class AgentFactoryService : IAgentFactoryService
         kernelBuilder.Services.AddTransient<IEventBus>(_ => _serviceProvider.GetRequiredService<IEventBus>());
         kernelBuilder.Services.AddTransient<IVoiceService>(_ => _serviceProvider.GetRequiredService<IVoiceService>());
         kernelBuilder.Services.AddTransient<IGpioDeviceService>(_ => _serviceProvider.GetRequiredService<IGpioDeviceService>());
+        kernelBuilder.Services.AddTransient<IEmbeddingGenerator<string, Embedding<float>>>(_ => _serviceProvider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>());        
+        kernelBuilder.Services.AddTransient<IMemoryService>(_ => _serviceProvider.GetRequiredService<IMemoryService>());
 
         // Register filters
         kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, FunctionInvocationLoggingFilter>();
-
+        
         kernelBuilder.Services.ConfigureHttpClientDefaults(c =>
         {
+            /*
             // TooManyRequests resiliency handler
-            //c.AddStandardResilienceHandler().Configure(o =>
-            //{
-            //    o.Retry.ShouldHandle = args =>
-            //        ValueTask.FromResult(args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests);
+            c.AddStandardResilienceHandler().Configure(o =>
+            {
+                o.Retry.ShouldHandle = args =>
+                    ValueTask.FromResult(args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests);
 
-            //    // Retry backoff type
-            //    o.Retry.BackoffType = DelayBackoffType.Exponential;
+                // Retry backoff type
+                o.Retry.BackoffType = DelayBackoffType.Exponential;
 
-            //    // Individual attempt timeout (5 seconds for responsiveness)
-            //    o.AttemptTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(15) };
+                // Individual attempt timeout (5 seconds for responsiveness)
+                o.AttemptTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(15) };
 
-            //    // Circuit breaker sampling duration (30 seconds to stabilize under load)
-            //    o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
+                // Circuit breaker sampling duration (30 seconds to stabilize under load)
+                o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(60);
 
-            //    // Total timeout for all retries (15 seconds for quick failover)
-            //    o.TotalRequestTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(30) };
-            //});
+                // Total timeout for all retries (15 seconds for quick failover)
+                o.TotalRequestTimeout = new HttpTimeoutStrategyOptions { Timeout = TimeSpan.FromSeconds(30) };
+            });
+            */
         });
-
+        
 
         // If IChatCompletionService has not already been registered externally
         if (kernelBuilder.Services.All(descriptor => descriptor.ServiceType != typeof(IChatCompletionService)))
@@ -257,6 +270,17 @@ public class AgentFactoryService : IAgentFactoryService
             kernelBuilder.AddOpenAIChatCompletion(
                 apiKey: appConfig.OpenAiApiKey,
                 modelId: appConfig.OpenAiModelId);
+        }
+
+        // Add OpenAI Text Embedding service for semantic memory search
+        if (kernelBuilder.Services.All(descriptor => descriptor.ServiceType != typeof(IEmbeddingGenerator<string, Embedding<float>>)))
+        {
+            _logger.LogInformation("Adding OpenAI Text Embedding service for semantic memory search");
+
+            // Add OpenAI Text Embedding service using Semantic Kernel
+            kernelBuilder.Services.AddOpenAIEmbeddingGenerator(
+                modelId: "text-embedding-3-small",
+                apiKey: appConfig.OpenAiApiKey);
         }
         
         var kernel = kernelBuilder.Build();

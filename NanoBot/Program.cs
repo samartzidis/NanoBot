@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Hosting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using NanoBot.Util;
+using Microsoft.SemanticKernel;
 
 namespace NanoBot;
 
@@ -46,6 +47,8 @@ public class Program
             })
             .ConfigureServices((context, services) =>
             {
+                var appConfig = context.Configuration.Get<AppConfig>();
+
                 // Register ISystemService as background service
                 services.AddSingleton<ISystemService, SystemService>();
                 services.AddHostedService<ISystemService>(provider => provider.GetRequiredService<ISystemService>());
@@ -55,11 +58,21 @@ public class Program
                 services.AddSingleton<IAgentFactoryService, AgentFactoryService>();
                 services.AddSingleton<IVoiceService, VoiceService>();
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
-                services.AddSingleton<IEventBus, EventBus>();
-                services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation
+                services.AddSingleton<IEventBus, EventBus>();                
+                //services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation
                 
                 // Register HttpClient for external API calls
-                services.AddHttpClient();                
+                services.AddHttpClient();
+
+                if (!string.IsNullOrEmpty(appConfig.OpenAiApiKey))
+                {
+                    // Register OpenAI Embedding service for semantic memory search using Semantic Kernel
+                    services.AddOpenAIEmbeddingGenerator(
+                        modelId: "text-embedding-3-small",
+                        apiKey: context.Configuration["OpenAiApiKey"] ?? string.Empty
+                    );
+                    services.AddSingleton<IMemoryService, MemoryService>();
+                }
 
                 // Bind AppConfig section to a strongly typed class
                 services.Configure<AppConfig>(context.Configuration);               

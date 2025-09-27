@@ -82,4 +82,8 @@ public class AgentConfig
     [DisplayName("Weather Plug-in")]
     [Description("Provides functions to retrieve weather information and forecasts for specific coordinates.")]
     public bool WeatherPluginEnabled { get; set; }
+
+    [DisplayName("Memory Plug-in")]
+    [Description("Provides functions to save, retrieve, search, and manage persistent memories for the agent.")]
+    public bool MemoryPluginEnabled { get; set; }
 }

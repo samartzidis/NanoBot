@@ -108,87 +108,110 @@ public class SystemController : ControllerBase
         return StatusCode(StatusCodes.Status408RequestTimeout, "Request timed out while waiting for the wake word.");
     }
 
-    [HttpGet("StreamLogs")]
-    public async Task StreamLogs(int tailLines = 50, CancellationToken cancellationToken = default)
+    [HttpGet("GetLogs")]
+    public async Task<IActionResult> GetLogs(long lastPosition = 0, string lastFile = null)
     {
-        Response.ContentType = "text/event-stream";
-
-        // Path to the log directory
-        var logDirectory = Directory.GetCurrentDirectory();
-        var logFiles = Directory.GetFiles(logDirectory, "log*.txt")
-            .Select(file => new FileInfo(file))  // Get FileInfo to access metadata
-            .OrderByDescending(fileInfo => fileInfo.LastWriteTime)  // Order by LastWriteTime (most recent modification)
-            .FirstOrDefault();  // Get the most recent log file
-
-        if (logFiles == null)
-        {
-            await Response.WriteAsync("No log files found.\n", cancellationToken);
-            return;
-        }
-
         try
         {
-            // Send the filename as an SSE event
-            await Response.WriteAsync($"File: {logFiles.Name}\n\n", cancellationToken);
-            await Response.Body.FlushAsync(cancellationToken); // Ensure the filename is sent immediately
+            // Path to the log directory
+            var logDirectory = Directory.GetCurrentDirectory();
+            var logFiles = Directory.GetFiles(logDirectory, "log*.txt")
+                .Select(file => new FileInfo(file))
+                .OrderByDescending(fileInfo => fileInfo.LastWriteTime)
+                .FirstOrDefault();
 
-            // Read the last N lines from the file
-            var lastLines = await ReadLastLinesAsync(logFiles.FullName, tailLines, cancellationToken);
+            if (logFiles == null)
+            {
+                return Ok(new { fileName = (string)null, lines = new List<string>(), totalLines = 0, fileChanged = false, newPosition = 0L });
+            }
+
+            // Check if file has changed (rotation detection)
+            bool fileChanged = lastFile != null && lastFile != logFiles.Name;
             
-            // Send the last N lines first
-            foreach (var line in lastLines)
-            {
-                await Response.WriteAsync($"{line}\n", cancellationToken);
-            }
-            await Response.Body.FlushAsync(cancellationToken);
+            // If file changed, start from beginning, otherwise start from last position
+            long startPosition = fileChanged ? 0 : lastPosition;
+            
+            var (lines, newPosition) = await ReadLinesFromPositionAsync(logFiles.FullName, startPosition, CancellationToken.None);
 
-            // Now start streaming new lines in real-time
-            await using var fileStream = new FileStream(logFiles.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var streamReader = new StreamReader(fileStream);
-
-            // Position the stream at the end of the file to only read new content
-            fileStream.Seek(0, SeekOrigin.End);
-
-            // Start streaming new lines
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var line = await streamReader.ReadLineAsync(cancellationToken);
-
-                if (line != null)
-                {
-                    // Send each new log line as an SSE event
-                    await Response.WriteAsync($"{line}\n", cancellationToken);
-                    await Response.Body.FlushAsync(cancellationToken); // Ensure data is sent immediately
-                }
-                else
-                {
-                    // If no new data, wait briefly before checking again
-                    await Task.Delay(100, cancellationToken);
-                }
-            }
+            return Ok(new { 
+                fileName = logFiles.Name, 
+                lines = lines, 
+                totalLines = lines.Count,
+                hasNewLines = lines.Count > 0,
+                fileChanged = fileChanged,
+                newPosition = newPosition
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error streaming log file in real-time.");
-            await Response.WriteAsync($"An error occurred while streaming the log file ({ex.Message}).\n", cancellationToken);
+            _logger.LogError(ex, "Error reading log file.");
+            return StatusCode(500, new { error = "Failed to read log file" });
         }
     }
 
-    private async Task<List<string>> ReadLastLinesAsync(string filePath, int lineCount, CancellationToken cancellationToken)
+    private async Task<(List<string> lines, long newPosition)> ReadLinesFromPositionAsync(string filePath, long startPosition, CancellationToken cancellationToken)
+    {
+        var lines = new List<string>();
+        long currentPosition = startPosition;
+        
+        try
+        {
+            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            
+            // If we're not at the beginning, seek to the start position
+            if (startPosition > 0)
+            {
+                fileStream.Seek(startPosition, SeekOrigin.Begin);
+            }
+            
+            using var streamReader = new StreamReader(fileStream);
+            
+            // Read ALL lines from the current position to the end of file
+            string line;
+            while ((line = await streamReader.ReadLineAsync(cancellationToken)) != null)
+            {
+                lines.Add(line);
+                currentPosition = fileStream.Position;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected while reading - return what we have so far
+            _logger.LogDebug("Reading log file cancelled by client");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error reading from position {StartPosition}, falling back to reading entire file", startPosition);
+            // Fallback to reading entire file if position-based reading fails
+            var fallbackLines = await ReadEntireFileAsync(filePath, cancellationToken);
+            return (fallbackLines, 0);
+        }
+        
+        return (lines, currentPosition);
+    }
+
+    private async Task<List<string>> ReadEntireFileAsync(string filePath, CancellationToken cancellationToken)
     {
         var lines = new List<string>();
         
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var streamReader = new StreamReader(fileStream);
-        
-        // Read all lines into a list
-        string line;
-        while ((line = await streamReader.ReadLineAsync(cancellationToken)) != null)
+        try
         {
-            lines.Add(line);
+            await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var streamReader = new StreamReader(fileStream);
+            
+            // Read all lines from the file
+            string line;
+            while ((line = await streamReader.ReadLineAsync(cancellationToken)) != null)
+            {
+                lines.Add(line);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected while reading - return what we have so far
+            _logger.LogDebug("Reading entire file cancelled by client");
         }
         
-        // Return the last N lines, or all lines if the file has fewer than N lines
-        return lines.Count <= lineCount ? lines : lines.Skip(lines.Count - lineCount).ToList();
+        return lines;
     }
 }

@@ -50,6 +50,11 @@ public class AppConfig
     [Description("JSON array of word maths problems. This configuration is required for the WordMathsProblems plugin to function.")]
     public string WordMathsProblemsJson { get; set; }
 
+    [DisplayName("Memory Service Max Memories")]
+    [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
+    [DefaultValue(100)]
+    public int MemoryServiceMaxMemories { get; set; } = 100;
+
     public List<AgentConfig> Agents { get; set; } = [ ];
 }
 

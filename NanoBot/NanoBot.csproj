@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Alsa.Net" Version="1.0.8" />
     <PackageReference Include="HidSharp" Version="2.6.2" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.9.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.9.0" />    
     <PackageReference Include="NanoWakeWord" Version="1.1.0" />

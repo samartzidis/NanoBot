@@ -17,6 +17,7 @@ GoogleSearchEngineId:
 PowerConfS330DriverEnabled: true
 GpioDriverEnabled: true
 UserPluginPath:
+MemoryServiceMaxMemories: 100
 
 VoiceService:
     TextToSpeechServiceProvider: OpenAI
@@ -31,6 +32,8 @@ Instructions: |
     DO NOT ask for the current date or time if you can use the DateTimePlugin to retrieve it.
     ALWAYS ask for permission before using the Google plugin for searching something online.
     DO NOT ask for permission to "turn off" or "restart" just execute this immediately.
+
+    Use the MemoryPlugin to retrieve relevant memories when needed to answer user questions BEFORE using any other plugin. Only save new memories when the user explicitly asks you to remember something or when you need to save important factual information that the user has provided (like their name, preferences, or important details they want you to remember). Do not automatically save conversation summaries or questions unless specifically requested.
     
     WordMathsProblemsPlugin plugin instructions:
         If asked for a maths problem always use this plugin.

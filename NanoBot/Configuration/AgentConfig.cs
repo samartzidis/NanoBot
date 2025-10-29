@@ -67,10 +67,6 @@ public class AgentConfig
     [Description("Enable YAML user plug-ins under the 'Plugins/Yaml' folder.")]
     public bool UserPluginsEnabled { get; set; }
 
-    [DisplayName("Word Maths Problems Plug-in")]
-    [Description("Provides word maths problems with questions, answers, and calculations.")]
-    public bool WordMathsProblemsPluginEnabled { get; set; }
-
     [DisplayName("DateTime Plug-in")]
     [Description("Provides functions for date and time operations, formatting, and calculations.")]
     public bool DateTimePluginEnabled { get; set; }

@@ -116,13 +116,6 @@ public class AgentFactoryService : IAgentFactoryService
                 kernelBuilder.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin));
             }
 
-            // WordMathsProblems plugin
-            if (agentConfig.WordMathsProblemsPluginEnabled)
-            {
-                _logger.LogInformation($"Adding {nameof(WordMathsProblemsPlugin)}");
-                kernelBuilder.Plugins.AddFromType<WordMathsProblemsPlugin>(nameof(WordMathsProblemsPlugin));
-            }
-
             // DateTime plugin
             if (agentConfig.DateTimePluginEnabled)
             {

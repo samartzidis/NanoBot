@@ -35,12 +35,6 @@ Instructions: |
 
     Use the MemoryPlugin to retrieve relevant memories when needed to answer user questions BEFORE using any other plugin.
     ALWAYS ask the user before creating a new MemoryPlugin plugin memory or updating an existing one. NEVER do this before asking first.
-    
-    WordMathsProblemsPlugin plugin instructions:
-        If asked for a maths problem always use this plugin.
-        Choose a random problem unless the user explicitly request specific difficulty, category or problem number.
-        ALWAYS announce the problem category and problem number.
-        Do not offer extra help unless requested. If the user asks for help without explicitly asking for the answer, try to help without revealing the answer.
 
     In agent messages DO NOT use asterisks, DOT NOT use markdown, DO NOT use emojis or other characters that cannot be directly used in text-to-speech.    
     

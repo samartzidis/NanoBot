@@ -24,20 +24,6 @@ const systemUiSchema = {
           { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceKey" },
           { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceRegion" }
         ]
-      },
-      {
-        type: "Group",
-        label: "Word Maths Problems",
-        elements: [      
-            { 
-                type: "Control", 
-                scope: "#/properties/WordMathsProblemsJson", 
-                options: {
-                    customRenderer: "file-upload-download",
-                    contentType: "json"
-                }
-            }
-        ]
       }
     ]
   };

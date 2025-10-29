@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 
 namespace NanoBot.Configuration;
 
@@ -45,10 +44,6 @@ public class AppConfig
     [Description("Path to user plugins directory. Can be absolute or relative to the application directory. Defaults to: 'Plugins/User'.")]
     [DefaultValue("Plugins/User")]
     public string UserPluginPath { get; set; }
-
-    [DisplayName("Word Maths Problems JSON")]
-    [Description("JSON array of word maths problems. This configuration is required for the WordMathsProblems plugin to function.")]
-    public string WordMathsProblemsJson { get; set; }
 
     [DisplayName("Memory Service Max Memories")]
     [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]

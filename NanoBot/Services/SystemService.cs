@@ -165,24 +165,19 @@ public class SystemService : BackgroundService, ISystemService
         // Transient notification that we got out of wake word waiting 
         _bus.Publish<WakeWordDetectedEvent>(this);
 
-        // Retrieve agent associated to wake word
-        AgentConfig agentConfig = null;
-        if (wakeWord == null)
-        {
-            agentConfig ??= appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
-        }
-        else
-        {
-            var newAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled && string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase));
+		// Retrieve agent associated to wake word
+		AgentConfig agentConfig = null;
+		AgentConfig newAgentConfig;
+		if (wakeWord == null)
+		{
+			newAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
+		}
+		else
+		{
+			newAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled && string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase));
+		}
 
-            if(agentConfig?.Name != newAgentConfig?.Name)
-            {
-                _logger.LogDebug("Clearing history.");
-                _history.Clear();
-            }
-
-            agentConfig = newAgentConfig;
-        }
+		agentConfig = newAgentConfig;
 
         if (agentConfig == null)
         {

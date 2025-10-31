@@ -27,29 +27,29 @@ public class AgentConfig
     [Description("TopP controls the diversity of the completion. The higher the TopP, the more diverse the completion. Optional.")]
     public double? TopP { get; set; }
 
-    [Description("Max history size (total messages). Defaults to: '20'.")]
-    [DefaultValue(20)]
-    public int MaxHistory { get; set; } = 20;
+    [Description("Max history size (total messages). Defaults to: '100'.")]
+    [DefaultValue(100)]
+    public int MaxHistory { get; set; } = 100;
 
     [Required]
     [Description("User word that wakes up the agent. This is not arbitrary. It needs to be one of the pre-installed wake word models.")]
     [DefaultValue(DefaultWakeWord)]
     public string WakeWord { get; set; } = DefaultWakeWord;
 
-    [Description("Wake word trigger threshold (0.1 - 0.9). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '0.9'.")]
-    [Range(0, 10, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'. Defaults to: '0.9'.")]
-    [DefaultValue(0.9f)]
-    public float WakeWordThreshold { get; set; } = 0.8f;
+    [Description("Wake word trigger threshold (0.1 - 0.9). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '0.7'.")]
+    [Range(0, 10, ErrorMessage = $"{nameof(WakeWordThreshold)} must be a float value between '0.1' and '0.9'.")]
+    [DefaultValue(0.7f)]
+    public float WakeWordThreshold { get; set; } = 0.7f;
     
     [Description("Wake word trigger level (1 - 10). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '4'.")]
-    [Range(1, 10, ErrorMessage = $"{nameof(WakeWordTriggerLevel)} must be an integer value between '1' and '10'. Defaults to: '4'.")]
-    [DefaultValue(4)]
-    public int WakeWordTriggerLevel { get; set; } = 4;
+    [Range(1, 10, ErrorMessage = $"{nameof(WakeWordTriggerLevel)} must be an integer value between '1' and '10'. Defaults to: '3'.")]
+    [DefaultValue(3)]
+    public int WakeWordTriggerLevel { get; set; } = 3;
 
-    [Required]
-    [Description($"User word that triggers stop of an ongoing conversation. Defaults to: '{DefaultStopWord}'.")]
-    [DefaultValue(DefaultStopWord)]
-    public string StopWord { get; set; } = DefaultStopWord;
+    //[Required]
+    //[Description($"User word that triggers stop of an ongoing conversation. Defaults to: '{DefaultStopWord}'.")]
+    //[DefaultValue(DefaultStopWord)]
+    //public string StopWord { get; set; } = DefaultStopWord;
 
     [Required]
     [Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]

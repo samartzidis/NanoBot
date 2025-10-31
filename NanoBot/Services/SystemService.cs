@@ -327,11 +327,11 @@ public class SystemService : BackgroundService, ISystemService
             }
 
             // Stop on receiving custom "stop" message
-            if (IsStopWord(agentConfig, userMessage))
-            {
-                _logger.LogDebug("Received stop message.");
-                return null; // Complete the conversation loop
-            }
+            //if (IsStopWord(agentConfig, userMessage))
+            //{
+            //    _logger.LogDebug("Received stop message.");
+            //    return null; // Complete the conversation loop
+            //}
 
             var agentMessageBuilder = new StringBuilder();
             await foreach (var message in InvokeAgentAsync(agent, _history, userMessage, cancellationToken: cancellationToken))
@@ -396,7 +396,9 @@ public class SystemService : BackgroundService, ISystemService
                 history.Add(responseMessage);
             }
 
-            await agent.ReduceAsync(history, cancellationToken);
+            var res = await agent.ReduceAsync(history, cancellationToken);
+            if (res)
+                _logger.LogDebug("History truncated.");
         }
         finally
         {
@@ -404,36 +406,36 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
 
-    private bool IsStopWord(AgentConfig agentConfig, string input)
-    {
-        // Remove all non-letter characters
-        input = Regex.Replace(input, @"[^\p{L}]", string.Empty);
-        input = RemoveDiacritics(input);
-        var stopWord = RemoveDiacritics(agentConfig.StopWord);
+    //private bool IsStopWord(AgentConfig agentConfig, string input)
+    //{
+    //    // Remove all non-letter characters
+    //    input = Regex.Replace(input, @"[^\p{L}]", string.Empty);
+    //    input = RemoveDiacritics(input);
+    //    var stopWord = RemoveDiacritics(agentConfig.StopWord);
 
-        _logger.LogDebug($"Checking input '{input}' for stop word '{stopWord}'");
+    //    _logger.LogDebug($"Checking input '{input}' for stop word '{stopWord}'");
             
-        return string.Equals(input, stopWord, StringComparison.InvariantCultureIgnoreCase);
-    }
+    //    return string.Equals(input, stopWord, StringComparison.InvariantCultureIgnoreCase);
+    //}
 
-    private string RemoveDiacritics(string text)
-    {
-        if (string.IsNullOrEmpty(text)) 
-            return text;
+    //private string RemoveDiacritics(string text)
+    //{
+    //    if (string.IsNullOrEmpty(text)) 
+    //        return text;
 
-        // Decompose to base characters and diacritics
-        var normalized = text.Normalize(NormalizationForm.FormD);
+    //    // Decompose to base characters and diacritics
+    //    var normalized = text.Normalize(NormalizationForm.FormD);
 
-        // Filter out non-spacing marks (accents)
-        var result = new StringBuilder();
-        foreach (var c in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                result.Append(c);
-        }
+    //    // Filter out non-spacing marks (accents)
+    //    var result = new StringBuilder();
+    //    foreach (var c in normalized)
+    //    {
+    //        if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+    //            result.Append(c);
+    //    }
 
-        return result.ToString().Normalize(NormalizationForm.FormC);
-    }
+    //    return result.ToString().Normalize(NormalizationForm.FormC);
+    //}
 
     public void StopApplication()
     {

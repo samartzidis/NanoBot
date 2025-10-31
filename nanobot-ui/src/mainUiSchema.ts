@@ -18,7 +18,6 @@ const mainUiSchema = {
               { "type": "Control", "scope": "#/properties/WakeWord" },
               { "type": "Control", "scope": "#/properties/WakeWordThreshold" },
               { "type": "Control", "scope": "#/properties/WakeWordTriggerLevel" },
-              { "type": "Control", "scope": "#/properties/StopWord" },
               { "type": "Control", "scope": "#/properties/SpeechSynthesisVoiceName" },
 
               { "type": "Control", "scope": "#/properties/MemoryPluginEnabled" },

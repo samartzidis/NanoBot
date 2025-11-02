@@ -32,7 +32,7 @@ public interface IVoiceService
 public class VoiceService : IVoiceService
 {
     // Calibration parameters for silence detection
-    public const int SilenceSampleAmplitudeThreshold = 400;
+    public const int SilenceSampleAmplitudeThreshold = 800;
     public const int SilenceSampleCountThreshold = 50;
 
     //User voice message max recording duration if no silence is detected
@@ -170,6 +170,23 @@ public class VoiceService : IVoiceService
         var listenWakeWords = string.Join(',', wakeWordRuntimeConfig.WakeWords.Select(t => t.Model));
         _logger.LogDebug($"Listening for [{@listenWakeWords}]...");
         recorder.Start();
+
+        // Register cancellation callback to stop the recorder so Read() can exit
+        using var registration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (recorder.IsRecording)
+                {
+                    _logger.LogDebug("Stopping recorder due to cancellation.");
+                    recorder.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error stopping recorder on cancellation.");
+            }
+        });
 
         // Run the speech processing loop as a separate task
         var res = await Task.Run(async () =>
@@ -377,6 +394,23 @@ public class VoiceService : IVoiceService
 
         recorder.Start();
 
+        // Register cancellation callback to stop the recorder so Read() can exit
+        using var registration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (recorder.IsRecording)
+                {
+                    _logger.LogDebug("Stopping recorder due to cancellation.");
+                    recorder.Stop();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error stopping recorder on cancellation.");
+            }
+        });
+
         var silenceCount = 0;
         var recordingBuffer = new List<short>();
         var preBuffer = new Queue<short[]>(); // Buffer initial frames of silence
@@ -459,6 +493,13 @@ public class VoiceService : IVoiceService
                     break;
                 }
             }
+        }
+
+        // Check if we exited due to cancellation (recorder was stopped by cancellation callback)
+        if (cancellationToken.IsCancellationRequested)
+        {
+            audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
+            return ReceiveVoiceMessageResult.RecordingCancelled;
         }
 
         audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);

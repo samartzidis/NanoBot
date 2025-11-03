@@ -256,7 +256,8 @@ public class SystemService : BackgroundService, ISystemService
                 _bus.Publish<StopListeningEvent>(this);
             }
                 
-            var agentMessage = await TranscribeAndThink(appConfig, agentConfig, userAudioBuffer, agent, cancellationToken);
+            // Pass hangupToken to enable cancellation during thinking phase
+            var agentMessage = await TranscribeAndThink(appConfig, agentConfig, userAudioBuffer, agent, hangupToken);
             if (agentMessage == null)
                 return;
 
@@ -268,6 +269,13 @@ public class SystemService : BackgroundService, ISystemService
                 agentMessage = agentMessage.Remove(followMarker, FollowResponseMarker.Length);
 
             await VoiceReply(agentConfig, agentMessage, cancellationToken);
+
+            // If speech was cancelled (hangup), exit conversation loop to return to wake word waiting
+            if (hangupToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("Conversation cancelled during speech, returning to wake word waiting.");
+                return; // Complete the conversation loop
+            }
 
             // Heuristically detect if the agent message was a question (only works for English)
             if (agentMessage.Contains("?"))
@@ -354,6 +362,13 @@ public class SystemService : BackgroundService, ISystemService
                 return null; // Complete the conversation loop
             }
 
+            // Check for cancellation before starting LLM call
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning($"{nameof(TranscribeAndThink)} cancelled before LLM invocation.");
+                return null; // Complete the conversation loop
+            }
+
             // Stop on receiving custom "stop" message
             //if (IsStopWord(agentConfig, userMessage))
             //{
@@ -362,11 +377,26 @@ public class SystemService : BackgroundService, ISystemService
             //}
 
             var agentMessageBuilder = new StringBuilder();
-            await foreach (var message in InvokeAgentAsync(agent, _history, userMessage, cancellationToken: cancellationToken))
-                agentMessageBuilder.AppendLine(message);
+            try
+            {
+                await foreach (var message in InvokeAgentAsync(agent, _history, userMessage, cancellationToken: cancellationToken))
+                {
+                    agentMessageBuilder.AppendLine(message);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning($"{nameof(TranscribeAndThink)} cancelled during LLM invocation.");
+                return null; // Complete the conversation loop
+            }
             var agentMessage = agentMessageBuilder.ToString();
 
             return agentMessage;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning($"{nameof(TranscribeAndThink)} cancelled.");
+            return null; // Complete the conversation loop
         }
         finally
         {

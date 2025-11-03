@@ -171,20 +171,19 @@ public class VoiceService : IVoiceService
         _logger.LogDebug($"Listening for [{@listenWakeWords}]...");
         recorder.Start();
 
-        // Register cancellation callback to stop the recorder so Read() can exit
-        using var registration = cancellationToken.Register(() =>
-        {
-            try
+        // Register cancellation callback to stop recorder when cancellation is requested
+        // This ensures recorder.Read() unblocks when cancellation happens
+        // Use a flag to prevent multiple stop calls
+        var stopped = false;
+        using var registration = cancellationToken.Register(() => {
+            if (!stopped)
             {
-                if (recorder.IsRecording)
+                stopped = true;
+                try
                 {
-                    _logger.LogDebug("Stopping recorder due to cancellation.");
                     recorder.Stop();
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error stopping recorder on cancellation.");
+                catch { /* Ignore errors when stopping during cancellation */ }
             }
         });
 
@@ -272,6 +271,12 @@ public class VoiceService : IVoiceService
                             _logger.LogDebug("Wake engine paused due to sustained silence.");
                         }
                     }
+                }
+
+                // Check if we exited due to cancellation before throwing
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return null;
                 }
 
                 throw new Exception($"{nameof(WaitForWakeWordAsync)} failed.");
@@ -394,20 +399,19 @@ public class VoiceService : IVoiceService
 
         recorder.Start();
 
-        // Register cancellation callback to stop the recorder so Read() can exit
-        using var registration = cancellationToken.Register(() =>
-        {
-            try
+        // Register cancellation callback to stop recorder when cancellation is requested
+        // This ensures recorder.Read() unblocks when cancellation happens
+        // Use a flag to prevent multiple stop calls
+        var stopped = false;
+        using var registration = cancellationToken.Register(() => {
+            if (!stopped)
             {
-                if (recorder.IsRecording)
+                stopped = true;
+                try
                 {
-                    _logger.LogDebug("Stopping recorder due to cancellation.");
                     recorder.Stop();
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error stopping recorder on cancellation.");
+                catch { /* Ignore errors when stopping during cancellation */ }
             }
         });
 
@@ -493,13 +497,6 @@ public class VoiceService : IVoiceService
                     break;
                 }
             }
-        }
-
-        // Check if we exited due to cancellation (recorder was stopped by cancellation callback)
-        if (cancellationToken.IsCancellationRequested)
-        {
-            audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
-            return ReceiveVoiceMessageResult.RecordingCancelled;
         }
 
         audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);

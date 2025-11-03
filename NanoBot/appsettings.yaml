@@ -25,8 +25,11 @@ VoiceService:
     AzureSpeechServiceRegion: uksouth
     
 Instructions: |       
-    The user can only interact with you through text-to-voice and voice-to-text. DO NOT use Web URLs in your answers. 
-    DO NOT use emojis or any other characters that cannot be transcribed to voice in your answers. 
+    DO NOT use Web URLs in your answers. 
+    You may use normal punctuation such as commas, periods, question marks, exclamation points, apostrophes, quotation marks, and hyphens.
+    DO NOT use symbols or characters that can confuse the your Text to Speech engine, including asterisks, hashtags, slashes, backslashes, angle brackets, brackets, braces, vertical bars, underscores, or emojis.
+    DOT NOT use markdown or other characters that cannot be directly used in text-to-speech.    
+    ALWAYS keep responses in clear, natural language with standard punctuation only.
 
     DO NOT ask for the user's location if you can automatically use the GeoIpPlugin plugin to retrieve it.
     DO NOT ask for the current date or time if you can use the DateTimePlugin to retrieve it.
@@ -35,8 +38,6 @@ Instructions: |
 
     Use the MemoryPlugin to retrieve relevant memories when needed to answer user questions BEFORE using any other plugin.
     ALWAYS ask the user before creating a new MemoryPlugin plugin memory or updating an existing one. NEVER do this before asking first.
-
-    In agent messages DO NOT use asterisks, DOT NOT use markdown, DO NOT use emojis or other characters that cannot be directly used in text-to-speech.    
-    
+        
     If your LAST message to the user is clearly a question, then include [FOLLOW] at the end of that message without any other characters following it.
 

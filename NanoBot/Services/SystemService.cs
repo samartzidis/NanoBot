@@ -34,8 +34,31 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IHostApplicationLifetime _applicationLifetime;    
 
     private CancellationTokenSource _hangupCancellationTokenSource;
+    private readonly object _hangupCancellationTokenLock = new object();
     private DateTime _lastConversationTimestamp;
     private readonly ChatHistory _history;
+
+    private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
+    {
+        lock (_hangupCancellationTokenLock)
+        {
+            // If current token is cancelled or doesn't exist, create new one
+            if (_hangupCancellationTokenSource == null || _hangupCancellationTokenSource.Token.IsCancellationRequested)
+            {
+                _hangupCancellationTokenSource?.Dispose();
+                _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(baseToken);
+            }
+            return _hangupCancellationTokenSource.Token;
+        }
+    }
+
+    private void CancelHangupToken()
+    {
+        lock (_hangupCancellationTokenLock)
+        {
+            _hangupCancellationTokenSource?.Cancel();
+        }
+    }
 
     public ChatHistory History => _history;
 
@@ -64,7 +87,7 @@ public class SystemService : BackgroundService, ISystemService
     {
         _bus.Subscribe<HangupInputEvent>(e => {
             _logger.LogDebug($"Received {e.GetType().Name}");
-            _hangupCancellationTokenSource?.Cancel();
+            CancelHangupToken();
         });
 
         _bus.Subscribe<VolumeCtrlUpInputEvent>(e => {
@@ -214,14 +237,13 @@ public class SystemService : BackgroundService, ISystemService
         while (!cancellationToken.IsCancellationRequested)
         {            
             byte[] userAudioBuffer;
-            _hangupCancellationTokenSource?.Cancel();  // Cancel any previous token
-            _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var hangupToken = GetOrCreateHangupToken(cancellationToken);
             try
             {                                           
                 _bus.Publish<StartListeningEvent>(this);
 
                 // Wait for user speech message
-                var res = _voiceService.WaitForSpeech(out userAudioBuffer, cancellationToken: _hangupCancellationTokenSource.Token);
+                var res = _voiceService.WaitForSpeech(out userAudioBuffer, cancellationToken: hangupToken);
                 if (res != ReceiveVoiceMessageResult.Ok)
                 {
                     _logger.LogWarning($"{nameof(_voiceService.WaitForSpeech)} failed: {res}");
@@ -232,9 +254,6 @@ public class SystemService : BackgroundService, ISystemService
             finally
             {                    
                 _bus.Publish<StopListeningEvent>(this);
-
-                _hangupCancellationTokenSource?.Cancel();
-                _hangupCancellationTokenSource = null;
             }
                 
             var agentMessage = await TranscribeAndThink(appConfig, agentConfig, userAudioBuffer, agent, cancellationToken);
@@ -262,16 +281,14 @@ public class SystemService : BackgroundService, ISystemService
     
     public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)
     {
-        // Wait for wake word, 
-        _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // Wait for wake word
+        var hangupToken = GetOrCreateHangupToken(cancellationToken);
         try
         {
-            var wakeWord = await _voiceService.WaitForWakeWordAsync(null, _hangupCancellationTokenSource.Token);
+            var wakeWord = await _voiceService.WaitForWakeWordAsync(null, hangupToken);
             if (wakeWord == null) // Got cancelled
             {
-                // Establish source of cancellation
-
-                if (cancellationToken.IsCancellationRequested)// Was the cancellation request triggered from shutdown (cancellationToken method parameter)?
+                if (cancellationToken.IsCancellationRequested)
                 {
                     _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled.");
                     return null;
@@ -286,10 +303,10 @@ public class SystemService : BackgroundService, ISystemService
                 return wakeWord;
             }
         }
-        finally
+        catch (OperationCanceledException)
         {
-            _hangupCancellationTokenSource?.Cancel();
-            _hangupCancellationTokenSource = null;
+            _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled.");
+            return null;
         }
     }
 
@@ -314,6 +331,17 @@ public class SystemService : BackgroundService, ISystemService
 
             }
             _logger.LogDebug($"Using AudioTranscriptionLanguage: {audioTranscriptionLanguage}");
+
+            // Validate audio buffer is not empty or too short before attempting transcription
+            // Minimum audio length is 0.1 seconds, assuming 16kHz sample rate and 16-bit samples:
+            // 0.1 seconds * 16000 samples/sec * 2 bytes/sample = 3200 bytes minimum for PCM data
+            // Plus WAV header (44 bytes), minimum would be around 3244 bytes total
+            // But we'll use a more conservative check - if buffer is less than ~4KB, it's likely too short
+            if (userAudioBuffer == null || userAudioBuffer.Length < 4000)
+            {
+                _logger.LogWarning($"Audio buffer too short ({userAudioBuffer?.Length ?? 0} bytes), skipping transcription.");
+                return null; // Complete the conversation loop
+            }
 
             // Transcribe user speech message
             var userMessage = _voiceService.GenerateSpeechToText(userAudioBuffer, audioTranscriptionLanguage);
@@ -349,17 +377,16 @@ public class SystemService : BackgroundService, ISystemService
     public async Task VoiceReply(AgentConfig agentConfig, string agentMessage, CancellationToken cancellationToken)
     {
         // Speak back to user BUT allow interruption
-        _hangupCancellationTokenSource?.Cancel();  // Cancel any previous token
-        _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var hangupToken = GetOrCreateHangupToken(cancellationToken);
         try
         {
             _bus.Publish<StartTalkingEvent>(this);
 
             var wakeTask = _voiceService.WaitForWakeWordAsync(t => {
-                _hangupCancellationTokenSource.Cancel();
-            }, _hangupCancellationTokenSource.Token);
+                CancelHangupToken();
+            }, hangupToken);
 
-            var speakTask = _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, _hangupCancellationTokenSource.Token);
+            var speakTask = _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, hangupToken);
 
             var completedTask = await Task.WhenAny(wakeTask, speakTask);
             if (completedTask == speakTask)
@@ -372,9 +399,6 @@ public class SystemService : BackgroundService, ISystemService
         finally
         {
             _bus.Publish<StopTalkingEvent>(this);
-
-            _hangupCancellationTokenSource?.Cancel();
-            _hangupCancellationTokenSource = null;
         }
     }
 

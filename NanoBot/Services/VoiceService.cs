@@ -41,7 +41,10 @@ public class VoiceService : IVoiceService
     //Silence duration to mark end of recording of user voice message
     public const int StopRecordingSilenceSeconds = 5;
 
+    private readonly string _openAiTextToSpeechModel = "tts-1";
+    private readonly string _openAiSpeechToTextModel = "whisper-1";
     private readonly string[] _openAiVoiceNames = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+
     private List<VoiceInfo> _cachedVoices; // Cache variable for storing OpenAI voices
     private readonly ILogger _logger;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;
@@ -62,7 +65,7 @@ public class VoiceService : IVoiceService
         var appConfig = _appConfigOptions.Value;
 
         var openAiClient = new OpenAIClient(appConfig.OpenAiApiKey);
-        var whisperClient = openAiClient.GetAudioClient("whisper-1");
+        var whisperClient = openAiClient.GetAudioClient(_openAiSpeechToTextModel);
 
         using var memoryStream = new MemoryStream(audioBuffer);
         AudioTranscription at = whisperClient.TranscribeAudio(memoryStream, "audio.wav", options: new AudioTranscriptionOptions
@@ -74,7 +77,7 @@ public class VoiceService : IVoiceService
     }
 
     /*
-    // Commented out as "whisper-1" currently gives more accurate results
+    // Commented out as OpenAI's "whisper-1" currently gives more accurate results
     public string TranscribeSpeech(byte[] audioBuffer, string audioTranscriptionLanguage)
     {
         _logger.LogDebug($"{nameof(TranscribeSpeech)}: {nameof(audioBuffer)}={audioBuffer.Length}, {nameof(audioTranscriptionLanguage)}=audioTranscriptionLanguage ");
@@ -360,7 +363,7 @@ public class VoiceService : IVoiceService
         var appConfig = _appConfigOptions.Value;
 
         var openAiClient = new OpenAIClient(appConfig.OpenAiApiKey);
-        var audioClient = openAiClient.GetAudioClient("tts-1");
+        var audioClient = openAiClient.GetAudioClient(_openAiTextToSpeechModel);
 
         var speechVoice = new GeneratedSpeechVoice(speechSynthesisVoiceName);
 

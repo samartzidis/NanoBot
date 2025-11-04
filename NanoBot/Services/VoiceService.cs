@@ -154,7 +154,7 @@ public class VoiceService : IVoiceService
     {
         var wakeWordRuntimeConfig = new WakeWordRuntimeConfig
         {
-            DebugCallback = (model, probability, detected) => { _logger.LogDebug($"{model} {probability:F5} - {detected}", model, probability, detected); },
+            DebugAction = (model, probability, detected) => { _logger.LogDebug($"{model} {probability:F5} - {detected}", model, probability, detected); },
             WakeWords = GetWakeWordConfig()
         };
         var wakeWordRuntime = new WakeWordRuntime(wakeWordRuntimeConfig);

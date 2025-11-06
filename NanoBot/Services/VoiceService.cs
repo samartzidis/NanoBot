@@ -208,7 +208,7 @@ public class VoiceService : IVoiceService
                         return null;
 
                     var frame = recorder.Read();
-                    var isSilent = frame.All(t => Math.Abs(t) < SilenceSampleAmplitudeThreshold);
+                    var isSilent = frame.All(t => Math.Abs((int)t) < SilenceSampleAmplitudeThreshold);
 
                     if (!detectionActive)
                     {
@@ -437,7 +437,7 @@ public class VoiceService : IVoiceService
             }
 
             var frame = recorder.Read();
-            var isSilent = frame.All(t => Math.Abs(t) < SilenceSampleAmplitudeThreshold);
+            var isSilent = frame.All(t => Math.Abs((int)t) < SilenceSampleAmplitudeThreshold);
 
             // Return on silence threshold exceeded
             if (!hasStartedRecording && (DateTime.UtcNow - startTime).TotalSeconds > StopRecordingSilenceSeconds)

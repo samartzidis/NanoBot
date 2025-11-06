@@ -213,8 +213,7 @@ public class SystemService : BackgroundService, ISystemService
             Console.WriteLine($"Agent> {response}");
         }
     }
-    
-    
+       
     private async Task ConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
     {
         // Update the last conversation timestamp
@@ -227,18 +226,8 @@ public class SystemService : BackgroundService, ISystemService
         _bus.Publish<WakeWordDetectedEvent>(this);
 
 		// Retrieve agent associated to wake word
-		AgentConfig agentConfig = null;
-		AgentConfig newAgentConfig;
-		if (wakeWord == null)
-		{
-			newAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled);
-		}
-		else
-		{
-			newAgentConfig = appConfig.Agents?.FirstOrDefault(t => !t.Disabled && string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase));
-		}
-
-		agentConfig = newAgentConfig;
+		var agentConfig = appConfig.Agents?.FirstOrDefault(t => 
+			!t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
 
         if (agentConfig == null)
         {
@@ -306,7 +295,19 @@ public class SystemService : BackgroundService, ISystemService
             if (followMarker != -1)
                 agentMessage = agentMessage.Remove(followMarker, FollowResponseMarker.Length);
 
-            await VoiceReply(agentConfig, agentMessage, cancellationToken);
+            // Speak back to user
+            try
+            {
+                _bus.Publish<StartTalkingEvent>(this);
+
+                // Wait for speech to complete - no wake word interruption during speech
+                await _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, hangupToken);
+                _logger.LogDebug("Speech complete.");
+            }
+            finally
+            {
+                _bus.Publish<StopTalkingEvent>(this);
+            }
 
             // If speech was cancelled (hangup), exit conversation loop to return to wake word waiting
             if (hangupToken.IsCancellationRequested)
@@ -439,34 +440,6 @@ public class SystemService : BackgroundService, ISystemService
         finally
         {
             _bus.Publish<StopThinkingEvent>(this);
-        }
-    }
-
-    public async Task VoiceReply(AgentConfig agentConfig, string agentMessage, CancellationToken cancellationToken)
-    {
-        // Speak back to user BUT allow interruption
-        var hangupToken = GetOrCreateHangupToken(cancellationToken);
-        try
-        {
-            _bus.Publish<StartTalkingEvent>(this);
-
-            var wakeTask = _voiceService.WaitForWakeWordAsync(t => {
-                CancelHangupToken();
-            }, hangupToken);
-
-            var speakTask = _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, hangupToken);
-
-            var completedTask = await Task.WhenAny(wakeTask, speakTask);
-            if (completedTask == speakTask)
-                _logger.LogDebug("Speech complete.");
-            else if (completedTask == wakeTask)
-                _logger.LogDebug("Speech interrupted by wake word.");
-            else
-                _logger.LogDebug("Speech interrupted.");
-        }
-        finally
-        {
-            _bus.Publish<StopTalkingEvent>(this);
         }
     }
 

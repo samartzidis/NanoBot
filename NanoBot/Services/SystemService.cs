@@ -103,6 +103,13 @@ public class SystemService : BackgroundService, ISystemService
     {
         var appConfig = _appConfigOptions.Value;
 
+        // Enable keyboard hangup listener only when not in console debug mode
+        if (!appConfig.ConsoleDebug)
+        {
+            // Fire-and-forget keyboard listener; do not block ExecuteAsync
+            _ = StartKeyboardSpacebarListener(cancellationToken);
+        }
+
         return Task.Run(async () =>
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -128,6 +135,39 @@ public class SystemService : BackgroundService, ISystemService
                     
                     await Task.Delay(5000, cancellationToken);
                 }
+            }
+        }, cancellationToken);
+    }
+
+    private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)
+    {
+        return Task.Run(async () =>
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    // Skip if no console or input is redirected (e.g., service/daemon)
+                    if (!Console.IsInputRedirected && Console.KeyAvailable)
+                    {
+                        var key = Console.ReadKey(intercept: true);
+                        if (key.Key == ConsoleKey.Spacebar)
+                        {
+                            _logger.LogDebug("Spacebar pressed -> publishing HangupInputEvent.");
+                            _bus.Publish<HangupInputEvent>(this);
+                        }
+                    }
+
+                    await Task.Delay(50, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // normal on shutdown
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Keyboard listener failed.");
             }
         }, cancellationToken);
     }

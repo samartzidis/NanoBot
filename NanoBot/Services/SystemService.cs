@@ -7,10 +7,8 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using NanoBot.Configuration;
 using NanoBot.Events;
 using NanoBot.Util;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace NanoBot.Services;
 

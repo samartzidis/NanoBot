@@ -31,6 +31,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     private const int GreenPin = 20; // GPIO20 (Physical Pin 38)
     private const int BluePin = 21; // GPIO21 (Physical Pin 40)
     private const int ButtonPin = 26; // GPIO26 (Pin 37 on the header)
+    private const int SpeakerPin = 19; // GPIO19 (Physical Pin 35)
 
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
@@ -51,6 +52,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             _gpioController.OpenPin(RedPin, PinMode.Output);
             _gpioController.OpenPin(GreenPin, PinMode.Output);
             _gpioController.OpenPin(BluePin, PinMode.Output);
+            _gpioController.OpenPin(SpeakerPin, PinMode.Output);
         }
 
         WireUpEventHandlers();
@@ -66,8 +68,8 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         _bus.Subscribe<StartListeningEvent>(e => { ResetTransientStates(); _isListening = true; UpdateLed(); });
         _bus.Subscribe<StopListeningEvent>(e => { ResetTransientStates(); _isListening = false; UpdateLed(); });
 
-        _bus.Subscribe<StartTalkingEvent>(e => { ResetTransientStates(); _isTalking = true; UpdateLed(); });
-        _bus.Subscribe<StopTalkingEvent>(e => { ResetTransientStates(); _isTalking = false; UpdateLed(); });
+        _bus.Subscribe<StartTalkingEvent>(e => { ResetTransientStates(); _isTalking = true; SetSpeaker(true); UpdateLed(); });
+        _bus.Subscribe<StopTalkingEvent>(e => { ResetTransientStates(); _isTalking = false; SetSpeaker(false); UpdateLed(); });
 
         _bus.Subscribe<StartThinkingEvent>(e => { ResetTransientStates(); _isThinking = true; UpdateLed(); });
         _bus.Subscribe<StopThinkingEvent>(e => { ResetTransientStates(); _isThinking = false; UpdateLed(); });
@@ -183,6 +185,16 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         }
     }
 
+    private void SetSpeaker(bool enabled)
+    {
+        _logger.LogDebug($"{nameof(SetSpeaker)}: {enabled}");
+
+        if (PlatformUtil.IsRaspberryPi())
+        {
+            _gpioController.Write(SpeakerPin, enabled ? PinValue.High : PinValue.Low);
+        }
+    }
+
     public override void Dispose()
     {
         if (PlatformUtil.IsRaspberryPi())
@@ -191,6 +203,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             _gpioController.ClosePin(RedPin);
             _gpioController.ClosePin(GreenPin);
             _gpioController.ClosePin(BluePin);
+            _gpioController.ClosePin(SpeakerPin);
             _gpioController.Dispose();
             base.Dispose();
         }

@@ -391,6 +391,8 @@ public class VoiceService : IVoiceService
         }
     }
 
+
+    /*
     public ReceiveVoiceMessageResult WaitForSpeech(
         out byte[] audioBuffer,
         CancellationToken cancellationToken = default)
@@ -414,7 +416,10 @@ public class VoiceService : IVoiceService
                 {
                     recorder.Stop();
                 }
-                catch { /* Ignore errors when stopping during cancellation */ }
+                catch 
+                { 
+                    // Ignore errors when stopping during cancellation 
+                }
             }
         });
 
@@ -497,6 +502,147 @@ public class VoiceService : IVoiceService
                     _logger.LogDebug("Stopped recording due to silence.");
                     recorder.Stop();
 
+                    break;
+                }
+            }
+        }
+
+        audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
+        return ReceiveVoiceMessageResult.Ok;
+    }
+    */
+
+    public ReceiveVoiceMessageResult WaitForSpeech(
+        out byte[] audioBuffer,
+        CancellationToken cancellationToken = default)
+    {
+        audioBuffer = null;
+
+        const int sampleRate = 16000;
+        const float vadThreshold = 0.5f;
+        const int frameLength = 512; // Must match window size for 16kHz sample rate
+        const int minSilenceFrames = 50; // Equivalent to ~1.6 seconds of silence at 16kHz
+        const int preBufferLength = 10; // Keep a small history to include speech onset
+
+        using var recorder = PvRecorder.Create(frameLength: frameLength, deviceIndex: _pvRecordingDeviceIndex);
+        _logger.LogDebug($"Using device: {recorder.SelectedDevice}");
+
+        recorder.Start();
+
+        // Register cancellation callback to stop recorder when cancellation is requested
+        var stopped = false;
+        using var registration = cancellationToken.Register(() => {
+            if (!stopped)
+            {
+                stopped = true;
+                try
+                {
+                    recorder.Stop();
+                }
+                catch 
+                { 
+                    // Ignore errors when stopping during cancellation
+                }
+            }
+        });
+
+        using var vadDetector = new SileroVadDetector(sampleRate);
+        vadDetector.Reset();
+
+        var recordingBuffer = new List<short>();
+        var preBuffer = new Queue<short[]>();
+        var hasStartedRecording = false;
+        var silenceFrameCount = 0;
+        var speechFrameCount = 0;
+        var startTime = DateTime.UtcNow;
+
+        while (recorder.IsRecording)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                recorder.Stop();
+                audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
+                return ReceiveVoiceMessageResult.RecordingCancelled;
+            }
+
+            var frame = recorder.Read();
+
+            // Convert short[] to float[] (normalize to -1.0 to 1.0 range)
+            var floatFrame = new float[frame.Length];
+            for (var i = 0; i < frame.Length; i++)
+            {
+                floatFrame[i] = frame[i] / 32768.0f;
+            }
+
+            // Process frame and get speech probability
+            var speechProb = vadDetector.Process(floatFrame);
+            var isSpeech = speechProb >= vadThreshold;
+
+            // Return on silence threshold exceeded (before recording starts)
+            if (!hasStartedRecording && (DateTime.UtcNow - startTime).TotalSeconds > StopRecordingSilenceSeconds)
+            {
+                _logger.LogDebug($"Timeout: No voice detected within {StopRecordingSilenceSeconds} seconds.");
+                recorder.Stop();
+                audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
+                return ReceiveVoiceMessageResult.RecordingTimeout;
+            }
+
+            if (!hasStartedRecording)
+            {
+                if (isSpeech)
+                {
+                    speechFrameCount++;
+
+                    // Activate recording after a few consecutive speech frames
+                    if (speechFrameCount >= 3)
+                    {
+                        _logger.LogDebug($"Voice detected (VAD prob: {speechProb.ToString("F3")}), starting recording...");
+                        hasStartedRecording = true;
+                        startTime = DateTime.UtcNow;
+                        silenceFrameCount = 0;
+
+                        // Flush pre-buffer first so we capture the start of speech
+                        while (preBuffer.Count > 0)
+                            recordingBuffer.AddRange(preBuffer.Dequeue());
+                    }
+                }
+                else
+                {
+                    speechFrameCount = 0; // Reset counter if silence is detected
+                }
+
+                // Maintain pre-buffer while idle
+                preBuffer.Enqueue(frame);
+                if (preBuffer.Count > preBufferLength)
+                    preBuffer.Dequeue();
+            }
+            else // hasStartedRecording
+            {
+                if (isSpeech)
+                {
+                    silenceFrameCount = 0;
+                }
+                else
+                {
+                    silenceFrameCount++;
+                }
+
+                recordingBuffer.AddRange(frame);
+
+                // Check maximum recording duration
+                if ((DateTime.UtcNow - startTime).TotalSeconds > MaxRecordingDurationSeconds)
+                {
+                    _logger.LogDebug($"Recording exceeded maximum duration of {MaxRecordingDurationSeconds} seconds.");
+                    recorder.Stop();
+                    audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
+                    return ReceiveVoiceMessageResult.RecordingTimeExceeded;
+                }
+
+                // Stop recording after sustained silence
+                if (silenceFrameCount > minSilenceFrames)
+                {
+                    _logger.LogDebug($"Stopped recording due to silence (VAD prob: {speechProb.ToString("F3")}).");
+                    recorder.Stop();
                     break;
                 }
             }

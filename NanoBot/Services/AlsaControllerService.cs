@@ -12,7 +12,7 @@ public interface IAlsaControllerService
 
 internal class AlsaControllerService : IAlsaControllerService
 {
-    private const string NotifyMediaPath = "Resources/media/notify.wav";
+    private const string NotifyMediaPath = "Resources/notify.wav";
 
     private readonly ILogger _logger;
 

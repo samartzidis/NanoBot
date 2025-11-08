@@ -1,4 +1,4 @@
-# NanoBot
+![NanoBot Logo](logo.png)
 
 **NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for teaching assistance. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 

@@ -156,3 +156,9 @@ The NanoBot [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) wake-wor
 
 The NanoBot 3d printable shell was remixed from the _Wee-bo_ robot model by _Sparrows89_.
 
+## Disclaimer
+
+This software and documentation are provided "as-is" without any warranties, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement. The authors and contributors shall not be liable for any damages, including but not limited to direct, indirect, incidental, special, consequential, or punitive damages arising out of the use or inability to use this software or documentation, even if advised of the possibility of such damages.
+
+Use of this software is at your own risk. The authors and contributors assume no responsibility for any damage, injury, or loss that may result from the use, misuse, or inability to use this software or the associated hardware components.
+

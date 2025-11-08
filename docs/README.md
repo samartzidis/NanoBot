@@ -1,12 +1,12 @@
 # NanoBot
 
-**NanoBot** is a free, DIY Raspberry Pi powered AI chat robot, ideal for kids' education and teaching assistance. It can answer challenging questions on a wide range of topics and serve as a live encyclopedia. It is primarily designed to run on Raspberry Pi devices but can also run on desktop (Windows and Linux) for testing and evaluation.
+**NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for teaching assistance. It can answer or help clarify challenging questions on a wide range of topics and serve as a live encyclopedia. 
 
-It is targeting the `Raspberry Pi Zero 2 W` platform but will also run fine on the more powerful 3, 4 and 5 models. Note that on the Pi platform it requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
+It is primarily designed to run on Raspberry Pi devices but can also run on desktop (Windows and Linux) for testing and evaluation. It is designed for the `Raspberry Pi Zero 2 W` platform but will also run fine on more powerful Pi models. Note that it requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
 
-It uses _Semantic Kernel_ with plug-ins to enhance its AI model capabilities and _ONNX_ runtime-based AI inference models for offline wake-word detection and offline voice detection.
+Its basic core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token.
 
-Its only external requirement is an [OpenAI Platform](https://platform.openai.com/) account (and associated API key token).
+It uses _Semantic Kernel_ with plug-ins to enhance its AI capabilities and also local _ONNX_ runtime-based AI inference models for fully offline wake-word detection and fully offline voice detection.
 
 <a href="collage.jpg"><img src="collage.jpg" height="320" title="Collage" />
 

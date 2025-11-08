@@ -1,8 +1,12 @@
 # NanoBot
 
-**NanoBot** is a free, DIY Raspberry Pi-powered AI chat robot, ideal for kids' education and teaching assistance. It can answer challenging questions on a wide range of topics and serve as a live encyclopedia. It is primarily designed to run on a Raspberry Pi but can also run Windows and generic Linux.
+**NanoBot** is a free, DIY Raspberry Pi powered AI chat robot, ideal for kids' education and teaching assistance. It can answer challenging questions on a wide range of topics and serve as a live encyclopedia. It is primarily designed to run on Raspberry Pi devices but can also run on desktop (Windows and Linux) for testing and evaluation.
 
-It uses _Semantic Kernel_ with plug-ins to enhance its capabilities and _ONNX_ runtime-based inference engine for offline wake-word detection.
+It is targeting the `Raspberry Pi Zero 2 W` platform but will also run fine on the more powerful 3, 4 and 5 models. Note that on the Pi platform it requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
+
+It uses _Semantic Kernel_ with plug-ins to enhance its AI model capabilities and _ONNX_ runtime-based AI inference models for offline wake-word detection and offline voice detection.
+
+Its only external requirement is an [OpenAI Platform](https://platform.openai.com/) account (and associated API key token).
 
 <a href="collage.jpg"><img src="collage.jpg" height="320" title="Collage" />
 
@@ -10,31 +14,26 @@ It uses _Semantic Kernel_ with plug-ins to enhance its capabilities and _ONNX_ r
 
 <a href="image.png"><img src="image.png" width="160" title="Agents Config" /></a> <a href="image-1.png"><img src="image-1.png" width="160" title="Agents Config" /></a> <a href="image-2.png"><img src="image-2.png" width="160" title="System Config" /></a>
 
-A minimal example using the wake-word _constantina_ and asking a question with no follow-up message or plug-in invocations:
+A minimal example using the custom wake-word _constantina_ and asking a question with no follow-up message or plug-in invocations:
 
 https://github.com/user-attachments/assets/a3b1ffc4-5398-4894-bc98-23dac8880478
 
-## Features
+## Feature Details
 
-NanoBot has a Web configuration page where functionality can be further tailored to user needs.
+NanoBot has a Web configuration page where functionality can be tailored to user needs.
 
-The baseline AI functionality is provided by the [OpenAI Platform](https://platform.openai.com/) API, so to experience the minimum capabilities of Nanobot a OpenAI Platform account is required at minimum.
-
-NanoBot keeps running costs to the bare minimum by combining OpenAI's chat completion engine with external APIs for the _STT_ (speech-to-text) and the _TTS_ (text-to-speech) robot capabilities. The default AI chat completion engine uses _gpt-4o-mini_, which is cheap. _STT_ is provided by OpenAI's _whisper-1_, incurring minimal extra costs but performing comparatively well. _TTS_ is provided by either OpenAI's _tts-1_ (incurs extra cost, average user experience but no other dependencies) or the Azure Speech Service API (excellent user experience and free but requires creation of an Azure account).
-
-Speech generation is configurable at the Web configuration page and as said, can be provided by either OpenAI (_tts-1_) or by the Azure Speech Service, which further requires the creation of an Azure account, but other than that it is free. The Azure Speech Service has a huge selection of voices and accents and its speech feels more realistic than the OpenAI _whisper-1_ speech generation, but as said, its use is optional.
+NanoBot aims to keep running costs at a minimum by only using OpenAI's chat completion API and _STT_ (speech-to-text) and the _TTS_ (text-to-speech) models (_whisper-1_, _tts-1_). Additionally, the default OpenAI _tts-1_ model can be replaced with the Azure Speech Service API (more natural speech and free but requires the creation of an Azure account). 
 
 NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as: 
 - Google search. 
+- RAG memory.
 - Knowing about the current date and time.
 - Live weather and GeoIP information.
-- A calculator.
+- Calculator.
 - Custom Semantic Kernel YAML user plug-ins.
-- It can also control its eye colour and obey to user's "turn off" and "restart" commands.
+- It can also control its eye colour and respond to user's "turn off" and "restart" commands.
 
 NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the talk/hangup button) on the top of its head or on the *Anker PowerConf S330* speakerphone, if available. Its wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot.
-
-It is tailored and optimised for the `Raspberry Pi Zero 2 W` platform but will also run fine on the more powerful 3, 4 and 5 models. It requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
 
 It self-controls 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface. It also includes driver functionality for the *Anker PowerConf S330* speakerphone so that you can talk and listen but also use the 4 different speakerphone buttons to control the robot (mute, talk/hangup - which acts the same as the robot's head button, volume up/down). The robot additionally includes a push-button on the head, which implements *talk hang-up* functionality replicating the *talk/hang-up* touch-button of the speakerphone.
 
@@ -85,6 +84,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 - **GPIO 20** (physical **Pin 38**) ⇒ **Green** RGB LED pins via 220K resistors.
 - **GPIO 21** (physical **Pin 40**) ⇒ **Blue** RGB LED pins via 220K resistors.
 - **GPIO 26** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
+- **GPIO19** (physical **Pin 35**) ⇒ Optional external audio amplifier on/off control signal (e.g. via a UUGear MOSWITCH or similar).
 
 <a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" />
 

@@ -1,6 +1,6 @@
 # NanoBot
 
-**NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for teaching assistance. It can answer or help clarify challenging questions on a wide range of topics and serve as a live encyclopedia. 
+**NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for teaching assistance. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
 It is primarily designed to run on Raspberry Pi devices but can also run on desktop (Windows and Linux) for testing and evaluation. It is designed for the `Raspberry Pi Zero 2 W` platform but will also run fine on more powerful Pi models. Note that it requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
 

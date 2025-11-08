@@ -1,3 +1,4 @@
+# NanoBot
 <div align="center">
 <img src="logo.png" alt="NanoBot Logo" />
 </div>

@@ -1,4 +1,6 @@
-![NanoBot Logo](logo.png)
+<div align="center">
+<img src="logo.png" alt="NanoBot Logo" />
+</div>
 
 **NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for teaching assistance. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 

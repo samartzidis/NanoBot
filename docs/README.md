@@ -6,7 +6,7 @@ It is primarily designed to run on Raspberry Pi devices but can also run on desk
 
 Its basic core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token.
 
-It uses _Semantic Kernel_ with plug-ins to enhance its AI capabilities and also local _ONNX_ runtime-based AI inference models for fully offline wake-word detection and fully offline voice detection.
+It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) engine with custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
 
 <a href="collage.jpg"><img src="collage.jpg" height="320" title="Collage" />
 

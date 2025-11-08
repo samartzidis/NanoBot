@@ -30,7 +30,6 @@ NanoBot can do much more than being a conversational live encyclopedia. It is co
 - Knowing about the current date and time.
 - Live weather and GeoIP information.
 - Calculator.
-- Custom Semantic Kernel YAML user plug-ins.
 - It can also control its eye colour and respond to user's "turn off" and "restart" commands.
 
 NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the talk/hangup button) on the top of its head or on the *Anker PowerConf S330* speakerphone, if available. Its wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot.

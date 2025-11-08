@@ -3,7 +3,7 @@
 <img src="logo.png" alt="NanoBot Logo" />
 </div>
 
-**NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for teaching assistance. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
+**NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
 It is primarily designed to run on Raspberry Pi devices but can also run on desktop (Windows and Linux) for testing and evaluation. It is designed for the `Raspberry Pi Zero 2 W` platform but will also run fine on more powerful Pi models. Note that it requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
 
@@ -28,11 +28,11 @@ NanoBot has a Web configuration page where functionality can be tailored to user
 NanoBot aims to keep running costs at a minimum by only using OpenAI's chat completion API and _STT_ (speech-to-text) and the _TTS_ (text-to-speech) models (_whisper-1_, _tts-1_). Additionally, the default OpenAI _tts-1_ model can be replaced with the Azure Speech Service API (more natural speech and free but requires the creation of an Azure account). 
 
 NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as: 
-- Google search. 
-- RAG memory.
+- Google search (for live internet Web search). 
+- RAG memory (for permanent user data storage).
 - Knowing about the current date and time.
 - Live weather and GeoIP information.
-- Calculator.
+- Calculator (for accurate and correct math operations).
 - It can also control its eye colour and respond to user's "turn off" and "restart" commands.
 
 NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the talk/hangup button) on the top of its head or on the *Anker PowerConf S330* speakerphone, if available. Its wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot.

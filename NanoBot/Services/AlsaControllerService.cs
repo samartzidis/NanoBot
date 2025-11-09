@@ -8,6 +8,8 @@ public interface IAlsaControllerService
 {
     public void VolumeUp();
     public void VolumeDown();
+    public void SetPlaybackVolume(int volume);
+    public int GetPlaybackVolume();
 }
 
 internal class AlsaControllerService : IAlsaControllerService
@@ -26,26 +28,41 @@ internal class AlsaControllerService : IAlsaControllerService
 
     public void VolumeUp()
     {
-        if (PlatformUtil.IsLinuxPlatform())
+        var currentVolume = GetPlaybackVolume();
+        if (currentVolume < 0)
         {
-            try
-            {
-                var soundDeviceSettings = new SoundDeviceSettings();
-                using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
-
-                alsaDevice.PlaybackVolume += 5;                    
-            }
-            catch (Exception m)
-            {
-                _logger.LogError(m, m.Message);
-            }
+            // Not available or error, skip
+            return;
         }
+
+        // Increment by 1 in logical range (0-10)
+        var newVolume = Math.Min(10, currentVolume + 1);
+        SetPlaybackVolume(newVolume);
 
         HandleVolumeChangeNotification();
     }
 
     public void VolumeDown()
     {
+        var currentVolume = GetPlaybackVolume();
+        if (currentVolume < 0)
+        {
+            // Not available or error, skip
+            return;
+        }
+
+        // Decrement by 1 in logical range (0-10)
+        var newVolume = Math.Max(0, currentVolume - 1);
+        SetPlaybackVolume(newVolume);
+
+        HandleVolumeChangeNotification();
+    }
+
+    public void SetPlaybackVolume(int volume)
+    {
+        if (volume < 0 || volume > 10)
+            throw new ArgumentOutOfRangeException(nameof(volume), "Volume must be between 0 and 10.");
+
         if (PlatformUtil.IsLinuxPlatform())
         {
             try
@@ -53,15 +70,57 @@ internal class AlsaControllerService : IAlsaControllerService
                 var soundDeviceSettings = new SoundDeviceSettings();
                 using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
 
-                alsaDevice.PlaybackVolume -= 5;                    
+                // Get hardware min/max volume range
+                var minVolume = alsaDevice.PlaybackVolumeMin;
+                var maxVolume = alsaDevice.PlaybackVolumeMax;
+
+                // Map logical volume (0-10) to hardware volume range
+                var hardwareVolume = minVolume + (long)(volume * (maxVolume - minVolume) / 10.0);
+
+                _logger.LogDebug($"Set playback volume to {volume}/10 (hardware: {hardwareVolume}, range: {minVolume}-{maxVolume})");
+                alsaDevice.PlaybackVolume = hardwareVolume;                
             }
             catch (Exception m)
             {
                 _logger.LogError(m, m.Message);
             }
         }
+    }
 
-        HandleVolumeChangeNotification();
+    public int GetPlaybackVolume()
+    {
+        if (!PlatformUtil.IsLinuxPlatform())
+        {
+            return -1; // Not available on non-Linux platforms
+        }
+
+        try
+        {
+            var soundDeviceSettings = new SoundDeviceSettings();
+            using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
+
+            // Get current hardware volume and range
+            var currentVolume = alsaDevice.PlaybackVolume;
+            var minVolume = alsaDevice.PlaybackVolumeMin;
+            var maxVolume = alsaDevice.PlaybackVolumeMax;
+
+            // Map hardware volume to logical volume (0-10)
+            if (maxVolume == minVolume)
+                return 0; // Avoid division by zero
+
+            var logicalVolume = (int)Math.Round((currentVolume - minVolume) * 10.0 / (maxVolume - minVolume));
+            
+            // Clamp to valid range
+            logicalVolume = Math.Max(0, Math.Min(10, logicalVolume));
+
+            _logger.LogDebug($"Get playback volume: {logicalVolume}/10 (hardware: {currentVolume}, range: {minVolume}-{maxVolume})");
+            return logicalVolume;
+        }
+        catch (Exception m)
+        {
+            _logger.LogError(m, m.Message);
+            return -1; // Return -1 to indicate error
+        }
     }
 
     private void HandleVolumeChangeNotification()

@@ -12,8 +12,8 @@ const systemUiSchema = {
                 { type: "Control", scope: "#/properties/GoogleApiKey" },
                 { type: "Control", scope: "#/properties/GoogleSearchEngineId" },      
                 { type: "Control", scope: "#/properties/ChatHistoryTimeToLiveMinutes" },
-                { type: "Control", scope: "#/properties/UserPluginPath" },
-                { type: "Control", scope: "#/properties/PowerConfS330DriverEnabled" },      
+                { type: "Control", scope: "#/properties/PowerConfS330DriverEnabled" },   
+                { type: "Control", scope: "#/properties/PlaybackVolume" }   
             ]
       },            
       {
@@ -22,7 +22,7 @@ const systemUiSchema = {
         elements: [      
           { type: "Control", scope: "#/properties/VoiceService/properties/TextToSpeechServiceProvider" },
           { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceKey" },
-          { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceRegion" }
+          { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceRegion" }          
         ]
       }
     ]

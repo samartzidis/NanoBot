@@ -15,8 +15,6 @@ namespace NanoBot.Services;
 public interface ISystemService : IHostedService
 {
     public ChatHistory History { get; }
-    public void ShellExecute(string cmd, string pars);
-    public void StopApplication();
 }
 
 public class SystemService : BackgroundService, ISystemService
@@ -102,6 +100,16 @@ public class SystemService : BackgroundService, ISystemService
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
     {
         var appConfig = _appConfigOptions.Value;
+
+        // Set initial playback volume from config
+        if (appConfig.PlaybackVolume >= 0 && appConfig.PlaybackVolume <= 10)
+        {
+            _alsaControllerService.SetPlaybackVolume(appConfig.PlaybackVolume);
+        }
+        else
+        {
+            _logger.LogWarning($"Invalid PlaybackVolume value: {appConfig.PlaybackVolume}. Must be between 0 and 10.");
+        }
 
         // Enable keyboard hangup listener only when not in console debug mode
         if (!appConfig.ConsoleDebug)
@@ -443,7 +451,6 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
 
-
     private async IAsyncEnumerable<string> InvokeAgentAsync(ChatCompletionAgent agent, ChatHistory history, string userMessage, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         try
@@ -469,69 +476,5 @@ public class SystemService : BackgroundService, ISystemService
         {
             _logger.LogDebug("Invoking LLM complete.");
         }
-    }
-
-    //private bool IsStopWord(AgentConfig agentConfig, string input)
-    //{
-    //    // Remove all non-letter characters
-    //    input = Regex.Replace(input, @"[^\p{L}]", string.Empty);
-    //    input = RemoveDiacritics(input);
-    //    var stopWord = RemoveDiacritics(agentConfig.StopWord);
-
-    //    _logger.LogDebug($"Checking input '{input}' for stop word '{stopWord}'");
-            
-    //    return string.Equals(input, stopWord, StringComparison.InvariantCultureIgnoreCase);
-    //}
-
-    //private string RemoveDiacritics(string text)
-    //{
-    //    if (string.IsNullOrEmpty(text)) 
-    //        return text;
-
-    //    // Decompose to base characters and diacritics
-    //    var normalized = text.Normalize(NormalizationForm.FormD);
-
-    //    // Filter out non-spacing marks (accents)
-    //    var result = new StringBuilder();
-    //    foreach (var c in normalized)
-    //    {
-    //        if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-    //            result.Append(c);
-    //    }
-
-    //    return result.ToString().Normalize(NormalizationForm.FormC);
-    //}
-
-    public void StopApplication()
-    {
-        _applicationLifetime.StopApplication();
-    }
-
-    public async void ShellExecute(string cmd, string pars)
-    {
-        if (PlatformUtil.IsRaspberryPi())
-        {
-            try
-            {
-                // Create a new process to execute the shutdown command
-                var processStartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = cmd,
-                    Arguments = pars,
-                    UseShellExecute = false,  // Ensure the process is started without a shell
-                    RedirectStandardOutput = false,  // Capture output (optional)
-                    RedirectStandardError = false  // Capture error output (optional)
-                };
-
-                // Start the process
-                using var process = System.Diagnostics.Process.Start(processStartInfo);
-                if (process != null)
-                    await process.WaitForExitAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error: {ex.Message}");
-            }
-        }
-    }
+    } 
 }

@@ -5,7 +5,6 @@ using NanoBot.Configuration;
 using Microsoft.SemanticKernel.Plugins.Web;
 using Microsoft.SemanticKernel.Plugins.Web.Google;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.Extensions.AI;
 using NanoBot.Plugins.Native;
 using System.Text;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -137,34 +136,34 @@ public class AgentFactoryService : IAgentFactoryService
                 kernelBuilder.Plugins.AddFromType<WeatherPlugin>(nameof(WeatherPlugin));
             }
 
-            // Add user plugins
-            if (agentConfig.UserPluginsEnabled)
-            {
-                _logger.LogInformation("Adding user plugins");
+            //// Add user plugins
+            //if (agentConfig.UserPluginsEnabled)
+            //{
+            //    _logger.LogInformation("Adding user plugins");
 
-                var pluginPath = ResolvePluginPath(appConfig.UserPluginPath);
-                if (Directory.Exists(pluginPath))
-                {
-                    _logger.LogInformation($"Adding user plugins from {pluginPath}");
+            //    var pluginPath = ResolvePluginPath(appConfig.UserPluginPath);
+            //    if (Directory.Exists(pluginPath))
+            //    {
+            //        _logger.LogInformation($"Adding user plugins from {pluginPath}");
 
-                    foreach (var subDir in Directory.EnumerateDirectories(pluginPath))
-                    {
-                        try
-                        {
-                            _logger.LogInformation($"Adding user plugin from {subDir}");
-                            kernelBuilder.Plugins.AddFromPromptDirectoryYaml(subDir);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, $"Failed to add user plugin from {subDir}");
-                        }
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning($"User plugins path {pluginPath} does not exist");
-                }
-            }
+            //        foreach (var subDir in Directory.EnumerateDirectories(pluginPath))
+            //        {
+            //            try
+            //            {
+            //                _logger.LogInformation($"Adding user plugin from {subDir}");
+            //                kernelBuilder.Plugins.AddFromPromptDirectoryYaml(subDir);
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                _logger.LogError(ex, $"Failed to add user plugin from {subDir}");
+            //            }
+            //        }
+            //    }
+            //    else
+            //    {
+            //        _logger.LogWarning($"User plugins path {pluginPath} does not exist");
+            //    }
+            //}
 
             // Custom kernel config action
             configAction?.Invoke(kernelBuilder);
@@ -224,6 +223,7 @@ public class AgentFactoryService : IAgentFactoryService
         kernelBuilder.Services.AddTransient<IVoiceService>(_ => _serviceProvider.GetRequiredService<IVoiceService>());
         kernelBuilder.Services.AddTransient<IGpioDeviceService>(_ => _serviceProvider.GetRequiredService<IGpioDeviceService>());
         kernelBuilder.Services.AddTransient<IMemoryService>(_ => _serviceProvider.GetRequiredService<IMemoryService>());
+        kernelBuilder.Services.AddTransient<IAlsaControllerService>(_ => _serviceProvider.GetRequiredService<IAlsaControllerService>());
 
         // Register filters
         kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, FunctionInvocationLoggingFilter>();

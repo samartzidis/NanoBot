@@ -6,7 +6,6 @@ namespace NanoBot.Configuration;
 public class AgentConfig
 {
     public const string DefaultWakeWord = "alexa_v0.1";
-    public const string DefaultStopWord = "stop";
 
     [Required]
     [Description("Agent name.")]
@@ -63,9 +62,9 @@ public class AgentConfig
     [Description("Provides methods to search using Google Custom Search API.")]
     public bool GooglePluginEnabled { get; set; }
 
-    [DisplayName("User Plug-ins")]
-    [Description("Enable YAML user plug-ins under the 'Plugins/Yaml' folder.")]
-    public bool UserPluginsEnabled { get; set; }
+    //[DisplayName("User Plug-ins")]
+    //[Description("Enable YAML user plug-ins under the 'Plugins/Yaml' folder.")]
+    //public bool UserPluginsEnabled { get; set; }
 
     [DisplayName("DateTime Plug-in")]
     [Description("Provides functions for date and time operations, formatting, and calculations.")]

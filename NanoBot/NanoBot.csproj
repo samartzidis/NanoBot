@@ -11,7 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Alsa.Net" Version="1.0.10" />
     <PackageReference Include="HidSharp" Version="2.6.4" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
@@ -72,6 +71,10 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\models\constantina.onnx" />
     <EmbeddedResource Include="Resources\models\hey_anna.onnx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Alsa.Net\Alsa.Net.csproj" />
   </ItemGroup>
 
 </Project>

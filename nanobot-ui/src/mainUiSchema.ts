@@ -25,8 +25,7 @@ const mainUiSchema = {
               { "type": "Control", "scope": "#/properties/GeoIpPluginEnabled" },
               { "type": "Control", "scope": "#/properties/WeatherPluginEnabled" },
               { "type": "Control", "scope": "#/properties/CalculatorPluginEnabled" },
-              { "type": "Control", "scope": "#/properties/GooglePluginEnabled" },
-              { "type": "Control", "scope": "#/properties/UserPluginsEnabled" }
+              { "type": "Control", "scope": "#/properties/GooglePluginEnabled" }
             ]
           }
         }

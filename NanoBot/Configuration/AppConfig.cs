@@ -40,15 +40,20 @@ public class AppConfig
     [DefaultValue(60)]
     public int ChatHistoryTimeToLiveMinutes { get; set; } = 60;
 
-    [DisplayName("User Plugins Path")]
-    [Description("Path to user plugins directory. Can be absolute or relative to the application directory. Defaults to: 'Plugins/User'.")]
-    [DefaultValue("Plugins/User")]
-    public string UserPluginPath { get; set; }
+    //[DisplayName("User Plugins Path")]
+    //[Description("Path to user plugins directory. Can be absolute or relative to the application directory. Defaults to: 'Plugins/User'.")]
+    //[DefaultValue("Plugins/User")]
+    //public string UserPluginPath { get; set; }
 
     [DisplayName("Memory Service Max Memories")]
     [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
     [DefaultValue(100)]
     public int MemoryServiceMaxMemories { get; set; } = 100;
+
+    [DisplayName("Playback Volume")]
+    [Description("Playback volume level (0-10). Defaults to: '5'.")]
+    [DefaultValue(5)]
+    public int PlaybackVolume { get; set; } = 5;
 
     public List<AgentConfig> Agents { get; set; } = [ ];
 }

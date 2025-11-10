@@ -1,7 +1,5 @@
 # NanoBot
-<div align="center">
-<img src="logo.png" alt="NanoBot Logo" />
-</div>
+<img src="logo.png" alt="NanoBot Logo" height="240"/>
 
 **NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
@@ -11,7 +9,7 @@ Its basic core AI capability is provided by the [OpenAI Platform](https://platfo
 
 It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) engine with custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
 
-<a href="collage.jpg"><img src="collage.jpg" height="320" title="Collage" />
+<a href="image-7.png"><img src="image-7.png" height="320" /> <a href="image-0.png"><img src="image-0.png" height="320" /> 
 
 <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> <a href="image-9.png"><img src="image-9.png" height="320" title="Model" /></a>
 
@@ -23,23 +21,19 @@ https://github.com/user-attachments/assets/a3b1ffc4-5398-4894-bc98-23dac8880478
 
 ## Feature Details
 
-NanoBot has a Web configuration page where functionality can be tailored to user needs.
-
-NanoBot aims to keep running costs at a minimum by only using OpenAI's chat completion API and _STT_ (speech-to-text) and the _TTS_ (text-to-speech) models (_whisper-1_, _tts-1_). Additionally, the default OpenAI _tts-1_ model can be replaced with the Azure Speech Service API (more natural speech and free but requires the creation of an Azure account). 
-
-NanoBot can do much more than being a conversational live encyclopedia. It is configurable with optional skills such as: 
+NanoBot has capabilities such as: 
 - Google search (for live internet Web search). 
-- RAG memory (for permanent user data storage).
+- RAG (Retrieval Augmented Generation) memory (for permanent semantic memory).
 - Knowing about the current date and time.
 - Live weather and GeoIP information.
 - Calculator (for accurate and correct math operations).
-- It can also control its eye colour and respond to user's "turn off" and "restart" commands.
+- It can also control its eye colour and respond to various user commands such as: "turn off", "restart", "volume up/down", "volume 8", etc.
 
-NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the talk/hangup button) on the top of its head or on the *Anker PowerConf S330* speakerphone, if available. Its wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot.
+It also provides a configuration Web page for configuring the robot remotely from a PC.
 
-It self-controls 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface. It also includes driver functionality for the *Anker PowerConf S330* speakerphone so that you can talk and listen but also use the 4 different speakerphone buttons to control the robot (mute, talk/hangup - which acts the same as the robot's head button, volume up/down). The robot additionally includes a push-button on the head, which implements *talk hang-up* functionality replicating the *talk/hang-up* touch-button of the speakerphone.
+NanoBot is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the *talk/hangup* button) on its head. The wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot. It self-controls 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface.
 
-The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based speakerphone device or a headset can be potentially used, but NanoBot includes a driver for the S330 so that it can take advantage of the speakerphone touch buttons. Given that, it's best to use this speakerphone.
+NanoBot aims to keep running costs at a minimum by only using OpenAI's chat completion API and _STT_ (speech-to-text) and the _TTS_ (text-to-speech) models (_whisper-1_, _tts-1_). Additionally, the default OpenAI _tts-1_ model can be replaced with the Azure Speech Service API (more natural speech and free but requires the creation of an Azure account). 
 
 ## Operation
 
@@ -66,16 +60,22 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 ## Hardware Build Components and Specific Requirements
 
 - A Raspberry Pi Zero 2 W with a soldered GPIO header (you might as well purchase the Raspberry Pi Zero 2 WH).
-- __Optionaly__ an *Anker PowerConf S330* speakerphone or something equivalent (e.g. a USB headset).
-- A good heatsink as it can get really hot and start throtting down the CPU. A recommended heatsink is [Geekworm Raspberry Pi Zero 2 W Heatsink](https://www.amazon.co.uk/dp/B09QMBCXLB). Ideally install it using the thermal heatsink paste option instead of the included heatsink pad.
+- Optional but highly recommended - a heatsink. A recommended heatsink is [Geekworm Raspberry Pi Zero 2 W Heatsink](https://www.amazon.co.uk/dp/B09QMBCXLB). Ideally install it using the thermal heatsink paste option instead of the included heatsink pad.
+- A Raspberry Pi compatible USB sound card - e.g. [this one](https://www.amazon.co.uk/dp/B01N905VOY).
+  - Note that you will need to cut the USB-A male connector and replace with a micro-USB male connector or alternatively use an adaptor - although doing so will take precious extra space inside the robot.
+- A 14 mm electret microphone (for optimnal performance) such as [this one](https://www.amazon.co.uk/dp/B0FMY43SQM) but can use smaller elecret mic sizes as well.
 - A 3D printer to print the robot shell. Printing will take several hours but it's relatively straightforwards. No supports required. You will need epoxy glue to glue the shell parts together.
 - 5mm round common cathode RGB LEDs for the robot eyes.
 - Multicoloured 28AWG (ideally silicone) cables.
+- For making the custom length connector cables, a kit of several female Dupont 2.54 mm pitch 1-Pin connectors such as [these](https://www.amazon.co.uk/dp/B096DC1J3X) and an equivalent crimping tool such as [this one](https://www.amazon.co.uk/dp/B01N4L8QMW).
 - A momentary 19mm push-button for the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
 - A self tapping M2 screws. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
 - A genuinely at least 2A and 5V micro-USB power supply to power the Pi board (or weird failures will happen during operation if weaker power supply used).
 - 2x 4 pin 2.54mm PCB Board Pin Header Connector Strips, that you will use to solder the cables instead of soldering them directly onto the GPIO header pins of the Raspberry Pi Zero 2 WH. E.g. [these](https://www.amazon.co.uk/VooGenzek-Breakaway-Connector-Assortment-Stackable/dp/B09NDMVD2C).
 - 6x 220K resistors for each one of the 2 RGB LEDs anode (+) pins.
+- A Raspberry Pi compatible MOSFET switch, ideally something [like this](https://thepihut.com/products/moswitch-9a-28v-spdt-mosfet-switch) for controlling the power supply to the mini amplifier gia GPIO.
+- A mini 4Ohm 5W speaker such as [this one](https://www.amazon.co.uk/sourcing-map-JST-PH2-0-Electronic-Advertising/dp/B0D9QWWB6K).
+- A mono PAM8302-based or similar audio amplifier such as [this one](https://thepihut.com/products/adafruit-mono-2-5w-class-d-audio-amplifier-pam8302).
 
 <a href="image-3.png"><img src="image-3.png" width="160" title="Raspberry Pi Board Assembly" /></a> <a href="image-4.png"><img src="image-4.png" width="160" title="LED Eyes Assembly" /></a>
 
@@ -86,7 +86,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
 - **GPIO 20** (physical **Pin 38**) ⇒ **Green** RGB LED pins via 220K resistors.
 - **GPIO 21** (physical **Pin 40**) ⇒ **Blue** RGB LED pins via 220K resistors.
 - **GPIO 26** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
-- **GPIO19** (physical **Pin 35**) ⇒ Optional external audio amplifier on/off control signal (e.g. via a UUGear MOSWITCH or similar).
+- **GPIO19** (physical **Pin 35**) ⇒ External audio amplifier on/off control signal (e.g. via a UUGear MOSWITCH or similar).
 
 <a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" />
 
@@ -106,7 +106,7 @@ The use of the *Anker PowerConf S330* speakerphone is optional. Any USB-based sp
     wifi.powersave = 2
     ```
 5. Reboot.
-6. You can now connect the *Anker PowerConf S330* speakerphone device to the USB port and use the `alsamixer` command to check if it is detected and if everything looks right. You can also adjust the S330 mic sensitivity to about 80%.
+6. You can now connect the USB sound card the USB port and use the `alsamixer` command to check if it is detected and if everything looks right. You should also adjust the mic sensitivity.
 7. Install the .NET 8 platform in the `/opt/dotnet8` directory, by following the official installation guides for the Raspberry Pi (e.g. https://learn.microsoft.com/en-us/dotnet/iot/deployment). Also set the following in the bottom of your of `/etc/profile`:
    ```
    export DOTNET_ROOT=/opt/dotnet8

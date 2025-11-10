@@ -9,7 +9,7 @@ Its basic core AI capability is provided by the [OpenAI Platform](https://platfo
 
 It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) engine with custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
 
-<a href="image-7.png"><img src="image-7.png" height="320" /> <a href="image-0.png"><img src="image-0.png" height="320" /> 
+<a href="image-7.png"><img src="image-7.png" height="320" /></a> <a href="image-0.png"><img src="image-0.png" height="320" /></a> 
 
 <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> <a href="image-9.png"><img src="image-9.png" height="320" title="Model" /></a>
 
@@ -19,7 +19,7 @@ A minimal example using the custom wake-word _constantina_ and asking a question
 
 https://github.com/user-attachments/assets/a3b1ffc4-5398-4894-bc98-23dac8880478
 
-## Feature Details
+## Features
 
 NanoBot has capabilities such as: 
 - Google search (for live internet Web search). 
@@ -46,38 +46,41 @@ NanoBot aims to keep running costs at a minimum by only using OpenAI's chat comp
 - **Magenta** - The robot is talking.
 - **Cyan** - The robot is thinking, i.e. invoking the OpenAI API for AI.
 - **Blue** - The robot is invoking one of its internal plug-ins (e.g. the persistent memory store plug-in or the date/time plug-in, etc.). This is also mentioned as the deep-thinking phase.
-- **Red** - An error has occured. If it is a transient error, e.g. an external API timeout, it will automatically recover. If not, you may want to inspect the logs (via the management Web-page or the SSH).
+- **Red** - An error has occurred. If it is a transient error, e.g. an external API timeout, it will automatically recover. If not, you may want to inspect the logs (via the management Web-page or the SSH).
 
 #### Operation Cycle
 
-1. _Standby phase:_ The robot's eyes are white. The robot is waiting to wake up by voice or a talk/hangup buttons press.
-2. _Wake-up phase:_ Talk to the robot using the configured wake-up word or alternatively press the talk/hangup button on its head or the talk/hangup button on the connected S330 device (if available). On wake-word detection the eyes will turn yellow.
-3. _Listening phase:_ Then almost immediately the eyes will turn green, meaning that the robot is listening for voice commands. If there is no user voice for a few seconds, this phase will time-out and the robot will go back into stanb-by mode. During this phase, the user can press the talk/hang-up buttons to cancel and return the robot immediately into stand-by.
-4. _Thinking/deep-thinking phases:_ After receiving a voice message, the robbot will try to process it by invoking AI APIs and internal plug-ins. The eyes will turn cyan and blue. These phases can be interrupted as previously, by pressing the talk/hang-up buttons.
-5. _Response phase:_ The robot will respond back to the user. Its eyes are magenta while talking back. As previously, this phase can be interrupted by pressing the talk/hang-up buttons. This phase can also be interrupted by saying the configured stop word, which is by default the word: "stop".
-6. _Completion/follow-up phase:_ If the robot expects a follow-up conversation message from the user it will automatically enter to Listening Phase again, which can be cancelled by the user if desired. If the robot does not expect a user message, it will go back into the _Listening_ phase again.
+1. _Standby phase:_ The robot's eyes are white. The robot is waiting to wake up by voice or a talk/hangup button press.
+2. _Wake-up phase:_ Talk to the robot using the configured wake-up word or alternatively press the talk/hangup button on the head. On wake-word detection the eyes will turn yellow.
+3. _Listening phase:_ Then almost immediately the eyes will turn green, meaning that the robot is listening for voice commands. If there is no user voice for a few seconds, this phase will time-out and the robot will go back into stand-by mode. During this phase, the user can press the talk/hang-up buttons to cancel and return the robot immediately into stand-by.
+4. _Thinking/deep-thinking phases:_ After receiving a voice message, the robot will try to process it by invoking AI APIs and internal plug-ins. The eyes will turn cyan and blue. These phases can be interrupted as previously, by pressing the talk/hang-up buttons.
+5. _Response phase:_ The robot will respond back to the user. Its eyes are magenta while talking back. As previously, this phase can be interrupted by pressing the talk/hang-up buttons.
+6. _Completion/follow-up phase:_ If the robot expects a follow-up conversation message from the user, it will automatically enter the Listening Phase again, which can be cancelled by the user if desired. If the robot does not expect a user message, it will go back into the _Standby_ phase.
 
 ## Hardware Build Components and Specific Requirements
 
-- A Raspberry Pi Zero 2 W with a soldered GPIO header (you might as well purchase the Raspberry Pi Zero 2 WH).
-- Optional but highly recommended - a heatsink. A recommended heatsink is [Geekworm Raspberry Pi Zero 2 W Heatsink](https://www.amazon.co.uk/dp/B09QMBCXLB). Ideally install it using the thermal heatsink paste option instead of the included heatsink pad.
-- A Raspberry Pi compatible USB sound card - e.g. [this one](https://www.amazon.co.uk/dp/B01N905VOY).
+- A **Raspberry Pi Zero 2 W** with a soldered GPIO header (you might as well purchase the Raspberry Pi Zero 2 WH).
+- Optional but highly recommended - a **heatsink**. A recommended heatsink is [Geekworm Raspberry Pi Zero 2 W Heatsink](https://www.amazon.co.uk/dp/B09QMBCXLB). Ideally install it using the thermal heatsink paste option instead of the included heatsink pad.
+- A Raspberry Pi compatible **USB sound card** - e.g. [this one](https://www.amazon.co.uk/dp/B01N905VOY).
   - Note that you will need to cut the USB-A male connector and replace with a micro-USB male connector or alternatively use an adaptor - although doing so will take precious extra space inside the robot.
-- A 14 mm electret microphone (for optimnal performance) such as [this one](https://www.amazon.co.uk/dp/B0FMY43SQM) but can use smaller elecret mic sizes as well.
-- A 3D printer to print the robot shell. Printing will take several hours but it's relatively straightforwards. No supports required. You will need epoxy glue to glue the shell parts together.
-- 5mm round common cathode RGB LEDs for the robot eyes.
-- Multicoloured 28AWG (ideally silicone) cables.
-- For making the custom length connector cables, a kit of several female Dupont 2.54 mm pitch 1-Pin connectors such as [these](https://www.amazon.co.uk/dp/B096DC1J3X) and an equivalent crimping tool such as [this one](https://www.amazon.co.uk/dp/B01N4L8QMW).
-- A momentary 19mm push-button for the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
-- A self tapping M2 screws. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
-- A genuinely at least 2A and 5V micro-USB power supply to power the Pi board (or weird failures will happen during operation if weaker power supply used).
-- 2x 4 pin 2.54mm PCB Board Pin Header Connector Strips, that you will use to solder the cables instead of soldering them directly onto the GPIO header pins of the Raspberry Pi Zero 2 WH. E.g. [these](https://www.amazon.co.uk/VooGenzek-Breakaway-Connector-Assortment-Stackable/dp/B09NDMVD2C).
-- 6x 220K resistors for each one of the 2 RGB LEDs anode (+) pins.
-- A Raspberry Pi compatible MOSFET switch, ideally something [like this](https://thepihut.com/products/moswitch-9a-28v-spdt-mosfet-switch) for controlling the power supply to the mini amplifier gia GPIO.
-- A mini 4Ohm 5W speaker such as [this one](https://www.amazon.co.uk/sourcing-map-JST-PH2-0-Electronic-Advertising/dp/B0D9QWWB6K).
-- A mono PAM8302-based or similar audio amplifier such as [this one](https://thepihut.com/products/adafruit-mono-2-5w-class-d-audio-amplifier-pam8302).
+- A 14 mm **electret microphone** (for optimal performance) such as [this one](https://www.amazon.co.uk/dp/B0FMY43SQM) but can use smaller electret mic sizes as well.
+- 5mm round common cathode **RGB LEDs** for the robot eyes.
+- Multicoloured 28AWG (ideally silicone) **cables**.
+- For making the custom length connector cables, a kit of several female **Dupont 2.54 mm pitch 1-Pin connectors** such as [these](https://www.amazon.co.uk/dp/B096DC1J3X) and an equivalent crimping tool such as [this one](https://www.amazon.co.uk/dp/B01N4L8QMW).
+- A **momentary 19mm push-button** for the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
+- A self tapping **M2 screws**. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
+- 6x 220K **resistors** for each one of the 2 RGB LEDs anode (+) pins.
+- A Raspberry Pi compatible **MOSFET switch**, ideally something [like this](https://thepihut.com/products/moswitch-9a-28v-spdt-mosfet-switch) for controlling the power supply to the mini amplifier gia GPIO.
+- A mini 4Ohm 5W **speaker** such as [this one](https://www.amazon.co.uk/sourcing-map-JST-PH2-0-Electronic-Advertising/dp/B0D9QWWB6K).
+- A PAM8302-based or similar class-D mono **audio amplifier** such as [this one](https://thepihut.com/products/adafruit-mono-2-5w-class-d-audio-amplifier-pam8302).
 
 <a href="image-3.png"><img src="image-3.png" width="160" title="Raspberry Pi Board Assembly" /></a> <a href="image-4.png"><img src="image-4.png" width="160" title="LED Eyes Assembly" /></a>
+
+The MOSFET switch is used so that the audio amplifier is only turned on when the robot talks. This saves power but primarily prevents audible hiss from the speaker to be picked by the microphone and significantly reduce the audio detection sensitivity and clarity.
+
+Printing will take several hours but it's relatively straightforward. No supports required. You will need epoxy glue to glue the shell parts together.
+
+A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will be needed (or weird failures will happen during operation if weaker power supply used).
 
 ## GPIO Interface Hardware Connections
 
@@ -88,7 +91,7 @@ NanoBot aims to keep running costs at a minimum by only using OpenAI's chat comp
 - **GPIO 26** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
 - **GPIO19** (physical **Pin 35**) ⇒ External audio amplifier on/off control signal (e.g. via a UUGear MOSWITCH or similar).
 
-<a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" />
+<a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" /></a>
 
 ## Raspberry Pi OS Platform Preparation
 
@@ -105,15 +108,15 @@ NanoBot aims to keep running costs at a minimum by only using OpenAI's chat comp
     # Values are 0 (use default), 1 (ignore/don't touch), 2 (disable) or 3 (enable).
     wifi.powersave = 2
     ```
-5. Reboot.
-6. You can now connect the USB sound card the USB port and use the `alsamixer` command to check if it is detected and if everything looks right. You should also adjust the mic sensitivity.
-7. Install the .NET 8 platform in the `/opt/dotnet8` directory, by following the official installation guides for the Raspberry Pi (e.g. https://learn.microsoft.com/en-us/dotnet/iot/deployment). Also set the following in the bottom of your of `/etc/profile`:
+6. Reboot.
+7. You can now connect the USB sound card to the USB port and use the `alsamixer` command to check if it is detected and if everything looks right. You should also adjust the mic sensitivity.
+8. Install the .NET 8 platform in the `/opt/dotnet8` directory, by following the official installation guides for the Raspberry Pi (e.g. https://learn.microsoft.com/en-us/dotnet/iot/deployment). Also set the following at the bottom of `/etc/profile`:
    ```
    export DOTNET_ROOT=/opt/dotnet8
    export PATH="$DOTNET_ROOT:$PATH"
    ```
    The DOTNET_ROOT environment variable is needed when running .NET executables published as a single file, so it is best to set it as well.
-8. Ensure that the `dotnet` command is in the PATH of the `pi` user.
+9. Ensure that the `dotnet` command is in the PATH of the `pi` user.
 
 ## Software Installation
 

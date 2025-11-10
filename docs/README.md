@@ -89,7 +89,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 - **GPIO 20** (physical **Pin 38**) ⇒ **Green** RGB LED pins via 220K resistors.
 - **GPIO 21** (physical **Pin 40**) ⇒ **Blue** RGB LED pins via 220K resistors.
 - **GPIO 26** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
-- **GPIO19** (physical **Pin 35**) ⇒ External audio amplifier on/off control signal (e.g. via a UUGear MOSWITCH or similar).
+- **GPIO19** (physical **Pin 35**) ⇒ External audio amplifier on/off control signal.
 
 <a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" /></a>
 

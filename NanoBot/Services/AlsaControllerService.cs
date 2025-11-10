@@ -14,12 +14,12 @@ public interface IAlsaControllerService
 
 internal class AlsaControllerService : IAlsaControllerService
 {
-    private const string NotifyMediaPath = "Resources/notify.wav";
+    //private const string NotifyMediaPath = "Resources/notify.wav";
 
     private readonly ILogger _logger;
 
-    private readonly TimeSpan _debounceDelay = TimeSpan.FromMilliseconds(500);
-    private CancellationTokenSource _debounceCts;
+    //private readonly TimeSpan _debounceDelay = TimeSpan.FromMilliseconds(500);
+    //private CancellationTokenSource _debounceCts;
 
     public AlsaControllerService(ILogger<AlsaControllerService> logger) 
     {
@@ -39,7 +39,7 @@ internal class AlsaControllerService : IAlsaControllerService
         var newVolume = Math.Min(10, currentVolume + 1);
         SetPlaybackVolume(newVolume);
 
-        HandleVolumeChangeNotification();
+        //HandleVolumeChangeNotification();
     }
 
     public void VolumeDown()
@@ -55,7 +55,7 @@ internal class AlsaControllerService : IAlsaControllerService
         var newVolume = Math.Max(0, currentVolume - 1);
         SetPlaybackVolume(newVolume);
 
-        HandleVolumeChangeNotification();
+        //HandleVolumeChangeNotification();
     }
 
     public void SetPlaybackVolume(int volume)
@@ -123,26 +123,26 @@ internal class AlsaControllerService : IAlsaControllerService
         }
     }
 
-    private void HandleVolumeChangeNotification()
-    {
-        _logger.LogDebug($"{nameof(HandleVolumeChangeNotification)}");
+    //private void HandleVolumeChangeNotification()
+    //{
+    //    _logger.LogDebug($"{nameof(HandleVolumeChangeNotification)}");
 
-        // Cancel any existing debounce task
-        _debounceCts?.Cancel();
-        _debounceCts = new CancellationTokenSource();
-        var token = _debounceCts.Token;
+    //    // Cancel any existing debounce task
+    //    _debounceCts?.Cancel();
+    //    _debounceCts = new CancellationTokenSource();
+    //    var token = _debounceCts.Token;
 
-        // Start a new debounce task
-        Task.Delay(_debounceDelay, token)
-            .ContinueWith(t =>
-            {
-                if (!t.IsCanceled)
-                {
-                    var soundDeviceSettings = new SoundDeviceSettings();
-                    using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
-                    alsaDevice.Play(NotifyMediaPath);
+    //    // Start a new debounce task
+    //    Task.Delay(_debounceDelay, token)
+    //        .ContinueWith(t =>
+    //        {
+    //            if (!t.IsCanceled)
+    //            {
+    //                var soundDeviceSettings = new SoundDeviceSettings();
+    //                using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
+    //                alsaDevice.Play(NotifyMediaPath);
 
-                }
-            }, TaskScheduler.Default);
-    }
+    //            }
+    //        }, TaskScheduler.Default);
+    //}
 }

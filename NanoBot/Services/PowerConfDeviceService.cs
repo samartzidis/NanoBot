@@ -1,4 +1,5 @@
-﻿using NanoBot.Events;
+﻿/*
+using NanoBot.Events;
 using HidSharp;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -263,3 +264,4 @@ public class PowerConfDeviceService : BackgroundService, IPowerConfDeviceService
         return false;
     }
 }
+*/

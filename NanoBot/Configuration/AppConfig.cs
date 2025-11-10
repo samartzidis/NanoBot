@@ -25,9 +25,9 @@ public class AppConfig
     [Description("Google Search Engine Id used by the Google plug-in.")]
     public string GoogleSearchEngineId { get; set; }
 
-    [DisplayName("Enable Anker PowerConf S330 Driver")]
-    [Description("Enable device driver for connected Anker PowerConf S330 speakerphone.")]
-    public bool PowerConfS330DriverEnabled { get; set; }
+    //[DisplayName("Enable Anker PowerConf S330 Driver")]
+    //[Description("Enable device driver for connected Anker PowerConf S330 speakerphone.")]
+    //public bool PowerConfS330DriverEnabled { get; set; }
 
     public VoiceServiceConfig VoiceService { get; set; } = new();
 

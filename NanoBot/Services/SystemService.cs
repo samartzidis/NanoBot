@@ -127,9 +127,9 @@ public class SystemService : BackgroundService, ISystemService
                     _bus.Publish<SystemOkEvent>(this);
                     
                     if (!appConfig.ConsoleDebug)
-                        await ConversationLoop(appConfig, cancellationToken);
+                        await ConversationLoop(cancellationToken);
                     else
-                        await ConsoleDebugConversationLoop(appConfig,cancellationToken);
+                        await ConsoleDebugConversationLoop(cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -180,8 +180,10 @@ public class SystemService : BackgroundService, ISystemService
         }, cancellationToken);
     }
     
-    private async Task ConsoleDebugConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
+    private async Task ConsoleDebugConversationLoop(CancellationToken cancellationToken)
     {
+        var appConfig = _appConfigOptions.Value;
+
         var agentConfig = appConfig.Agents?.FirstOrDefault(a => !a.Disabled);
         if (agentConfig == null)
             throw new Exception("No enabled agents found in config.");
@@ -222,7 +224,7 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
        
-    private async Task ConversationLoop(AppConfig appConfig, CancellationToken cancellationToken)
+    private async Task ConversationLoop(CancellationToken cancellationToken)
     {
         // Update the last conversation timestamp
         _lastConversationTimestamp = DateTime.Now;
@@ -233,10 +235,10 @@ public class SystemService : BackgroundService, ISystemService
         // Transient notification that we got out of wake word waiting 
         _bus.Publish<WakeWordDetectedEvent>(this);
 
-		// Retrieve agent associated to wake word
-		var agentConfig = appConfig.Agents?.FirstOrDefault(t => 
+        // Retrieve agent associated to wake word
+        var appConfig = _appConfigOptions.Value;
+        var agentConfig = appConfig.Agents?.FirstOrDefault(t => 
 			!t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
-
         if (agentConfig == null)
         {
             _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
@@ -258,7 +260,7 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         // Instantiate agent - inject dynamic dependencies
-        var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kernelBuilder => {
+          var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kernelBuilder => {
             kernelBuilder.Services.AddSingleton<ISystemService>(this);
             kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
         }, cancellationToken: cancellationToken);

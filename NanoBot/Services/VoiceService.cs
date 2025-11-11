@@ -43,7 +43,7 @@ public class VoiceService : IVoiceService
 
     private readonly string _openAiTextToSpeechModel = "tts-1";
     private readonly string _openAiSpeechToTextModel = "whisper-1";
-    private readonly string[] _openAiVoiceNames = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+    private readonly string[] _openAiVoiceNames = ["alloy", "echo", "fable", "onyx", "nova", "shimmer", "ash", "sage", "coral"];
 
     private List<VoiceInfo> _cachedVoices; // Cache variable for storing OpenAI voices
     private readonly ILogger _logger;

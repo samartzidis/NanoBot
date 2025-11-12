@@ -118,7 +118,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
    The DOTNET_ROOT environment variable is needed when running .NET executables published as a single file, so it is best to set it as well.
 9. Ensure that the `dotnet` command is in the PATH of the `pi` user.
 
-## Software Installation
+## Software Installation and Configuration
 
 1. Create the directory `/home/pi/nanobot` and copy/extract the release build files there.
 2. Check if NanoBot works when running from the console by running: `dotnet NanoBot.dll`.
@@ -137,7 +137,13 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     [Install]
     WantedBy=default.target
     ```
-4. Add permissions to user `pi` to open hidraw devices. Only needed if using a USB speakerphone such as the *Anker PowerConf S330* speakerphone for enabling control of the consumer controls (buttons) and lights. Create and edit the file: `/etc/udev/rules.d/99-hidraw-permissions.rules` and set the content:
+4. Enable and start the `nanobot` service:
+    ```
+    systemctl enable nanobot.service
+    systemctl start nanobot
+    ```
+
+Optionally, add permissions to user `pi` to open hidraw devices. Only needed if using an external USB speakerphone (such as the *Anker PowerConf S330*) for enabling control of the consumer controls (buttons) and lights. Create and edit the file: `/etc/udev/rules.d/99-hidraw-permissions.rules` and set the content:
    ```
    KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="pi"
    ```
@@ -147,11 +153,6 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
    sudo udevadm control --reload-rules
    sudo udevadm trigger
    ```
-5. Enable and start the `nanobot` service:
-    ```
-    systemctl enable nanobot.service
-    systemctl start nanobot
-    ```
 
 ## License and Acknowledgements
 

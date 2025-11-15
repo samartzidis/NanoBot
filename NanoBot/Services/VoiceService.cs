@@ -25,14 +25,12 @@ public interface IVoiceService
     ReceiveVoiceMessageResult WaitForSpeech(out byte[] audioBuffer, CancellationToken cancellationToken = default);
     string GenerateSpeechToText(byte[] audioBuffer, string audioTranscriptionLanguage);
     Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default);
-    Task<string> WaitForWakeWordAsync(Action<string> receivedAction = null, CancellationToken cancellationToken = default);
     Task<List<VoiceInfo>> GetAvailableVoicesAsync(TextToSpeechServiceProviderConfig config, CancellationToken cancellationToken = default);
 }
 
 public class VoiceService : IVoiceService
 {
     // Calibration parameters for silence detection
-    public const int SilenceSampleAmplitudeThreshold = 800;
     public const int SilenceSampleCountThreshold = 50;
 
     //User voice message max recording duration if no silence is detected
@@ -56,8 +54,6 @@ public class VoiceService : IVoiceService
     {
         _logger = logger;
         _appConfigOptions = appConfigOptions;
-
-        typeof(VoiceService).Assembly.ExtractModels(); // Extract local wake word models (from embedded resources)
     }
 
     public string GenerateSpeechToText(byte[] audioBuffer, string audioTranscriptionLanguage)
@@ -131,162 +127,6 @@ public class VoiceService : IVoiceService
         return deviceIndex;
     }
     */
-
-    private WakeWordConfig[] GetWakeWordConfig()
-    {
-        var appConfig = _appConfigOptions.Value;
-
-        WakeWordConfig[] wakeWords;
-        if (appConfig.Agents != null)
-            wakeWords = appConfig.Agents.Where(t => !t.Disabled).Select(t => new WakeWordConfig
-            {
-                Model = t.WakeWord,
-                Threshold = t.WakeWordThreshold > 0 ? t.WakeWordThreshold : 0.5f,
-                TriggerLevel = t.WakeWordTriggerLevel > 0 ? t.WakeWordTriggerLevel : 4,
-            }).ToArray();
-        else
-            wakeWords = [];
-
-        return wakeWords;
-    }
-
-    public async Task<string> WaitForWakeWordAsync(Action<string> receivedAction = null, CancellationToken cancellationToken = default)
-    {
-        var wakeWordRuntimeConfig = new WakeWordRuntimeConfig
-        {
-            DebugAction = (model, probability, detected) => { _logger.LogDebug($"{model} {probability:F5} - {detected}", model, probability, detected); },
-            WakeWords = GetWakeWordConfig()
-        };
-        var wakeWordRuntime = new WakeWordRuntime(wakeWordRuntimeConfig);
-
-        // Pre-warm the wake word engine with silent frames to avoid first-activation delay
-        _logger.LogDebug("Pre-warming wake word engine...");
-        var silentFrame = new short[512]; // 512 samples of silence
-        for (var i = 0; i < 50; i++) // Process 50 silent frames to warm up
-            wakeWordRuntime.Process(silentFrame);
-
-        _logger.LogDebug($"{nameof(WaitForWakeWordAsync)} ENTER.");
-
-        // Initialize and start PvRecorder
-        using var recorder = PvRecorder.Create(frameLength: 512, deviceIndex: _pvRecordingDeviceIndex);
-        _logger.LogDebug($"Using device: {recorder.SelectedDevice}");
-        var listenWakeWords = string.Join(',', wakeWordRuntimeConfig.WakeWords.Select(t => t.Model));
-        _logger.LogDebug($"Listening for [{@listenWakeWords}]...");
-        recorder.Start();
-
-        // Register cancellation callback to stop recorder when cancellation is requested
-        // This ensures recorder.Read() unblocks when cancellation happens
-        // Use a flag to prevent multiple stop calls
-        var stopped = false;
-        await using var registration = cancellationToken.Register(() => {
-            if (!stopped)
-            {
-                stopped = true;
-                try
-                {
-                    recorder.Stop();
-                }
-                catch { /* Ignore errors when stopping during cancellation */ }
-            }
-        });
-
-        // Run the speech processing loop as a separate task
-        var res = await Task.Run(async () =>
-        {
-            // We only invoke the expensive wake-word engine when non-silence persists.
-            var preBuffer = new Queue<short[]>();
-            var preBufferLength = 10; // keep a small history to include wake onset
-            var nonSilentFrameCount = 0;
-            var silenceCount = 0;
-            var detectionActive = false;
-
-            try
-            {
-                while (recorder.IsRecording && !cancellationToken.IsCancellationRequested)
-                {
-                    var frame = recorder.Read();
-                    var isSilent = frame.All(t => Math.Abs((int)t) < SilenceSampleAmplitudeThreshold);
-
-                    if (!detectionActive)
-                    {
-                        if (!isSilent)
-                        {
-                            nonSilentFrameCount++;
-
-                            // Activate detection after a few consecutive non-silent frames
-                            if (nonSilentFrameCount >= 5)
-                            {
-                                detectionActive = true;
-                                silenceCount = 0;
-                                _logger.LogDebug("Wake engine activated due to non-silence.");
-
-                                // Flush pre-buffer first so the detector sees the start
-                                while (preBuffer.Count > 0)
-                                {
-                                    var buffered = preBuffer.Dequeue();
-                                    var idxBuffered = wakeWordRuntime.Process(buffered);
-                                    if (idxBuffered >= 0)
-                                    {
-                                        var ww = wakeWordRuntimeConfig.WakeWords[idxBuffered].Model;
-                                        _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{ww}' from pre-buffer.");
-                                        receivedAction?.Invoke(ww);
-                                        return ww;
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            nonSilentFrameCount = 0; // reset if we dip back to silence
-                        }
-
-                        // Maintain pre-buffer while idle
-                        preBuffer.Enqueue(frame);
-                        if (preBuffer.Count > preBufferLength)
-                            preBuffer.Dequeue();
-                    }
-                    else // detectionActive
-                    {
-                        if (isSilent)
-                            silenceCount++;
-                        else
-                            silenceCount = 0;
-
-                        var index = wakeWordRuntime.Process(frame);
-                        if (index >= 0)
-                        {
-                            var wakeWord = wakeWordRuntimeConfig.WakeWords[index].Model;
-                            _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{wakeWord}'.");
-                            receivedAction?.Invoke(wakeWord);
-                            return wakeWord;
-                        }
-
-                        // If sustained silence resumes, pause detection to save CPU
-                        if (silenceCount > SilenceSampleCountThreshold)
-                        {
-                            detectionActive = false;
-                            nonSilentFrameCount = 0;
-                            silenceCount = 0;
-                            preBuffer.Clear(); // start fresh pre-buffer for next activation
-                            _logger.LogDebug("Wake engine paused due to sustained silence.");
-                        }
-                    }
-                }
-
-                // Check if we exited due to cancellation before throwing
-                if (cancellationToken.IsCancellationRequested)
-                    return null;
-
-                throw new Exception($"{nameof(WaitForWakeWordAsync)} failed.");
-            }
-            finally
-            {
-                _logger.LogDebug($"{nameof(WaitForWakeWordAsync)} EXIT.");
-            }
-        }, cancellationToken);
-
-        return res;
-    }
 
     public async Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default)
     {
@@ -385,128 +225,7 @@ public class VoiceService : IVoiceService
             File.Delete(tempFilePath);
         }
     }
-
-
-    /*
-    public ReceiveVoiceMessageResult WaitForSpeech(
-        out byte[] audioBuffer,
-        CancellationToken cancellationToken = default)
-    {
-        audioBuffer = null;
-
-        using var recorder = PvRecorder.Create(frameLength: 512, deviceIndex: _pvRecordingDeviceIndex);
-        _logger.LogDebug($"Using device: {recorder.SelectedDevice}");
-
-        recorder.Start();
-
-        // Register cancellation callback to stop recorder when cancellation is requested
-        // This ensures recorder.Read() unblocks when cancellation happens
-        // Use a flag to prevent multiple stop calls
-        var stopped = false;
-        using var registration = cancellationToken.Register(() => {
-            if (!stopped)
-            {
-                stopped = true;
-                try
-                {
-                    recorder.Stop();
-                }
-                catch 
-                { 
-                    // Ignore errors when stopping during cancellation 
-                }
-            }
-        });
-
-        var silenceCount = 0;
-        var recordingBuffer = new List<short>();
-        var preBuffer = new Queue<short[]>(); // Buffer initial frames of silence
-        var preBufferLength = 10; // Adjust based on the desired pre-buffer length
-        var hasStartedRecording = false;
-        var nonSilentFrameCount = 0; // Track non-silent frames to start recording
-        var startTime = DateTime.UtcNow;
-
-        while (recorder.IsRecording)
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                recorder.Stop();
-
-                audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
-                return ReceiveVoiceMessageResult.RecordingCancelled;
-            }
-
-            var frame = recorder.Read();
-            var isSilent = frame.All(t => Math.Abs((int)t) < SilenceSampleAmplitudeThreshold);
-
-            // Return on silence threshold exceeded
-            if (!hasStartedRecording && (DateTime.UtcNow - startTime).TotalSeconds > StopRecordingSilenceSeconds)
-            {
-                _logger.LogDebug($"Timeout: No voice detected within {StopRecordingSilenceSeconds} seconds.");
-                recorder.Stop();
-
-                audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
-                return ReceiveVoiceMessageResult.RecordingTimeout;
-            }
-
-            if (!hasStartedRecording)
-            {
-                if (!isSilent)
-                {
-                    nonSilentFrameCount++;
-
-                    if (nonSilentFrameCount >= 5)
-                    {
-                        _logger.LogDebug("Voice detected, starting recording...");
-                        hasStartedRecording = true;
-                        startTime = DateTime.UtcNow;
-
-                        while (preBuffer.Count > 0)
-                            recordingBuffer.AddRange(preBuffer.Dequeue());
-                    }
-                }
-                else
-                {
-                    nonSilentFrameCount = 0; // Reset counter if silence is detected
-                }
-
-                preBuffer.Enqueue(frame);
-                if (preBuffer.Count > preBufferLength)
-                    preBuffer.Dequeue();
-            }
-            else // hasStartedRecording
-            {
-                if (isSilent)
-                    silenceCount++;
-                else
-                    silenceCount = 0;
-
-                recordingBuffer.AddRange(frame);
-
-                if ((DateTime.UtcNow - startTime).TotalSeconds > MaxRecordingDurationSeconds)
-                {
-                    _logger.LogDebug($"Recording exceeded maximum duration of {MaxRecordingDurationSeconds} seconds.");
-                    recorder.Stop();
-
-                    audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
-                    return ReceiveVoiceMessageResult.RecordingTimeExceeded;
-                }
-
-                if (silenceCount > SilenceSampleCountThreshold)
-                {
-                    _logger.LogDebug("Stopped recording due to silence.");
-                    recorder.Stop();
-
-                    break;
-                }
-            }
-        }
-
-        audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
-        return ReceiveVoiceMessageResult.Ok;
-    }
-    */
-
+   
     public ReceiveVoiceMessageResult WaitForSpeech(
         out byte[] audioBuffer,
         CancellationToken cancellationToken = default)
@@ -700,7 +419,6 @@ public class VoiceService : IVoiceService
 
         return _cachedVoices;
     }
-
 
     private byte[] GetAudioBufferBytes(PvRecorder recorder, List<short> recordingBuffer)
     {

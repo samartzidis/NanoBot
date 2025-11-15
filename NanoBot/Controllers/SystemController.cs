@@ -46,62 +46,6 @@ public class SystemController : ControllerBase
         }
     }
 
-    //[HttpGet("TextToSpeech")]
-    //public async Task GetTextToSpeech(string text, string voiceName, CancellationToken cancellationToken = default)
-    //{
-    //    //"en-GB-SoniaNeural"
-
-    //    if (voiceName == null)
-    //    {
-    //        if (_appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
-    //            voiceName = "en-GB-SoniaNeural";
-    //        else
-    //            voiceName = GeneratedSpeechVoice.Nova.ToString();
-    //    }
-
-    //    await _voiceService.GenerateTextToSpeechAsync(text, voiceName, cancellationToken);            
-    //}
-
-    //[HttpGet("SpeechToText")]
-    //public async Task<IActionResult> GetSpeechToText(string audioTranscriptionLanguage = "en", bool playback = false, CancellationToken cancellationToken = default)
-    //{
-    //    var res = _voiceService.WaitForSpeech(out var userAudioBuffer, cancellationToken: cancellationToken);
-    //    if (res != ReceiveVoiceMessageResult.Ok)            
-    //        StatusCode(StatusCodes.Status500InternalServerError, res);
-
-    //    if (playback)
-    //    {
-    //        var tempFilePath = Path.GetTempFileName();
-    //        try
-    //        {
-    //            await System.IO.File.WriteAllBytesAsync(tempFilePath, userAudioBuffer, cancellationToken);
-
-    //            await WavPlayerUtil.PlayAsync(tempFilePath, cancellationToken);
-    //        }
-    //        finally
-    //        {
-    //            if (System.IO.File.Exists(tempFilePath))
-    //                System.IO.File.Delete(tempFilePath);
-    //        }
-    //    }
-
-    //    var text = _voiceService.GenerateSpeechToText(userAudioBuffer, audioTranscriptionLanguage);
-    //    return Ok(text);
-    //}
-
-    //[HttpGet("DetectWakeWord")]
-    //public async Task<IActionResult> GetDetectWakeWord(int timeoutSec = 3, CancellationToken cancellationToken = default)
-    //{
-    //    using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-    //    cts.CancelAfter(TimeSpan.FromSeconds(timeoutSec)); // Set a max wait of 10 seconds
-
-    //    var word = await _voiceService.WaitForWakeWordAsync(cancellationToken: cts.Token);
-    //    if (word != null)
-    //        return Ok(word); // Return 200 OK with the wake word
-
-    //    return StatusCode(StatusCodes.Status408RequestTimeout, "Request timed out while waiting for the wake word.");
-    //}
-
     [HttpGet("GetLogs")]
     public async Task<IActionResult> GetLogs(long lastPosition = 0, string lastFile = null)
     {

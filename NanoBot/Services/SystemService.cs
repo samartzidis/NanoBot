@@ -23,6 +23,7 @@ public class SystemService : BackgroundService, ISystemService
 
     private readonly ILogger<SystemService> _logger;
     private readonly IVoiceService _voiceService;
+    private readonly IWakeWordService _wakeWordService;
     private readonly IAgentFactoryService _agentFactoryService;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;   
     private readonly IEventBus _bus;
@@ -61,7 +62,8 @@ public class SystemService : BackgroundService, ISystemService
     public SystemService(
         ILogger<SystemService> logger,
         IDynamicOptions<AppConfig> appConfigOptions, 
-        IVoiceService voiceService, 
+        IVoiceService voiceService,
+        IWakeWordService wakeWordService,
         IAgentFactoryService agentFactoryService, 
         IEventBus bus,
         IAlsaControllerService alsaControllerService,
@@ -70,6 +72,7 @@ public class SystemService : BackgroundService, ISystemService
         _logger = logger;
         _appConfigOptions = appConfigOptions;
         _voiceService = voiceService;
+        _wakeWordService = wakeWordService;
         _agentFactoryService = agentFactoryService;
         _history = new ChatHistory();
         _bus = bus;
@@ -342,16 +345,16 @@ public class SystemService : BackgroundService, ISystemService
         var hangupToken = GetOrCreateHangupToken(cancellationToken);
         try
         {
-            var wakeWord = await _voiceService.WaitForWakeWordAsync(null, hangupToken);
+            var wakeWord = await _wakeWordService.WaitForWakeWordAsync(hangupToken);
             if (wakeWord == null) // Got cancelled
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled.");
+                    _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
                     return null;
                 }
 
-                _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled due to hangup event.");
+                _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled due to hangup event.");
                 return null;
             }
             else // Got wake word
@@ -362,7 +365,7 @@ public class SystemService : BackgroundService, ISystemService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning($"{nameof(_voiceService.WaitForWakeWordAsync)} cancelled.");
+            _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
             return null;
         }
     }

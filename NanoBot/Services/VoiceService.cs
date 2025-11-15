@@ -178,7 +178,7 @@ public class VoiceService : IVoiceService
         // This ensures recorder.Read() unblocks when cancellation happens
         // Use a flag to prevent multiple stop calls
         var stopped = false;
-        using var registration = cancellationToken.Register(() => {
+        await using var registration = cancellationToken.Register(() => {
             if (!stopped)
             {
                 stopped = true;
@@ -202,11 +202,8 @@ public class VoiceService : IVoiceService
 
             try
             {
-                while (recorder.IsRecording)
+                while (recorder.IsRecording && !cancellationToken.IsCancellationRequested)
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                        return null;
-
                     var frame = recorder.Read();
                     var isSilent = frame.All(t => Math.Abs((int)t) < SilenceSampleAmplitudeThreshold);
 
@@ -278,9 +275,7 @@ public class VoiceService : IVoiceService
 
                 // Check if we exited due to cancellation before throwing
                 if (cancellationToken.IsCancellationRequested)
-                {
                     return null;
-                }
 
                 throw new Exception($"{nameof(WaitForWakeWordAsync)} failed.");
             }
@@ -646,6 +641,14 @@ public class VoiceService : IVoiceService
                     break;
                 }
             }
+        }
+
+        // Check if cancellation was requested (the callback may have stopped the recorder,
+        // causing the loop to exit before the cancellation check inside the loop could run)
+        if (cancellationToken.IsCancellationRequested)
+        {
+            audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);
+            return ReceiveVoiceMessageResult.RecordingCancelled;
         }
 
         audioBuffer = GetAudioBufferBytes(recorder, recordingBuffer);

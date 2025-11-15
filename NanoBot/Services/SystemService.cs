@@ -389,17 +389,6 @@ public class SystemService : BackgroundService, ISystemService
             }
             _logger.LogDebug($"Using AudioTranscriptionLanguage: {audioTranscriptionLanguage}");
 
-            // Validate audio buffer is not empty or too short before attempting transcription
-            // Minimum audio length is 0.1 seconds, assuming 16kHz sample rate and 16-bit samples:
-            // 0.1 seconds * 16000 samples/sec * 2 bytes/sample = 3200 bytes minimum for PCM data
-            // Plus WAV header (44 bytes), minimum would be around 3244 bytes total
-            // But we'll use a more conservative check - if buffer is less than ~4KB, it's likely too short
-            if (userAudioBuffer == null || userAudioBuffer.Length < 4000)
-            {
-                _logger.LogWarning($"Audio buffer too short ({userAudioBuffer?.Length ?? 0} bytes), skipping transcription.");
-                return null; // Complete the conversation loop
-            }
-
             // Transcribe user speech message
             var userMessage = _voiceService.GenerateSpeechToText(userAudioBuffer, audioTranscriptionLanguage);
             _logger.LogDebug($"User: {userMessage}");

@@ -41,6 +41,7 @@ It aims to keep running costs at a minimum by only using OpenAI's chat completio
 
 - **Off** - The robot is off.
 - **White** - The robot is on standby.
+- **Dim Yellow** - The robot has detected sound activity (VAD engine activated).
 - **Yellow** - The robot has detected a wake-up word and is initializing a configured agent.
 - **Green** - The robot is listening for user speech. This mode almost immediately follows after the previous one.
 - **Magenta** - The robot is talking.
@@ -84,12 +85,13 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 
 ## GPIO Interface Hardware Connections
 
-- **Ground** (physical **Pin 34**) ⇒ Push **button** terminal 1 (of 2) and to the 2 RGB LED common cathode pins. 
-- **GPIO 16** (physical **Pin 36**) ⇒ **Red** RGB LED pins via 220K resistors.
-- **GPIO 20** (physical **Pin 38**) ⇒ **Green** RGB LED pins via 220K resistors.
-- **GPIO 21** (physical **Pin 40**) ⇒ **Blue** RGB LED pins via 220K resistors.
+- **Ground** (physical **Pin 34**) ⇒ Push **button** terminal 1 (of 2) and to the 2 RGB LED common cathode pins.
+- **Ground** (physical **Pin 6**) ⇒  External audio amplifier ground and MOSFET switch ground.
+- **GPIO 18** (physical **Pin 12**) ⇒ **Red** RGB LED pins via 220K resistors. (Hardware PWM0)
+- **GPIO 19** (physical **Pin 35**) ⇒ **Green** RGB LED pins via 220K resistors. (Hardware PWM1)
+- **GPIO 16** (physical **Pin 36**) ⇒ **Blue** RGB LED pins via 220K resistors. (Simple GPIO output, no PWM)
 - **GPIO 26** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
-- **GPIO19** (physical **Pin 35**) ⇒ External audio amplifier on/off control signal.
+- **GPIO 12** (physical **Pin 32**) ⇒ External audio amplifier on/off control signal.
 
 <a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" /></a>
 
@@ -100,7 +102,11 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     `sudo apt-get install libasound2-dev`
 3. Disable the Raspberry Pi on-board audio functionality:
     Edit: `/boot/firmware/config.txt`
-    Add this line in the end: `dtoverlay=vc4-kms-v3d,noaudio`
+    Add these lines in the end: 
+    ```
+    dtoverlay=vc4-kms-v3d,noaudio
+    dtoverlay=pwm-2chan
+    ```
 4. Also add this line to minimise the GPU memory usage: `gpu_mem=32`
 5. Edit: `/etc/NetworkManager/NetworkManager.conf` and add the lines: 
     ```

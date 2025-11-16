@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using NanoBot.Configuration;
 using NanoBot.Util;
-using NanoWakeWord;
 using OpenAI;
 using OpenAI.Audio;
 using Pv;

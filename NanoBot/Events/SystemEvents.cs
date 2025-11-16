@@ -20,3 +20,6 @@ public class SystemErrorEvent(object sender) : EventBase(sender);
 public class SystemOkEvent(object sender) : EventBase(sender);
 
 public class WakeWordDetectedEvent(object sender) : EventBase(sender);
+
+public class NoiseDetectedEvent(object sender) : EventBase(sender);
+public class SilenceDetectedEvent(object sender) : EventBase(sender);

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using NanoBot.Configuration;
+using NanoBot.Events;
 using NanoBot.Util;
 using NanoWakeWord;
 using Pv;
@@ -25,16 +26,18 @@ internal class WakeWordProcessorState
 public class WakeWordService : IWakeWordService
 {
     // Calibration parameters for silence detection
-    public const int SilenceSampleAmplitudeThreshold = 800;
+    public const int SilenceSampleAmplitudeThreshold = 1600;//800;
     
     private readonly ILogger<WakeWordService> _logger;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;
+    private readonly IEventBus _bus;
 
     // VAD parameters
     private const int SampleRate = 16000;
-    private const float VadThreshold = 0.5f;
-    private const int MinSilenceFrames = 50; // Equivalent to ~1.6 seconds of silence at 16kHz
-    private const int VadAbortSilenceFrames = 20; // ~0.64 seconds of silence
+    private const float VadThreshold = 0.4f; //0.5f;
+    private const int MinSilenceFrames = 50; // ~1.6 seconds of silence at 16kHz
+    //private const int VadAbortSilenceFrames = 20; // ~0.64 seconds of silence
+    private const int VadAbortSilenceFrames = 40; // ~1.28 seconds of silence before abort
     
     // Buffer parameters
     private const int PreBufferLength = 10; // keep a small history to include wake onset
@@ -46,10 +49,12 @@ public class WakeWordService : IWakeWordService
 
     public WakeWordService(
         ILogger<WakeWordService> logger,
-        IDynamicOptions<AppConfig> appConfigOptions)
+        IDynamicOptions<AppConfig> appConfigOptions,
+        IEventBus bus)
     {
         _logger = logger;
         _appConfigOptions = appConfigOptions;
+        _bus = bus;
 
         typeof(WakeWordService).Assembly.ExtractModels(); // Extract local wake word models (from embedded resources)
     }
@@ -105,6 +110,9 @@ public class WakeWordService : IWakeWordService
             try
             {
                 var state = new WakeWordProcessorState();
+
+                var vadActive = false;
+
                 while (recorder.IsRecording && !cancellationToken.IsCancellationRequested)
                 {
                     var frame = recorder.Read();
@@ -114,6 +122,17 @@ public class WakeWordService : IWakeWordService
                         wakeWordRuntime,
                         wakeWordRuntimeConfig,
                         state);
+
+                    if (state.VadActive && !vadActive)
+                    {
+                        _bus.Publish<NoiseDetectedEvent>(this);
+                        vadActive = true;
+                    }
+                    else if (!state.VadActive && vadActive)
+                    {
+                        _bus.Publish<SilenceDetectedEvent>(this);
+                        vadActive = false;
+                    }
 
                     if (result != null)
                         return result;
@@ -161,13 +180,11 @@ public class WakeWordService : IWakeWordService
 
                     // Move pre-buffer frames to speech buffer (will be processed after VAD confirms speech)
                     while (state.PreBuffer.Count > 0)
-                    {
                         state.SpeechBuffer.Enqueue(state.PreBuffer.Dequeue());
-                    }
                 }
             }
             else
-            {
+            {                
                 state.NonSilentFrameCount = 0; // reset if we dip back to silence
             }
 

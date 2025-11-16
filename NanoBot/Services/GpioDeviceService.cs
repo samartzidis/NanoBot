@@ -15,12 +15,10 @@ public enum GpioDeviceLedColor
     DimGreen,
     Blue,    
     Yellow,
-    DimYellow,
     Cyan,
     Magenta,
     White,
-    Orange,
-    DimOrange
+    Orange
 }
 
 public interface IGpioDeviceService : IHostedService
@@ -128,7 +126,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         else if (_isWakeWordDetected)
             SetLedColor(GpioDeviceLedColor.Yellow);
         else if (_isNoiseDetected)
-            SetLedColor(GpioDeviceLedColor.DimYellow);
+            SetLedColor(GpioDeviceLedColor.Orange);
         else
             SetLedColor(DefaultLedColour);
     }
@@ -189,10 +187,6 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
                 red = 1.0;
                 green = 1.0;
                 break;
-            case GpioDeviceLedColor.DimYellow:
-                red = 0.25;
-                green = 0.25;
-                break;
             case GpioDeviceLedColor.Cyan:
                 green = 1.0;
                 blue = PinValue.High;
@@ -210,10 +204,6 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
                 red = 1.0;
                 green = 0.5;
                 break;
-            case GpioDeviceLedColor.DimOrange:
-                red = 0.25;
-                green = 0.125;
-                break;
             case GpioDeviceLedColor.Off:
                 break;
             default:
@@ -222,13 +212,12 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
         if (PlatformUtil.IsRaspberryPi())
         {
-            // Set hardware PWM for Red and Green
             if (_redPwmChannel != null)
                 _redPwmChannel.DutyCycle = red;
+
             if (_greenPwmChannel != null)
                 _greenPwmChannel.DutyCycle = green;
             
-            // Set simple GPIO output for Blue (on/off only, no PWM)
             _gpioController.Write(BluePin, blue);
         }
     }

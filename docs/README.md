@@ -41,7 +41,7 @@ It aims to keep running costs at a minimum by only using OpenAI's chat completio
 
 - **Off** - The robot is off.
 - **White** - The robot is on standby.
-- **Dim Yellow** - The robot has detected sound activity (VAD engine activated).
+- **Orange** - The robot has detected sound activity (VAD engine activated).
 - **Yellow** - The robot has detected a wake-up word and is initializing a configured agent.
 - **Green** - The robot is listening for user speech. This mode almost immediately follows after the previous one.
 - **Magenta** - The robot is talking.

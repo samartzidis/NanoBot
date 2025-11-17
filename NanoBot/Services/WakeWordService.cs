@@ -26,7 +26,7 @@ internal class WakeWordProcessorState
 public class WakeWordService : IWakeWordService
 {
     // Calibration parameters for silence detection
-    public const int SilenceSampleAmplitudeThreshold = 1600;//800;
+    public const int SilenceSampleAmplitudeThreshold = 1200;//800;
     
     private readonly ILogger<WakeWordService> _logger;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;

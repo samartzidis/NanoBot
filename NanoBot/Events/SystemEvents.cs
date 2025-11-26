@@ -23,3 +23,5 @@ public class WakeWordDetectedEvent(object sender) : EventBase(sender);
 
 public class NoiseDetectedEvent(object sender) : EventBase(sender);
 public class SilenceDetectedEvent(object sender) : EventBase(sender);
+
+public class ConfigChangedEvent(object sender) : EventBase(sender);

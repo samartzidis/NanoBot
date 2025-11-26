@@ -137,12 +137,12 @@ public class VoiceService : IVoiceService
 
         var appConfig = _appConfigOptions.Value;
 
-        if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
+        if (appConfig.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
             await GenerateTextToSpeechAzureAsync(text, speechSynthesisVoiceName, cancellationToken);
-        else if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.OpenAI)
+        else if (appConfig.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.OpenAI)
             await GenerateTextToSpeechOpenAiAsync(text, speechSynthesisVoiceName, cancellationToken);
         else
-            throw new InvalidOperationException($"{nameof(TextToSpeechServiceProviderConfig)} value {appConfig.VoiceService.TextToSpeechServiceProvider} is unsupported.");
+            throw new InvalidOperationException($"{nameof(TextToSpeechServiceProviderConfig)} value {appConfig.TextToSpeechServiceProvider} is unsupported.");
     }
 
     public async Task GenerateTextToSpeechAzureAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default)
@@ -151,7 +151,7 @@ public class VoiceService : IVoiceService
 
         var appConfig = _appConfigOptions.Value;
 
-        var speechConfig = SpeechConfig.FromSubscription(appConfig.VoiceService.AzureSpeechServiceKey, appConfig.VoiceService.AzureSpeechServiceRegion);
+        var speechConfig = SpeechConfig.FromSubscription(appConfig.AzureSpeechServiceKey, appConfig.AzureSpeechServiceRegion);
         speechConfig.SpeechSynthesisVoiceName = speechSynthesisVoiceName;
 
         var synthesizer = new SpeechSynthesizer(speechConfig);
@@ -390,7 +390,7 @@ public class VoiceService : IVoiceService
             try
             {
                 var appConfig = _appConfigOptions.Value;
-                var speechConfig = SpeechConfig.FromSubscription(appConfig.VoiceService.AzureSpeechServiceKey, appConfig.VoiceService.AzureSpeechServiceRegion);
+                var speechConfig = SpeechConfig.FromSubscription(appConfig.AzureSpeechServiceKey, appConfig.AzureSpeechServiceRegion);
                 using var synthesizer = new SpeechSynthesizer(speechConfig);
                 var voicesResult = await synthesizer.GetVoicesAsync();
 

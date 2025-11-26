@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 
 namespace NanoBot.Configuration;
 
@@ -25,41 +26,6 @@ public class AppConfig
     [Description("Google Search Engine Id used by the Google plug-in.")]
     public string GoogleSearchEngineId { get; set; }
 
-    //[DisplayName("Enable Anker PowerConf S330 Driver")]
-    //[Description("Enable device driver for connected Anker PowerConf S330 speakerphone.")]
-    //public bool PowerConfS330DriverEnabled { get; set; }
-
-    public VoiceServiceConfig VoiceService { get; set; } = new();
-
-    [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
-    [Description("Global system instructions for all agents.")]
-    public string Instructions { get; set; }
-
-    [DisplayName("Chat History TTL")]
-    [Description("Delete any existing chat history if the last conversation was after how many minutes. A value of '0' will not delete. Defaults to: '60'.")]
-    [DefaultValue(60)]
-    public int ChatHistoryTimeToLiveMinutes { get; set; } = 60;
-
-    //[DisplayName("User Plugins Path")]
-    //[Description("Path to user plugins directory. Can be absolute or relative to the application directory. Defaults to: 'Plugins/User'.")]
-    //[DefaultValue("Plugins/User")]
-    //public string UserPluginPath { get; set; }
-
-    [DisplayName("Memory Service Max Memories")]
-    [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
-    [DefaultValue(100)]
-    public int MemoryServiceMaxMemories { get; set; } = 100;
-
-    [DisplayName("Playback Volume")]
-    [Description("Playback volume level (0-10). Defaults to: '5'.")]
-    [DefaultValue(5)]
-    public int PlaybackVolume { get; set; } = 5;
-
-    public List<AgentConfig> Agents { get; set; } = [ ];
-}
-
-public class VoiceServiceConfig
-{    
     [Description("The Text-To-Speech engine to use. Can be 'AzureSpeechService' or 'OpenAI'.")]
     [DefaultValue(TextToSpeechServiceProviderConfig.AzureSpeechService)]
     public TextToSpeechServiceProviderConfig TextToSpeechServiceProvider { get; set; } = TextToSpeechServiceProviderConfig.AzureSpeechService;
@@ -71,6 +37,33 @@ public class VoiceServiceConfig
     [DisplayName("Azure Speech Service Region")]
     [Description("Azure Speech Service region. E.g. 'westeurope'.")]
     public string AzureSpeechServiceRegion { get; set; }
+
+    [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
+    [Description("Global system instructions for all agents.")]
+    public string Instructions { get; set; }
+
+    [DisplayName("Chat History TTL")]
+    [Description("Delete any existing chat history if the last conversation was after how many minutes. A value of '0' will not delete. Defaults to: '60'.")]
+    [DefaultValue(60)]
+    public int ChatHistoryTimeToLiveMinutes { get; set; } = 60;
+
+    [DisplayName("Memory Service Max Memories")]
+    [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
+    [DefaultValue(100)]
+    public int MemoryServiceMaxMemories { get; set; } = 100;
+
+    [DisplayName("Playback Volume")]
+    [Description("Playback volume level (0-10). Defaults to: '5'.")]
+    [DefaultValue(5)]
+    public int PlaybackVolume { get; set; } = 5;
+
+    [DisplayName("Wake Word Silence Sample Amplitude Threshold")]
+    [Description("Threshold for silence detection in wake word. Defaults to: '1200'.")]
+    [DefaultValue(1200)]
+    [Range(0, 10000)]
+    public int WakeWordSilenceSampleAmplitudeThreshold { get; set; } = 1200;
+
+    public List<AgentConfig> Agents { get; set; } = [ ];
 }
 
 

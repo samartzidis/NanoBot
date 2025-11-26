@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NanoBot.Configuration;
+using NanoBot.Events;
 using NanoBot.Services;
 using NanoBot.Util;
 using NanoWakeWord;
@@ -20,18 +21,21 @@ public class ConfigurationController : ControllerBase
     private readonly string _userSettingsPath;
     private readonly IVoiceService _voiceService;
     private readonly IConfiguration _configuration;
+    private readonly IEventBus _bus;
 
     public ConfigurationController(
         IDynamicOptions<AppConfig> appConfigOptions, 
         ILogger<ConfigurationController> logger, 
         IVoiceService voiceService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IEventBus bus)
     {
         _appConfigOptions = appConfigOptions;
         _logger = logger;
         _voiceService = voiceService;
         _userSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.user.json");
         _configuration = configuration;
+        _bus = bus;
     }
    
     [HttpGet]
@@ -51,7 +55,7 @@ public class ConfigurationController : ControllerBase
             var agentsConfig = NavigateToProperty(schemaJson, "properties", "Agents", "items", "properties");
 
             // Fetch available voices
-            var voiceProvider = _appConfigOptions.Value.VoiceService.TextToSpeechServiceProvider;
+            var voiceProvider = _appConfigOptions.Value.TextToSpeechServiceProvider;
             var voices = await _voiceService.GetAvailableVoicesAsync(voiceProvider, cancellationToken);
             if (voices != null)
             {
@@ -134,6 +138,9 @@ public class ConfigurationController : ControllerBase
             System.IO.File.WriteAllText(_userSettingsPath, updatedJson);
             ReloadConfiguration();
 
+            // Publish config changed event to notify services
+            _bus.Publish<ConfigChangedEvent>(this);
+
             return Ok("Settings updated successfully");
         }
         catch (Exception ex)
@@ -156,6 +163,9 @@ public class ConfigurationController : ControllerBase
             {
                 System.IO.File.Delete(_userSettingsPath);
                 ReloadConfiguration();
+
+                // Publish config changed event to notify services
+                _bus.Publish<ConfigChangedEvent>(this);
             }
 
             return Ok("Custom user settings cleared successfully");

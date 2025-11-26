@@ -21,13 +21,13 @@
 //            return ValidateOptionsResult.Fail(string.Join("; ", errors));
 //        }
 
-//        if (options?.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
+//        if (options?.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
 //        {
-//            if (string.IsNullOrWhiteSpace(options.VoiceService?.AzureSpeechServiceKey))
-//                return ValidateOptionsResult.Fail($"Configuration {nameof(AppConfig.VoiceService.AzureSpeechServiceKey)} is required when using the {nameof(TextToSpeechServiceProviderConfig.AzureSpeechService)} provider.");
+//            if (string.IsNullOrWhiteSpace(options.AzureSpeechServiceKey))
+//                return ValidateOptionsResult.Fail($"Configuration {nameof(AppConfig.AzureSpeechServiceKey)} is required when using the {nameof(TextToSpeechServiceProviderConfig.AzureSpeechService)} provider.");
 
-//            if (string.IsNullOrWhiteSpace(options.VoiceService?.AzureSpeechServiceRegion))
-//                return ValidateOptionsResult.Fail($"Configuration {nameof(AppConfig.VoiceService.AzureSpeechServiceRegion)} is required when using the {nameof(TextToSpeechServiceProviderConfig.AzureSpeechService)} provider.");
+//            if (string.IsNullOrWhiteSpace(options.AzureSpeechServiceRegion))
+//                return ValidateOptionsResult.Fail($"Configuration {nameof(AppConfig.AzureSpeechServiceRegion)} is required when using the {nameof(TextToSpeechServiceProviderConfig.AzureSpeechService)} provider.");
 //        }
 
 //        return ValidateOptionsResult.Success;

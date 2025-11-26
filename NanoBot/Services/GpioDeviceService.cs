@@ -12,7 +12,6 @@ public enum GpioDeviceLedColor
     Off,
     Red,
     Green,
-    DimGreen,
     Blue,    
     Yellow,
     Cyan,
@@ -124,9 +123,9 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         else if (_isThinking)
             SetLedColor(GpioDeviceLedColor.Cyan);
         else if (_isWakeWordDetected)
-            SetLedColor(GpioDeviceLedColor.Yellow);
-        else if (_isNoiseDetected)
             SetLedColor(GpioDeviceLedColor.Orange);
+        else if (_isNoiseDetected)
+            SetLedColor(GpioDeviceLedColor.Yellow);
         else
             SetLedColor(DefaultLedColour);
     }
@@ -177,16 +176,9 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             case GpioDeviceLedColor.Green:
                 green = 1.0;
                 break;
-            case GpioDeviceLedColor.DimGreen:
-                green = 0.25;
-                break;
             case GpioDeviceLedColor.Blue:
                 blue = PinValue.High;
-                break;
-            case GpioDeviceLedColor.Yellow:
-                red = 1.0;
-                green = 1.0;
-                break;
+                break;            
             case GpioDeviceLedColor.Cyan:
                 green = 1.0;
                 blue = PinValue.High;
@@ -200,9 +192,13 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
                 green = 1.0;
                 blue = PinValue.High;
                 break;
-            case GpioDeviceLedColor.Orange:
+            case GpioDeviceLedColor.Yellow:
                 red = 1.0;
                 green = 0.5;
+                break;
+            case GpioDeviceLedColor.Orange:
+                red = 1.0;
+                green = 0.25;
                 break;
             case GpioDeviceLedColor.Off:
                 break;

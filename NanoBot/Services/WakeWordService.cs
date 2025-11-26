@@ -17,35 +17,24 @@ internal class WakeWordProcessorState
     public Queue<short[]> PreBuffer { get; } = new();
     public Queue<short[]> SpeechBuffer { get; } = new();
     public int NonSilentFrameCount { get; set; }
-    public bool VadActive { get; set; }
     public bool SpeechDetected { get; set; }
     public int SilenceFrameCount { get; set; }
-    public int SpeechFrameCount { get; set; }
+    public bool NoiseDetected { get; set; }
 }
 
 public class WakeWordService : IWakeWordService
 {
-    // Calibration parameters for silence detection
-    public const int SilenceSampleAmplitudeThreshold = 1200;//800;
-    
     private readonly ILogger<WakeWordService> _logger;
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;
     private readonly IEventBus _bus;
 
-    // VAD parameters
-    private const int SampleRate = 16000;
-    private const float VadThreshold = 0.4f; //0.5f;
-    private const int MinSilenceFrames = 50; // ~1.6 seconds of silence at 16kHz
-    //private const int VadAbortSilenceFrames = 20; // ~0.64 seconds of silence
-    private const int VadAbortSilenceFrames = 40; // ~1.28 seconds of silence before abort
-    
     // Buffer parameters
     private const int PreBufferLength = 10; // keep a small history to include wake onset
     private const int MaxSpeechBufferFrames = 100; // ~3 seconds at 16kHz
     
     // Detection thresholds
     private const int NoiseActivationFrameCount = 5;
-    private const int SpeechConfirmationFrameCount = 3;
+    private const int MinSilenceFrames = 50; // ~1.6 seconds of silence at 16kHz
 
     public WakeWordService(
         ILogger<WakeWordService> logger,
@@ -59,12 +48,6 @@ public class WakeWordService : IWakeWordService
         typeof(WakeWordService).Assembly.ExtractModels(); // Extract local wake word models (from embedded resources)
     }
     
-    /// <summary>
-    /// Noise Detection → VAD Activation → Speech Confirmation → Wake Word Processing
-    /// </summary>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="Exception"></exception>
     public async Task<string> WaitForWakeWordAsync(CancellationToken cancellationToken = default)
     {
         var wakeWordRuntimeConfig = new WakeWordRuntimeConfig
@@ -81,6 +64,11 @@ public class WakeWordService : IWakeWordService
             wakeWordRuntime.Process(silentFrame);
 
         _logger.LogDebug($"{nameof(WaitForWakeWordAsync)} ENTER.");
+
+        // Get configuration values
+        var appConfig = _appConfigOptions.Value;
+        var silenceThreshold = appConfig.WakeWordSilenceSampleAmplitudeThreshold;
+        _logger.LogDebug($"Silence threshold: {silenceThreshold}");
 
         // Initialize and start PvRecorder
         using var recorder = PvRecorder.Create(frameLength: 512, deviceIndex: -1);
@@ -100,10 +88,6 @@ public class WakeWordService : IWakeWordService
             }
         });
 
-        // Initialize VAD detector
-        using var vadDetector = new SileroVadDetector(SampleRate);
-        vadDetector.Reset();
-
         // Run the speech processing loop as a separate task
         var res = await Task.Run(async () =>
         {            
@@ -111,27 +95,32 @@ public class WakeWordService : IWakeWordService
             {
                 var state = new WakeWordProcessorState();
 
-                var vadActive = false;
+                var noiseDetected = false;
 
                 while (recorder.IsRecording && !cancellationToken.IsCancellationRequested)
                 {
                     var frame = recorder.Read();
                     var result = ProcessFrame(
                         frame,
-                        vadDetector,
                         wakeWordRuntime,
                         wakeWordRuntimeConfig,
-                        state);
+                        state,
+                        silenceThreshold);
 
-                    if (state.VadActive && !vadActive)
+                    // Publish noise/silence events based on noise detection state
+                    // Skip events if silence threshold is <= 0 (noise detection effectively disabled)
+                    if (silenceThreshold > 0)
                     {
-                        _bus.Publish<NoiseDetectedEvent>(this);
-                        vadActive = true;
-                    }
-                    else if (!state.VadActive && vadActive)
-                    {
-                        _bus.Publish<SilenceDetectedEvent>(this);
-                        vadActive = false;
+                        if (state.NoiseDetected && !noiseDetected)
+                        {
+                            _bus.Publish<NoiseDetectedEvent>(this);
+                            noiseDetected = true;
+                        }
+                        else if (!state.NoiseDetected && noiseDetected)
+                        {
+                            _bus.Publish<SilenceDetectedEvent>(this);
+                            noiseDetected = false;
+                        }
                     }
 
                     if (result != null)
@@ -155,101 +144,96 @@ public class WakeWordService : IWakeWordService
     
     private string ProcessFrame(
         short[] frame,
-        SileroVadDetector vadDetector,
         WakeWordRuntime wakeWordRuntime,
         WakeWordRuntimeConfig wakeWordRuntimeConfig,
-        WakeWordProcessorState state)
+        WakeWordProcessorState state,
+        int silenceThreshold)
     {        
-        // Noise Detection → VAD Activation → Speech Confirmation → Wake Word Processing
-
-        if (!state.VadActive && !state.SpeechDetected) // Stage 1: Noise detection - look for non-silence
+        if (!state.SpeechDetected) // Stage 1: Noise detection - look for non-silence (or skip if threshold <= 0)
         {
-            
-            var isSilent = frame.All(t => Math.Abs((int)t) < SilenceSampleAmplitudeThreshold);
-            if (!isSilent)
+            // If threshold <= 0, skip noise detection and go directly to wake word processing
+            if (silenceThreshold <= 0)
             {
-                state.NonSilentFrameCount++;
+                state.SilenceFrameCount = 0;
 
-                // Activate VAD after a few consecutive non-silent frames
-                if (state.NonSilentFrameCount >= NoiseActivationFrameCount)
+                // Move pre-buffer frames to speech buffer
+                while (state.PreBuffer.Count > 0)
+                    state.SpeechBuffer.Enqueue(state.PreBuffer.Dequeue());
+
+                // Add current frame to speech buffer
+                state.SpeechBuffer.Enqueue(frame);
+
+                // Skip directly to wake word processing
+                state.SpeechDetected = true;
+                _logger.LogDebug("Noise detection disabled (threshold <= 0), processing wake words directly...");
+
+                // Process buffered frames immediately
+                var framesToProcess = new List<short[]>(state.SpeechBuffer);
+                foreach (var buffered in framesToProcess)
                 {
-                    state.VadActive = true;
-                    state.SpeechFrameCount = 0;
-                    state.SilenceFrameCount = 0;
-                    _logger.LogDebug("Noise detected, activating VAD...");
-
-                    // Move pre-buffer frames to speech buffer (will be processed after VAD confirms speech)
-                    while (state.PreBuffer.Count > 0)
-                        state.SpeechBuffer.Enqueue(state.PreBuffer.Dequeue());
-                }
-            }
-            else
-            {                
-                state.NonSilentFrameCount = 0; // reset if we dip back to silence
-            }
-
-            // Maintain pre-buffer while idle
-            state.PreBuffer.Enqueue(frame);
-            if (state.PreBuffer.Count > PreBufferLength)
-                state.PreBuffer.Dequeue();
-        }
-        else if (state.VadActive && !state.SpeechDetected) // Stage 2: VAD detection - confirm it's actual speech
-        {            
-            var floatFrame = NormalizeFrame(frame);
-            var speechProb = vadDetector.Process(floatFrame);
-            var isSpeech = speechProb >= VadThreshold;
-
-            // Buffer frame while waiting for VAD confirmation (don't process yet)
-            state.SpeechBuffer.Enqueue(frame);
-
-            if (isSpeech)
-            {
-                state.SpeechFrameCount++;
-
-                // Confirm speech after a few consecutive speech frames
-                if (state.SpeechFrameCount >= SpeechConfirmationFrameCount)
-                {
-                    state.SpeechDetected = true;
-                    state.SilenceFrameCount = 0;
-                    _logger.LogDebug($"Speech confirmed by VAD (prob: {speechProb.ToString("F3")}), processing buffered frames...");
-
-                    // Process buffered frames with wake word engine now that VAD confirmed speech
-                    var framesToProcess = new List<short[]>(state.SpeechBuffer);
-                    foreach (var buffered in framesToProcess)
+                    var bufferedIndex = wakeWordRuntime.Process(buffered);
+                    if (bufferedIndex >= 0)
                     {
-                        var bufferedIndex = wakeWordRuntime.Process(buffered);
-                        if (bufferedIndex >= 0)
-                        {
-                            var wakeWord = wakeWordRuntimeConfig.WakeWords[bufferedIndex].Model;
-                            _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{wakeWord}' from buffered frames.");
-                            return wakeWord;
-                        }
+                        var wakeWord = wakeWordRuntimeConfig.WakeWords[bufferedIndex].Model;
+                        _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{wakeWord}' from buffered frames.");
+                        return wakeWord;
                     }
                 }
             }
             else
             {
-                state.SpeechFrameCount = 0; // Reset counter if silence is detected
-
-                // If sustained silence, abort VAD and return to noise detection
-                state.SilenceFrameCount++;
-                if (state.SilenceFrameCount > VadAbortSilenceFrames)
+                // Normal noise detection when threshold > 0
+                var isSilent = frame.All(t => Math.Abs((int)t) < silenceThreshold);
+                if (!isSilent)
                 {
-                    state.VadActive = false;
-                    state.NonSilentFrameCount = 0;
-                    state.SpeechBuffer.Clear();
-                    state.PreBuffer.Clear();
-                    vadDetector.Reset();
-                    _logger.LogDebug("VAD aborted due to sustained silence, returning to noise detection.");
+                    state.NonSilentFrameCount++;
+
+                    // Activate processing after a few consecutive non-silent frames
+                    if (state.NonSilentFrameCount >= NoiseActivationFrameCount)
+                    {
+                        state.SilenceFrameCount = 0;
+                        state.NoiseDetected = true; // Mark noise as detected
+
+                        // Move pre-buffer frames to speech buffer
+                        while (state.PreBuffer.Count > 0)
+                            state.SpeechBuffer.Enqueue(state.PreBuffer.Dequeue());
+
+                        // Skip directly to wake word processing
+                        state.SpeechDetected = true;
+                        _logger.LogDebug("Noise detected, processing wake words...");
+
+                        // Process buffered frames immediately
+                        var framesToProcess = new List<short[]>(state.SpeechBuffer);
+                        foreach (var buffered in framesToProcess)
+                        {
+                            var bufferedIndex = wakeWordRuntime.Process(buffered);
+                            if (bufferedIndex >= 0)
+                            {
+                                var wakeWord = wakeWordRuntimeConfig.WakeWords[bufferedIndex].Model;
+                                _logger.LogDebug($"[{DateTime.Now.ToLongTimeString()}] Detected '{wakeWord}' from buffered frames.");
+                                return wakeWord;
+                            }
+                        }
+                    }
                 }
+                else
+                {                
+                    state.NonSilentFrameCount = 0; // reset if we dip back to silence
+                    // Ensure noise is not detected when we're back in idle state
+                    if (!state.SpeechDetected)
+                    {
+                        state.NoiseDetected = false;
+                    }
+                }
+
+                // Maintain pre-buffer while idle
+                state.PreBuffer.Enqueue(frame);
+                if (state.PreBuffer.Count > PreBufferLength)
+                    state.PreBuffer.Dequeue();
             }
         }
-        else if (state.SpeechDetected) // Stage 3: Real-time wake word processing during speech
+        else // Stage 2: Real-time wake word processing during speech
         {            
-            var floatFrame = NormalizeFrame(frame);
-            var speechProb = vadDetector.Process(floatFrame);
-            var isSpeech = speechProb >= VadThreshold;
-
             // Add frame to limited buffer (wake words are short, so we don't need a huge buffer)
             state.SpeechBuffer.Enqueue(frame);
             if (state.SpeechBuffer.Count > MaxSpeechBufferFrames)
@@ -265,21 +249,22 @@ public class WakeWordService : IWakeWordService
                 return wakeWord;
             }
 
-            if (isSpeech)
-                state.SilenceFrameCount = 0;
-            else
+            // Use noise detection to determine when to reset
+            var isSilent = frame.All(t => Math.Abs((int)t) < silenceThreshold);
+            if (isSilent)
                 state.SilenceFrameCount++;
+            else
+                state.SilenceFrameCount = 0;
 
-            // When speech ends, reset and return to noise detection
+            // When silence detected, reset and return to noise detection
             if (state.SilenceFrameCount > MinSilenceFrames)
             {
-                _logger.LogDebug($"Speech ended (VAD prob: {speechProb.ToString("F3")}), no wake word detected.");
-                state.VadActive = false;
+                _logger.LogDebug("Silence detected, no wake word detected.");
                 state.SpeechDetected = false;
                 state.NonSilentFrameCount = 0;
+                state.NoiseDetected = false; // Mark noise as no longer detected
                 state.SpeechBuffer.Clear();
                 state.PreBuffer.Clear();
-                vadDetector.Reset();
             }
         }
 
@@ -302,16 +287,6 @@ public class WakeWordService : IWakeWordService
             wakeWords = [];
 
         return wakeWords;
-    }
-    
-    private static float[] NormalizeFrame(short[] frame)
-    {
-        // Convert short[] to float[] (normalize to -1.0 to 1.0 range)
-        var floatFrame = new float[frame.Length];
-        for (var i = 0; i < frame.Length; i++)
-            floatFrame[i] = frame[i] / 32768.0f;
-
-        return floatFrame;
     }
 }
 

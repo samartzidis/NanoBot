@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NanoBot.Configuration;
 using NanoBot.Events;
-using NanoBot.Util;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -25,7 +25,7 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IVoiceService _voiceService;
     private readonly IWakeWordService _wakeWordService;
     private readonly IAgentFactoryService _agentFactoryService;
-    private readonly IDynamicOptions<AppConfig> _appConfigOptions;   
+    private readonly IOptionsMonitor<AppConfig> _appConfigMonitor;   
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
     private readonly IHostApplicationLifetime _applicationLifetime;    
@@ -61,7 +61,7 @@ public class SystemService : BackgroundService, ISystemService
 
     public SystemService(
         ILogger<SystemService> logger,
-        IDynamicOptions<AppConfig> appConfigOptions, 
+        IOptionsMonitor<AppConfig> appConfigMonitor, 
         IVoiceService voiceService,
         IWakeWordService wakeWordService,
         IAgentFactoryService agentFactoryService, 
@@ -70,7 +70,7 @@ public class SystemService : BackgroundService, ISystemService
         IHostApplicationLifetime applicationLifetime)
     {
         _logger = logger;
-        _appConfigOptions = appConfigOptions;
+        _appConfigMonitor = appConfigMonitor;
         _voiceService = voiceService;
         _wakeWordService = wakeWordService;
         _agentFactoryService = agentFactoryService;
@@ -102,7 +102,7 @@ public class SystemService : BackgroundService, ISystemService
 
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        var appConfig = _appConfigOptions.Value;
+        var appConfig = _appConfigMonitor.CurrentValue;
 
         // Set initial playback volume from config
         if (appConfig.PlaybackVolume >= 0 && appConfig.PlaybackVolume <= 10)
@@ -185,7 +185,7 @@ public class SystemService : BackgroundService, ISystemService
     
     private async Task ConsoleDebugConversationLoop(CancellationToken cancellationToken)
     {
-        var appConfig = _appConfigOptions.Value;
+        var appConfig = _appConfigMonitor.CurrentValue;
 
         var agentConfig = appConfig.Agents?.FirstOrDefault(a => !a.Disabled);
         if (agentConfig == null)
@@ -239,7 +239,7 @@ public class SystemService : BackgroundService, ISystemService
         _bus.Publish<WakeWordDetectedEvent>(this);
 
         // Retrieve agent associated to wake word
-        var appConfig = _appConfigOptions.Value;
+        var appConfig = _appConfigMonitor.CurrentValue;
         var agentConfig = appConfig.Agents?.FirstOrDefault(t => 
 			!t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
         if (agentConfig == null)
@@ -377,7 +377,7 @@ public class SystemService : BackgroundService, ISystemService
             _bus.Publish<StartThinkingEvent>(this);
 
             var audioTranscriptionLanguage = "en";
-            if (appConfig.VoiceService.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
+            if (appConfig.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
             {
 
                 var idx = agentConfig.SpeechSynthesisVoiceName.IndexOf('-');

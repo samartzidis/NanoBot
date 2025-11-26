@@ -100,7 +100,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 1. Install the latest [Raspberry Pi OS Lite (64-bit)](https://www.raspberrypi.com/software/operating-systems/) Operating System, currently Debian version: 12 (bookworm), on the `Raspberry Pi Zero 2 W` device configuring WiFi network connectivity with internet access. Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. After finishing installation, SSH to the Pi and install the required OS packages via:
     `sudo apt-get install libasound2-dev`
-3. Disable the Raspberry Pi on-board audio functionality:
+3. Disable the Raspberry Pi on-board audio functionality and enable the pwm overlay:
     Edit: `/boot/firmware/config.txt`
     Add these lines in the end: 
     ```
@@ -136,7 +136,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     [Service]
     Environment=DOTNET_ROOT=/opt/dotnet8
     Environment=PATH=/opt/dotnet8:/usr/bin:/bin
-    ExecStart=/opt/dotnet8/dotnet /home/pi/nanobot/NanoBot.dll
+    ExecStart=/home/pi/nanobot/NanoBot
     WorkingDirectory=/home/pi/nanobot/
     User=pi
 

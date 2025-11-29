@@ -11,18 +11,24 @@ const systemUiSchema = {
                 { type: "Control", scope: "#/properties/OpenAiApiKey" },
                 { type: "Control", scope: "#/properties/GoogleApiKey" },
                 { type: "Control", scope: "#/properties/GoogleSearchEngineId" },      
-                { type: "Control", scope: "#/properties/ChatHistoryTimeToLiveMinutes" },
-                //{ type: "Control", scope: "#/properties/PowerConfS330DriverEnabled" },   
-                { type: "Control", scope: "#/properties/PlaybackVolume" }   
+                { type: "Control", scope: "#/properties/ChatHistoryTimeToLiveMinutes" }
             ]
-      },            
+      },
       {
         type: "Group",
-        label: "Voice Service",
+        label: "Wake Word Engine",
         elements: [      
-          { type: "Control", scope: "#/properties/VoiceService/properties/TextToSpeechServiceProvider" },
-          { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceKey" },
-          { type: "Control", scope: "#/properties/VoiceService/properties/AzureSpeechServiceRegion" }          
+            { type: "Control", scope: "#/properties/WakeWordSilenceSampleAmplitudeThreshold" }
+        ]
+      },           
+      {
+        type: "Group",
+        label: "Speech Engine",
+        elements: [    
+          { type: "Control", scope: "#/properties/PlaybackVolume" },  
+          { type: "Control", scope: "#/properties/TextToSpeechServiceProvider" },
+          { type: "Control", scope: "#/properties/AzureSpeechServiceKey" },
+          { type: "Control", scope: "#/properties/AzureSpeechServiceRegion" }         
         ]
       }
     ]

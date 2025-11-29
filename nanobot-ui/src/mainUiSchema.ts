@@ -15,8 +15,9 @@ const mainUiSchema = {
               { "type": "Control", "scope": "#/properties/Instructions", options: { "multi": true } },
               { "type": "Control", "scope": "#/properties/Temperature" },
               { "type": "Control", "scope": "#/properties/MaxHistory" },
+
               { "type": "Control", "scope": "#/properties/WakeWord" },
-              { "type": "Control", "scope": "#/properties/WakeWordThreshold" },
+              { "type": "Control", "scope": "#/properties/WakeWordThreshold" },              
               { "type": "Control", "scope": "#/properties/WakeWordTriggerLevel" },
               { "type": "Control", "scope": "#/properties/SpeechSynthesisVoiceName" },
 

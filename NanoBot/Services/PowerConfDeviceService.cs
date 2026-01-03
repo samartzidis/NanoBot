@@ -1,5 +1,4 @@
-﻿/*
-using NanoBot.Events;
+﻿using NanoBot.Events;
 using HidSharp;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -115,13 +114,13 @@ public class PowerConfDeviceService : BackgroundService, IPowerConfDeviceService
                     _telephonyDevice = FindDevice(TelephonyDeviceUsagePage);
                     if (_telephonyDevice == null)
                     {
-                        _logger.LogWarning($"Could not find {nameof(TelephonyDeviceUsagePage)}.");
+                        _logger.LogWarning($"Could not find device {nameof(TelephonyDeviceUsagePage)}.");
 
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
-                    _logger.LogDebug($"Found {nameof(TelephonyDeviceUsagePage)}.");
+                    _logger.LogDebug($"Found device {nameof(TelephonyDeviceUsagePage)}.");
                 }
 
                 await using var stream = OpenDeviceStream(_telephonyDevice);
@@ -264,4 +263,3 @@ public class PowerConfDeviceService : BackgroundService, IPowerConfDeviceService
         return false;
     }
 }
-*/

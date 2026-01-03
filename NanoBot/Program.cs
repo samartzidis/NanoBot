@@ -76,8 +76,8 @@ public class Program
 
                 // Enable selected drivers                
 
-                //services.AddSingleton<IPowerConfDeviceService, PowerConfDeviceService>();
-                //services.AddHostedService<IPowerConfDeviceService>(provider => provider.GetRequiredService<IPowerConfDeviceService>());         
+                services.AddSingleton<IPowerConfDeviceService, PowerConfDeviceService>();
+                services.AddHostedService<IPowerConfDeviceService>(provider => provider.GetRequiredService<IPowerConfDeviceService>());         
                 
                 services.AddSingleton<IGpioDeviceService, GpioDeviceService>();
                 services.AddHostedService<IGpioDeviceService>(provider => provider.GetRequiredService<IGpioDeviceService>());

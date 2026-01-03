@@ -64,8 +64,8 @@ public class AppConfig
     public int WakeWordSilenceSampleAmplitudeThreshold { get; set; } = 1200;
 
     [DisplayName("Enable Anker PowerConf S330 Driver")]
-    [Description("Enable device driver for connected Anker PowerConf S330 speakerphone.")]
-    public bool PowerConfS330DriverEnabled { get; set; }
+    [Description("Enable device driver for Anker PowerConf S330 speakerphone.")]
+    public bool S330Enabled { get; set; }
 
     public List<AgentConfig> Agents { get; set; } = [ ];
 }

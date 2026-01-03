@@ -16,7 +16,7 @@ GoogleApiKey:
 GoogleSearchEngineId:
 GpioDriverEnabled: true
 MemoryServiceMaxMemories: 100
-PowerConfS330DriverEnabled:
+S330Enabled:
 
 TextToSpeechServiceProvider: OpenAI
 AzureSpeechServiceKey: 

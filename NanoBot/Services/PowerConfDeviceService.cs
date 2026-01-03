@@ -36,10 +36,10 @@ public class PowerConfDeviceService : BackgroundService, IPowerConfDeviceService
         _logger = logger;
         _bus = bus;
         _appConfigOptionsMonitor = appConfigOptionsMonitor;
-        _enabled = appConfigOptionsMonitor.CurrentValue.PowerConfS330DriverEnabled;
+        _enabled = appConfigOptionsMonitor.CurrentValue.S330Enabled;
 
         _appConfigOptionsMonitor.OnChange((appConfig) => {
-            _enabled = appConfig.PowerConfS330DriverEnabled;
+            _enabled = appConfig.S330Enabled;
         });
 
         WireUpEventHandlers();

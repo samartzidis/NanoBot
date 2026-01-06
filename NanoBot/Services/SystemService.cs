@@ -314,7 +314,7 @@ public class SystemService : BackgroundService, ISystemService
                 _bus.Publish<StartTalkingEvent>(this);
 
                 // Wait for speech to complete - no wake word interruption during speech
-                await _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, hangupToken);
+                await _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, agentConfig.SpeechSynthesisInstructions, hangupToken);
                 _logger.LogDebug("Speech complete.");
             }
             finally

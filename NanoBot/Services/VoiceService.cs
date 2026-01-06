@@ -23,7 +23,7 @@ public interface IVoiceService
 {
     ReceiveVoiceMessageResult WaitForSpeech(out byte[] audioBuffer, CancellationToken cancellationToken = default);
     string GenerateSpeechToText(byte[] audioBuffer, string audioTranscriptionLanguage);
-    Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default);
+    Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, string speechSynthesisInstructions = null, CancellationToken cancellationToken = default);
     Task<List<VoiceInfo>> GetAvailableVoicesAsync(TextToSpeechServiceProviderConfig config, CancellationToken cancellationToken = default);
 }
 
@@ -38,9 +38,9 @@ public class VoiceService : IVoiceService
     //Silence duration to mark end of recording of user voice message
     public const int StopRecordingSilenceSeconds = 5;
 
-    private readonly string _openAiTextToSpeechModel = "tts-1";
+    private readonly string _openAiTextToSpeechModel = "gpt-4o-mini-tts";
     private readonly string _openAiSpeechToTextModel = "whisper-1";
-    private readonly string[] _openAiVoiceNames = ["alloy", "echo", "fable", "onyx", "nova", "shimmer", "ash", "sage", "coral"];
+    private readonly string[] _openAiVoiceNames = ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"];
 
     private List<VoiceInfo> _cachedVoices; // Cache variable for storing OpenAI voices
     private readonly ILogger _logger;
@@ -127,7 +127,7 @@ public class VoiceService : IVoiceService
     }
     */
 
-    public async Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default)
+    public async Task GenerateTextToSpeechAsync(string text, string speechSynthesisVoiceName, string speechSynthesisInstructions = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new ArgumentException("Input text cannot be null or empty.", nameof(text));
@@ -140,7 +140,7 @@ public class VoiceService : IVoiceService
         if (appConfig.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
             await GenerateTextToSpeechAzureAsync(text, speechSynthesisVoiceName, cancellationToken);
         else if (appConfig.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.OpenAI)
-            await GenerateTextToSpeechOpenAiAsync(text, speechSynthesisVoiceName, cancellationToken);
+            await GenerateTextToSpeechOpenAiAsync(text, speechSynthesisVoiceName, speechSynthesisInstructions, cancellationToken);
         else
             throw new InvalidOperationException($"{nameof(TextToSpeechServiceProviderConfig)} value {appConfig.TextToSpeechServiceProvider} is unsupported.");
     }
@@ -192,7 +192,7 @@ public class VoiceService : IVoiceService
         }
     }
 
-    public async Task GenerateTextToSpeechOpenAiAsync(string text, string speechSynthesisVoiceName, CancellationToken cancellationToken = default)
+    public async Task GenerateTextToSpeechOpenAiAsync(string text, string speechSynthesisVoiceName, string speechSynthesisInstructions = null, CancellationToken cancellationToken = default)
     {
         var appConfig = _appConfigOptions.Value;
 
@@ -201,10 +201,14 @@ public class VoiceService : IVoiceService
 
         var speechVoice = new GeneratedSpeechVoice(speechSynthesisVoiceName);
 
+        var options = new SpeechGenerationOptions { ResponseFormat = GeneratedSpeechFormat.Wav };
+        if (!string.IsNullOrWhiteSpace(speechSynthesisInstructions))
+            options.Instructions = speechSynthesisInstructions;
+
         BinaryData res = await audioClient.GenerateSpeechAsync(
             text,
             speechVoice,
-            new SpeechGenerationOptions { ResponseFormat = GeneratedSpeechFormat.Wav }, cancellationToken);
+            options, cancellationToken);
 
         var dataStream = res.ToStream();
         var tempFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".wav");

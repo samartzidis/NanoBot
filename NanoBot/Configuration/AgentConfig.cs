@@ -54,6 +54,9 @@ public class AgentConfig
     [Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]
     public string SpeechSynthesisVoiceName { get; set; }
 
+    [Description("Instructions for OpenAI TTS to guide voice style, tone, accent, etc. Only applies when using OpenAI TTS. Optional.")]
+    public string SpeechSynthesisInstructions { get; set; }
+
     [DisplayName("Calculator Plug-in")]
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]
     public bool CalculatorPluginEnabled { get; set; }

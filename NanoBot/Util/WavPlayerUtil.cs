@@ -8,6 +8,7 @@ public static class WavPlayerUtil
     {
         public int SampleRate { get; init; }
         public int BitsPerSample { get; init; }
+        public long DataOffset { get; init; }
     }
 
     private static WavFileInfo GetWavFileInfo(string filePath)
@@ -34,32 +35,52 @@ public static class WavPlayerUtil
         if (format != "WAVE")
             throw new InvalidDataException("Not a valid WAV file.");
 
-        var formatChunkId = new string(binaryReader.ReadChars(4));
-        if (formatChunkId != "fmt ")
-            throw new InvalidDataException("Invalid WAV file format.");
+        int sampleRate = 0;
+        int bitsPerSample = 0;
+        long dataOffset = 0;
 
-        var formatChunkSize = binaryReader.ReadInt32();
-        var audioFormat = binaryReader.ReadInt16();
-        var channels = binaryReader.ReadInt16();
-        var sampleRate = binaryReader.ReadInt32();
-        var byteRate = binaryReader.ReadInt32();
-        var blockAlign = binaryReader.ReadInt16();
-        var bitsPerSample = binaryReader.ReadInt16();
+        // Parse all chunks
+        while (binaryReader.BaseStream.Position < binaryReader.BaseStream.Length)
+        {
+            var subChunkId = new string(binaryReader.ReadChars(4));
+            var subChunkSize = binaryReader.ReadInt32();
 
-        if (formatChunkSize > 16)
-            binaryReader.BaseStream.Seek(formatChunkSize - 16, SeekOrigin.Current);
+            if (subChunkId == "fmt ")
+            {
+                var audioFormat = binaryReader.ReadInt16();
+                var channels = binaryReader.ReadInt16();
+                sampleRate = binaryReader.ReadInt32();
+                var byteRate = binaryReader.ReadInt32();
+                var blockAlign = binaryReader.ReadInt16();
+                bitsPerSample = binaryReader.ReadInt16();
 
-        if (channels != 1)
-            throw new InvalidDataException("WAV file must have a single channel (MONO)");
+                if (channels != 1)
+                    throw new InvalidDataException("WAV file must have a single channel (MONO)");
 
-        var dataChunkId = new string(binaryReader.ReadChars(4));
-        if (dataChunkId != "data")
-            throw new InvalidDataException("Invalid WAV file data chunk.");
+                // Skip any extra format bytes
+                if (subChunkSize > 16)
+                    binaryReader.BaseStream.Seek(subChunkSize - 16, SeekOrigin.Current);
+            }
+            else if (subChunkId == "data")
+            {
+                dataOffset = binaryReader.BaseStream.Position;
+                break; // Found data chunk, we're done
+            }
+            else
+            {
+                // Skip unknown chunks
+                binaryReader.BaseStream.Seek(subChunkSize, SeekOrigin.Current);
+            }
+        }
+
+        if (dataOffset == 0)
+            throw new InvalidDataException("No data chunk found in WAV file.");
 
         return new WavFileInfo
         {
             SampleRate = sampleRate,
             BitsPerSample = bitsPerSample,
+            DataOffset = dataOffset,
         };
     }
 
@@ -67,43 +88,29 @@ public static class WavPlayerUtil
     {
         var wavInfo = GetWavFileInfo(inputFilePath);
 
-        using var speaker = new PvSpeaker(sampleRate: wavInfo.SampleRate, bitsPerSample: wavInfo.BitsPerSample);
+        using var speaker = new PvSpeaker(sampleRate: wavInfo.SampleRate, bitsPerSample: wavInfo.BitsPerSample, bufferSizeSecs: 60);
+
+        await using var registration = cancellationToken.Register(() => speaker.Stop());
+
         speaker.Start();
 
         await using var fileStream = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new BinaryReader(fileStream);
 
-        // Skip RIFF header
-        reader.BaseStream.Seek(12, SeekOrigin.Begin);
+        // Seek directly to the audio data
+        fileStream.Seek(wavInfo.DataOffset, SeekOrigin.Begin);
 
-        while (reader.BaseStream.Position < reader.BaseStream.Length && !cancellationToken.IsCancellationRequested)
+        // Stream audio data in chunks until end of file
+        byte[] buffer = new byte[16384];
+        int bytesRead;
+        while (!cancellationToken.IsCancellationRequested &&
+               (bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
         {
-            var subChunkId = new string(reader.ReadChars(4));
-            var subChunkSize = reader.ReadInt32();
-
-            if (subChunkId == "data")
-            {
-                // Stream audio data until EOF or cancellation
-                var buffer = new byte[512]; // Adjust buffer size as needed
-                int bytesRead;
-                while ((bytesRead = await reader.BaseStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
-                {
-                    speaker.Write(buffer.Take(bytesRead).ToArray());
-                }
-                break;
-            }
-            else
-            {
-                // Skip other chunks
-                reader.BaseStream.Seek(subChunkSize, SeekOrigin.Current);
-            }
+            byte[] chunk = new byte[bytesRead];
+            Array.Copy(buffer, chunk, bytesRead);
+            speaker.Write(chunk);
         }
 
-        if (cancellationToken.IsCancellationRequested)
-        {
-            speaker.Stop();
-        }
-        else
+        if (!cancellationToken.IsCancellationRequested)
         {
             speaker.Flush();
         }

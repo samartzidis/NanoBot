@@ -20,6 +20,7 @@ const mainUiSchema = {
               { "type": "Control", "scope": "#/properties/WakeWordThreshold" },              
               { "type": "Control", "scope": "#/properties/WakeWordTriggerLevel" },
               { "type": "Control", "scope": "#/properties/SpeechSynthesisVoiceName" },
+              { "type": "Control", "scope": "#/properties/SpeechSynthesisInstructions" },
 
               { "type": "Control", "scope": "#/properties/MemoryPluginEnabled" },
               { "type": "Control", "scope": "#/properties/DateTimePluginEnabled" },

@@ -210,23 +210,7 @@ public class VoiceService : IVoiceService
             speechVoice,
             options, cancellationToken);
 
-        var dataStream = res.ToStream();
-        var tempFilePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".wav");
-        try
-        {
-            await using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                await dataStream.CopyToAsync(fileStream, cancellationToken);
-            }
-
-            _logger.LogDebug($"Audio saved to temporary file: {tempFilePath}");
-
-            await WavPlayerUtil.PlayAsync(tempFilePath, cancellationToken);
-        }
-        finally
-        {
-            File.Delete(tempFilePath);
-        }
+        await WavPlayerUtil.PlayAsync(res.ToArray(), cancellationToken);
     }
    
     public ReceiveVoiceMessageResult WaitForSpeech(

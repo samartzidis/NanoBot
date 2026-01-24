@@ -12,39 +12,40 @@ namespace NanoBot.Controllers;
 public class SystemController : ControllerBase
 {
     private readonly ILogger<SystemController> _logger;
-    private readonly IVoiceService _voiceService;
+    //private readonly IVoiceService _voiceService;
     private readonly AppConfig _appConfig;
 
     public SystemController(ILogger<SystemController> logger, 
-        IOptions<AppConfig> appConfig, 
-        IVoiceService voiceService)
+        IOptions<AppConfig> appConfig 
+        //IVoiceService voiceService
+        )
     {
         _logger = logger;
-        _voiceService = voiceService;
+        //_voiceService = voiceService;
         _appConfig = appConfig.Value;
     }
 
-    [HttpGet("GetVoices")]
-    public async Task<IActionResult> GetVoices(TextToSpeechServiceProviderConfig config, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _logger.LogDebug("Fetching available voices...");
+    //[HttpGet("GetVoices")]
+    //public async Task<IActionResult> GetVoices(TextToSpeechServiceProviderConfig config, CancellationToken cancellationToken = default)
+    //{
+    //    try
+    //    {
+    //        _logger.LogDebug("Fetching available voices...");
 
-            var voices = await _voiceService.GetAvailableVoicesAsync(config, cancellationToken);
+    //        var voices = await _voiceService.GetAvailableVoicesAsync(config, cancellationToken);
 
-            if (voices == null || !voices.Any())
-                return NotFound("No available voices found.");
+    //        if (voices == null || !voices.Any())
+    //            return NotFound("No available voices found.");
 
-            return Ok(voices); // Return 200 OK with the list of voices
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error fetching available voices.");
+    //        return Ok(voices); // Return 200 OK with the list of voices
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error fetching available voices.");
 
-            return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while fetching available voices.");
-        }
-    }
+    //        return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while fetching available voices.");
+    //    }
+    //}
 
     [HttpGet("GetLogs")]
     public async Task<IActionResult> GetLogs(long lastPosition = 0, string lastFile = null)

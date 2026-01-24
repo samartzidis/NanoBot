@@ -1,20 +1,25 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Serilog;
-using System.Text;
-using NanoBot.Configuration;
-using NanoBot.Services;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using NanoBot.Events;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
-using NanoBot.Util;
 using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Plugins.Web;
+using Microsoft.SemanticKernel.Plugins.Web.Google;
+using NanoBot.Configuration;
+using NanoBot.Events;
+using NanoBot.Filters;
+using NanoBot.Plugins.Native;
+using NanoBot.Services;
+using NanoBot.Util;
+using Serilog;
+using Serilog.Core;
+using System.Text;
+using System.Text.Json.Serialization;
 
 namespace NanoBot;
 
@@ -56,8 +61,8 @@ public class Program
 
                 // Register more application services
                 services.AddSingleton(typeof(IDynamicOptions<>), typeof(DynamicOptions<>));
-                services.AddSingleton<IAgentFactoryService, AgentFactoryService>();
-                services.AddSingleton<IVoiceService, VoiceService>();
+                //services.AddSingleton<IAgentFactoryService, AgentFactoryService>();
+                //services.AddSingleton<IVoiceService, VoiceService>();
                 services.AddSingleton<IWakeWordService, WakeWordService>();
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
                 services.AddSingleton<IEventBus, EventBus>();                
@@ -101,6 +106,19 @@ public class Program
                         Version = "v1"
                     });
                 });
+
+                var kernelBuilder = services.AddKernel()
+                    .AddOpenAIChatCompletion(
+                        apiKey: appConfig.OpenAiApiKey,
+                        modelId: appConfig.OpenAiModelId);
+                kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, FunctionInvocationLoggingFilter>();
+                //kernelBuilder.Plugins.AddFromType<MemoryPlugin>();
+                kernelBuilder.AddOpenAIChatCompletion(
+                    apiKey: appConfig.OpenAiApiKey,
+                    modelId: appConfig.OpenAiModelId);
+
+                // Register a base kernel builder configuration
+                services.AddRealtimeConversationAgentFactory();
             })
             .ConfigureWebHostDefaults(webBuilder =>
             {
@@ -184,3 +202,5 @@ public class Program
         await host.WaitForShutdownAsync();
     }
 }
+
+

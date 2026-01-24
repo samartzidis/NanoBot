@@ -1,4 +1,5 @@
-﻿using Pv;
+﻿#if false
+using Pv;
 
 namespace NanoBot.Util;
 
@@ -143,3 +144,4 @@ public static class WavPlayerUtil
         }
     }
 }
+#endif

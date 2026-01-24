@@ -1,39 +1,15 @@
 using Azure.AI.OpenAI;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using NanoBot.Plugins.Native;
 using OpenAI.Realtime;
 using Pv;
 using System.ClientModel;
-using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 
 namespace NanoBot.Util;
-
-public sealed class WeatherPlugin2
-{
-    [KernelFunction]
-    [Description("Gets the current weather for the specified city in Fahrenheit.")]
-    public static string GetWeatherForCity([Description("City name without state/country.")] string cityName)
-    {
-        return cityName switch
-        {
-            "Boston" => "61 and rainy",
-            "London" => "55 and cloudy",
-            "Miami" => "80 and sunny",
-            "Paris" => "60 and rainy",
-            "Tokyo" => "50 and sunny",
-            "Sydney" => "75 and sunny",
-            "Tel Aviv" => "80 and sunny",
-            "San Francisco" => "70 and sunny",
-            _ => $"Weather data not available for {cityName}. It's probably nice though!",
-        };
-    }
-}
 
 public class RealtimeConversationAgentOptions
 {

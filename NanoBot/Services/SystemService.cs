@@ -23,9 +23,9 @@ public class SystemService : BackgroundService, ISystemService
     private const string FollowResponseMarker = "[FOLLOW]";
 
     private readonly ILogger<SystemService> _logger;
-    private readonly IVoiceService _voiceService;
+    //private readonly IVoiceService _voiceService;
     private readonly IWakeWordService _wakeWordService;
-    private readonly IAgentFactoryService _agentFactoryService;
+    //private readonly IAgentFactoryService _agentFactoryService;
     private readonly IOptionsMonitor<AppConfig> _appConfigMonitor;   
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
@@ -33,10 +33,12 @@ public class SystemService : BackgroundService, ISystemService
 
     private CancellationTokenSource _hangupCancellationTokenSource;
     private readonly object _hangupCancellationTokenLock = new object();
+
     private DateTime _lastConversationTimestamp;
     private readonly ChatHistory _history;
-
-    private RealtimeConversationAgent _rtAgent;
+    private readonly Kernel _kernel;
+    private readonly Func<AgentConfig, RealtimeConversationAgent> _realtimeAgentFactory;
+    private RealtimeConversationAgent _realtimeAgent;
 
     private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
     {
@@ -65,22 +67,27 @@ public class SystemService : BackgroundService, ISystemService
     public SystemService(
         ILogger<SystemService> logger,
         IOptionsMonitor<AppConfig> appConfigMonitor, 
-        IVoiceService voiceService,
+        //IVoiceService voiceService,
         IWakeWordService wakeWordService,
-        IAgentFactoryService agentFactoryService, 
+        //IAgentFactoryService agentFactoryService, 
         IEventBus bus,
         IAlsaControllerService alsaControllerService,
-        IHostApplicationLifetime applicationLifetime)
+        IHostApplicationLifetime applicationLifetime,
+        Func<AgentConfig, RealtimeConversationAgent> realtimeAgentFactory,
+        Kernel kernel)
     {
         _logger = logger;
         _appConfigMonitor = appConfigMonitor;
-        _voiceService = voiceService;
+        //_voiceService = voiceService;
         _wakeWordService = wakeWordService;
-        _agentFactoryService = agentFactoryService;
+        //_agentFactoryService = agentFactoryService;
         _history = new ChatHistory();
         _bus = bus;
         _alsaControllerService = alsaControllerService;
         _applicationLifetime = applicationLifetime;
+
+        _kernel = kernel;
+        _realtimeAgentFactory = realtimeAgentFactory;
 
         WireUpEventHandlers();
     }    
@@ -176,25 +183,77 @@ public class SystemService : BackgroundService, ISystemService
         _logger.LogDebug($"Established agent: {agentConfig.Name}");
 
 
-        if (_rtAgent == null)
+        if (_realtimeAgent == null)
         {
             // Instantiate agent - inject dynamic dependencies
-            var agent = await _agentFactoryService.CreateRealtimeAgentAsync(agentConfig.Name, kernelBuilder =>
-            {
-                kernelBuilder.Services.AddSingleton<ISystemService>(this);
-                kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
-            });
+            //var agent = await _agentFactoryService.CreateRealtimeAgentAsync(agentConfig.Name, kernelBuilder =>
+            //{
+            //    kernelBuilder.Services.AddSingleton<ISystemService>(this);
+            //    kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
+            //});
 
-            if (agent == null)
-            {
-                _logger.LogError($"Failed to instantiate agent: {agentConfig.Name}");
-                return;
-            }
-            _rtAgent = agent;
+            //if (agent == null)
+            //{
+            //    _logger.LogError($"Failed to instantiate agent: {agentConfig.Name}");
+            //    return;
+            //}
+            //_realtimeAgent = agent;
+
+            // Combine global prompt with agent prompt
+            //var instructionsBuilder = new StringBuilder();
+            //instructionsBuilder.AppendLine(appConfig.Instructions);
+            //instructionsBuilder.AppendLine(agentConfig.Instructions);
+            //var instructions = instructionsBuilder.ToString();
+
+            //_logger.LogDebug($"Instructions: {instructions}");
+
+            //var options = new RealtimeConversationAgentOptions
+            //{
+            //    Model = "gpt-4o-mini-realtime-preview",
+            //    Voice = "marin",
+            //    Instructions = instructions,
+            //    OpenAiApiKey = appConfig.OpenAiApiKey,
+            //    OpenAiEndpoint = null
+            //};
+
+            //var agent = new RealtimeConversationAgent(_loggerFactory.CreateLogger<RealtimeConversationAgent>(), kernel, Options.Create(options));
+
+            _realtimeAgent = _realtimeAgentFactory(agentConfig);
         }
 
-        await _rtAgent.RunAsync(cancellationToken);
+        await _realtimeAgent.RunAsync(cancellationToken);
 
+    }
+
+    public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)
+    {
+        // Wait for wake word
+        var hangupToken = GetOrCreateHangupToken(cancellationToken);
+        try
+        {
+            var wakeWord = await _wakeWordService.WaitForWakeWordAsync(hangupToken);
+            if (wakeWord == null) // Got cancelled
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
+                    return null;
+                }
+
+                _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled due to hangup event.");
+                return null;
+            }
+            else // Got wake word
+            {
+                _logger.LogDebug($"Got wake word: {wakeWord}");
+                return wakeWord;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
+            return null;
+        }
     }
 
     /*
@@ -357,37 +416,7 @@ public class SystemService : BackgroundService, ISystemService
     }
     */
 
-    public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)
-    {
-        // Wait for wake word
-        var hangupToken = GetOrCreateHangupToken(cancellationToken);
-        try
-        {
-            var wakeWord = await _wakeWordService.WaitForWakeWordAsync(hangupToken);
-            if (wakeWord == null) // Got cancelled
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
-                    return null;
-                }
-
-                _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled due to hangup event.");
-                return null;
-            }
-            else // Got wake word
-            {
-                _logger.LogDebug($"Got wake word: {wakeWord}");
-                return wakeWord;
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
-            return null;
-        }
-    }
-
+    /*
     public async Task<string> TranscribeAndThink(AppConfig appConfig, AgentConfig agentConfig, byte[] userAudioBuffer, ChatCompletionAgent agent, CancellationToken cancellationToken)
     {
         try
@@ -462,7 +491,7 @@ public class SystemService : BackgroundService, ISystemService
             _bus.Publish<StopThinkingEvent>(this);
         }
     }
-
+    
     private async IAsyncEnumerable<string> InvokeAgentAsync(ChatCompletionAgent agent, ChatHistory history, string userMessage, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         try
@@ -489,7 +518,7 @@ public class SystemService : BackgroundService, ISystemService
             _logger.LogDebug("Invoking LLM complete.");
         }
     }
-
+    */
     private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)
     {
         return Task.Run(async () =>

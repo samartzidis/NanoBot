@@ -45,11 +45,6 @@ public class AgentConfig
     [DefaultValue(3)]
     public int WakeWordTriggerLevel { get; set; } = 3;
 
-    //[Required]
-    //[Description($"User word that triggers stop of an ongoing conversation. Defaults to: '{DefaultStopWord}'.")]
-    //[DefaultValue(DefaultStopWord)]
-    //public string StopWord { get; set; } = DefaultStopWord;
-
     [Required]
     [Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]
     public string SpeechSynthesisVoiceName { get; set; }
@@ -57,6 +52,7 @@ public class AgentConfig
     [Description("Instructions for OpenAI TTS to guide voice style, tone, accent, etc. Only applies when using OpenAI TTS. Optional.")]
     public string SpeechSynthesisInstructions { get; set; }
 
+    #region Plugins
     [DisplayName("Calculator Plug-in")]
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]
     public bool CalculatorPluginEnabled { get; set; }
@@ -64,10 +60,6 @@ public class AgentConfig
     [DisplayName("Google Plug-in")]
     [Description("Provides methods to search using Google Custom Search API.")]
     public bool GooglePluginEnabled { get; set; }
-
-    //[DisplayName("User Plug-ins")]
-    //[Description("Enable YAML user plug-ins under the 'Plugins/Yaml' folder.")]
-    //public bool UserPluginsEnabled { get; set; }
 
     [DisplayName("DateTime Plug-in")]
     [Description("Provides functions for date and time operations, formatting, and calculations.")]
@@ -84,4 +76,5 @@ public class AgentConfig
     [DisplayName("Memory Plug-in")]
     [Description("Provides functions to save, retrieve, search, and manage persistent memories for the agent.")]
     public bool MemoryPluginEnabled { get; set; }
+    #endregion Plugins
 }

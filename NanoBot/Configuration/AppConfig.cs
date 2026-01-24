@@ -67,7 +67,7 @@ public class AppConfig
     [Description("Enable device driver for Anker PowerConf S330 speakerphone.")]
     public bool S330Enabled { get; set; }
 
-    public List<AgentConfig> Agents { get; set; } = [ ];
+    public List<AgentConfig> Agents { get; set; } = [ ];    
 }
 
 

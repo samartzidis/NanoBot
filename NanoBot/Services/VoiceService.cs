@@ -1,4 +1,5 @@
-﻿using Microsoft.CognitiveServices.Speech;
+﻿#if false
+using Microsoft.CognitiveServices.Speech;
 using Microsoft.Extensions.Logging;
 using NanoBot.Configuration;
 using NanoBot.Util;
@@ -518,3 +519,4 @@ public class VoiceService : IVoiceService
         return parts;
     }
 }
+#endif

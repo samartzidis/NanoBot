@@ -9,6 +9,7 @@ using NanoBot.Configuration;
 using NanoBot.Events;
 using System.Runtime.CompilerServices;
 using System.Text;
+using NanoBot.Util;
 
 namespace NanoBot.Services;
 
@@ -34,6 +35,8 @@ public class SystemService : BackgroundService, ISystemService
     private readonly object _hangupCancellationTokenLock = new object();
     private DateTime _lastConversationTimestamp;
     private readonly ChatHistory _history;
+
+    private RealtimeConversationAgent _rtAgent;
 
     private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
     {
@@ -128,11 +131,13 @@ public class SystemService : BackgroundService, ISystemService
                 try
                 {                    
                     _bus.Publish<SystemOkEvent>(this);
-                    
-                    if (!appConfig.ConsoleDebug)
-                        await ConversationLoop(cancellationToken);
-                    else
-                        await ConsoleDebugConversationLoop(cancellationToken);
+
+                    //if (!appConfig.ConsoleDebug)
+                    //    await ConversationLoop(cancellationToken);
+                    //else
+                    //    await ConsoleDebugConversationLoop(cancellationToken);
+
+                    await RealtimeConversationLoop(cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -150,39 +155,49 @@ public class SystemService : BackgroundService, ISystemService
         }, cancellationToken);
     }
 
-    private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)
+    private async Task RealtimeConversationLoop(CancellationToken cancellationToken)
     {
-        return Task.Run(async () =>
-        {
-            try
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    // Skip if no console or input is redirected (e.g., service/daemon)
-                    if (!Console.IsInputRedirected && Console.KeyAvailable)
-                    {
-                        var key = Console.ReadKey(intercept: true);
-                        if (key.Key == ConsoleKey.Spacebar)
-                        {
-                            _logger.LogDebug("Spacebar pressed -> publishing HangupInputEvent.");
-                            _bus.Publish<HangupInputEvent>(this);
-                        }
-                    }
+        // Wait for wake word
+        var wakeWord = await WaitForWakeWord(cancellationToken);
 
-                    await Task.Delay(50, cancellationToken);
-                }
-            }
-            catch (OperationCanceledException)
+        // Transient notification that we got out of wake word waiting 
+        _bus.Publish<WakeWordDetectedEvent>(this);
+
+        // Retrieve agent associated to wake word
+        var appConfig = _appConfigMonitor.CurrentValue;
+        var agentConfig = appConfig.Agents?.FirstOrDefault(t =>
+            !t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
+        if (agentConfig == null)
+        {
+            _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
+            return;
+        }
+
+        _logger.LogDebug($"Established agent: {agentConfig.Name}");
+
+
+        if (_rtAgent == null)
+        {
+            // Instantiate agent - inject dynamic dependencies
+            var agent = await _agentFactoryService.CreateRealtimeAgentAsync(agentConfig.Name, kernelBuilder =>
             {
-                // normal on shutdown
-            }
-            catch (Exception ex)
+                kernelBuilder.Services.AddSingleton<ISystemService>(this);
+                kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
+            });
+
+            if (agent == null)
             {
-                _logger.LogError(ex, "Keyboard listener failed.");
+                _logger.LogError($"Failed to instantiate agent: {agentConfig.Name}");
+                return;
             }
-        }, cancellationToken);
+            _rtAgent = agent;
+        }
+
+        await _rtAgent.RunAsync(cancellationToken);
+
     }
-    
+
+    /*
     private async Task ConsoleDebugConversationLoop(CancellationToken cancellationToken)
     {
         var appConfig = _appConfigMonitor.CurrentValue;
@@ -226,7 +241,9 @@ public class SystemService : BackgroundService, ISystemService
             Console.WriteLine($"Agent> {response}");
         }
     }
-       
+    */
+
+    /*
     private async Task ConversationLoop(CancellationToken cancellationToken)
     {
         // Update the last conversation timestamp
@@ -261,7 +278,7 @@ public class SystemService : BackgroundService, ISystemService
                 _history.Clear();
             }
         }
-
+        
         // Instantiate agent - inject dynamic dependencies
           var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kernelBuilder => {
             kernelBuilder.Services.AddSingleton<ISystemService>(this);
@@ -338,7 +355,8 @@ public class SystemService : BackgroundService, ISystemService
                 return; // Complete the conversation loop
         }
     }
-    
+    */
+
     public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)
     {
         // Wait for wake word
@@ -470,5 +488,38 @@ public class SystemService : BackgroundService, ISystemService
         {
             _logger.LogDebug("Invoking LLM complete.");
         }
-    } 
+    }
+
+    private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)
+    {
+        return Task.Run(async () =>
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    // Skip if no console or input is redirected (e.g., service/daemon)
+                    if (!Console.IsInputRedirected && Console.KeyAvailable)
+                    {
+                        var key = Console.ReadKey(intercept: true);
+                        if (key.Key == ConsoleKey.Spacebar)
+                        {
+                            _logger.LogDebug("Spacebar pressed -> publishing HangupInputEvent.");
+                            _bus.Publish<HangupInputEvent>(this);
+                        }
+                    }
+
+                    await Task.Delay(50, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // normal on shutdown
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Keyboard listener failed.");
+            }
+        }, cancellationToken);
+    }
 }

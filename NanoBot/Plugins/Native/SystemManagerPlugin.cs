@@ -22,15 +22,15 @@ public class SystemManagerPlugin
         _alsaControllerService = alsaControllerService;
     }
 
-    [KernelFunction($"{nameof(ClearChatHistory)}")]
-    [Description("Clears the current conversation chat history.")]
-    public async Task ClearChatHistory(Kernel kernel)
-    {
-        _logger.LogDebug($"{nameof(ClearChatHistory)} tool invoked.");
+    //[KernelFunction($"{nameof(ClearChatHistory)}")]
+    //[Description("Clears the current conversation chat history.")]
+    //public async Task ClearChatHistory(Kernel kernel)
+    //{
+    //    _logger.LogDebug($"{nameof(ClearChatHistory)} tool invoked.");
 
-        _systemService.History?.Clear();
-    }
-
+    //    _systemService.History?.Clear();
+    //}
+    
     [KernelFunction($"{nameof(TurnOff)}")]
     [Description("Turns off the system")]
     public async Task TurnOff(Kernel kernel)
@@ -40,7 +40,7 @@ public class SystemManagerPlugin
         if (PlatformUtil.IsLinuxPlatform())
             ShellExecute("sudo", "shutdown now");
     }
-
+    
     [KernelFunction($"{nameof(Restart)}")]
     [Description("Restarts the system")]
     public async Task Restart(Kernel kernel)
@@ -85,6 +85,7 @@ public class SystemManagerPlugin
 
         _alsaControllerService.SetPlaybackVolume(volume);
     }
+    
 
     private async void ShellExecute(string cmd, string pars)
     {

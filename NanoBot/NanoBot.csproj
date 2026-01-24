@@ -7,35 +7,35 @@
     <IsPackable>false</IsPackable>    
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>    
-    <NoWarn>1701;1702;1998;CS1591;SKEXP0050;SKEXP0101;SKEXP0101;SKEXP0110;SKEXP0001;OPENAI001;SKEXP0010;SKEXP0020</NoWarn>
+    <NoWarn>1701;1702;1998;CS1591;SKEXP0050;SKEXP0101;SKEXP0101;SKEXP0110;SKEXP0001;OPENAI001;OPENAI002;SKEXP0010;SKEXP0020</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="HidSharp" Version="2.6.4" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.10.0" />    
-    <PackageReference Include="NanoWakeWord" Version="1.2.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.2.0" />    
+    <PackageReference Include="NanoWakeWord" Version="1.2.1" />
     <PackageReference Include="NetEscapades.Configuration.Yaml" Version="3.1.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
     <PackageReference Include="PvSpeaker" Version="1.0.2" />
-    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
-    <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.2" />
-    <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="DataAnnotationsValidator.NETCore" Version="1.0.3" />
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.46.0" />
+    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.47.0" />
     <PackageReference Include="PvRecorder" Version="1.2.13" />    
-    <PackageReference Include="Microsoft.SemanticKernel" Version="1.67.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.67.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.66.0-preview" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.66.0-preview" />
-    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.67.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.67.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.66.0-alpha" />    
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />   
-    <PackageReference Include="System.Device.Gpio" Version="4.0.1" />   
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.70.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.70.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.70.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.70.0-preview" />
+    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.70.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.70.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.70.0-alpha" />    
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />   
+    <PackageReference Include="System.Device.Gpio" Version="4.1.0" />   
   </ItemGroup>
 
   <ItemGroup>

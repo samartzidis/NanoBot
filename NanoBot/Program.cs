@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.OpenApi;
 using NanoBot.Util;
 using Microsoft.SemanticKernel;
 
@@ -94,7 +95,7 @@ public class Program
                 services.AddEndpointsApiExplorer();
                 services.AddSwaggerGen(c =>
                 {
-                    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                    c.SwaggerDoc("v1", new OpenApiInfo
                     {
                         Title = "NanoBot Web API",
                         Version = "v1"

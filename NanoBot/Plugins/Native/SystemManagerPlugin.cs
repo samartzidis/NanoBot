@@ -86,6 +86,14 @@ public class SystemManagerPlugin
         _alsaControllerService.SetPlaybackVolume(volume);
     }
     
+    [KernelFunction($"{nameof(GetPlaybackVolume)}")]
+    [Description("Gets the current playback volume level (0-10).")]
+    public async Task<int> GetPlaybackVolume(Kernel kernel)
+    {
+        _logger.LogDebug($"{nameof(GetPlaybackVolume)} tool invoked.");
+        
+        return _alsaControllerService.GetPlaybackVolume();
+    }
 
     private async void ShellExecute(string cmd, string pars)
     {

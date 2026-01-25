@@ -161,12 +161,11 @@ internal class AlsaControllerService : IAlsaControllerService
         Task.Delay(_debounceDelay, token)
             .ContinueWith(t =>
             {
-                if (!t.IsCanceled)
+                if (!t.IsCanceled && !token.IsCancellationRequested)
                 {
                     var soundDeviceSettings = new SoundDeviceSettings();
                     using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
-                    alsaDevice.Play(NotifyMediaPath);
-
+                    alsaDevice.Play(NotifyMediaPath, token);
                 }
             }, TaskScheduler.Default);
     }

@@ -1,31 +1,21 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
 using NanoBot.Configuration;
 using NanoBot.Events;
-using System.Runtime.CompilerServices;
-using System.Text;
 using NanoBot.Util;
 
 namespace NanoBot.Services;
 
 public interface ISystemService : IHostedService
 {
-    public ChatHistory History { get; }
+    Task NotifyConversationEnd();
 }
 
 public class SystemService : BackgroundService, ISystemService
 {
-    private const string FollowResponseMarker = "[FOLLOW]";
-
     private readonly ILogger<SystemService> _logger;
-    //private readonly IVoiceService _voiceService;
     private readonly IWakeWordService _wakeWordService;
-    //private readonly IAgentFactoryService _agentFactoryService;
     private readonly IOptionsMonitor<AppConfig> _appConfigMonitor;   
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
@@ -35,10 +25,8 @@ public class SystemService : BackgroundService, ISystemService
     private readonly object _hangupCancellationTokenLock = new object();
 
     private DateTime _lastConversationTimestamp;
-    private readonly ChatHistory _history;
-    private readonly Kernel _kernel;
-    private readonly Func<AgentConfig, RealtimeConversationAgent> _realtimeAgentFactory;
-    private RealtimeConversationAgent _realtimeAgent;
+    private readonly Func<AgentConfig, RealtimeAgent> _realtimeAgentFactory;
+    private RealtimeAgent _realtimeAgent;
 
     private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
     {
@@ -62,31 +50,21 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
 
-    public ChatHistory History => _history;
-
     public SystemService(
         ILogger<SystemService> logger,
         IOptionsMonitor<AppConfig> appConfigMonitor, 
-        //IVoiceService voiceService,
         IWakeWordService wakeWordService,
-        //IAgentFactoryService agentFactoryService, 
         IEventBus bus,
         IAlsaControllerService alsaControllerService,
         IHostApplicationLifetime applicationLifetime,
-        Func<AgentConfig, RealtimeConversationAgent> realtimeAgentFactory,
-        Kernel kernel)
+        Func<AgentConfig, RealtimeAgent> realtimeAgentFactory)
     {
         _logger = logger;
         _appConfigMonitor = appConfigMonitor;
-        //_voiceService = voiceService;
         _wakeWordService = wakeWordService;
-        //_agentFactoryService = agentFactoryService;
-        _history = new ChatHistory();
         _bus = bus;
         _alsaControllerService = alsaControllerService;
         _applicationLifetime = applicationLifetime;
-
-        _kernel = kernel;
         _realtimeAgentFactory = realtimeAgentFactory;
 
         WireUpEventHandlers();
@@ -159,7 +137,9 @@ public class SystemService : BackgroundService, ISystemService
 
                     _realtimeAgent ??= _realtimeAgentFactory(agentConfig);
 
-                    await _realtimeAgent.RunAsync(cancellationToken);
+                    var hangupToken = GetOrCreateHangupToken(cancellationToken);
+                    var runResult = await _realtimeAgent.RunAsync(hangupToken);
+                    
                 }
                 catch (TaskCanceledException)
                 {
@@ -170,7 +150,10 @@ public class SystemService : BackgroundService, ISystemService
                     _bus.Publish<SystemErrorEvent>(this);
 
                     _logger.LogError(m, m.Message);
-                    
+
+                    _realtimeAgent?.Dispose();
+                    _realtimeAgent = null;
+
                     await Task.Delay(5000, cancellationToken);
                 }
             }
@@ -240,268 +223,8 @@ public class SystemService : BackgroundService, ISystemService
         }, cancellationToken);
     }
 
-    /*
-    private async Task ConsoleDebugConversationLoop(CancellationToken cancellationToken)
+    public async Task NotifyConversationEnd()
     {
-        var appConfig = _appConfigMonitor.CurrentValue;
-
-        var agentConfig = appConfig.Agents?.FirstOrDefault(a => !a.Disabled);
-        if (agentConfig == null)
-            throw new Exception("No enabled agents found in config.");
-
-        // Create agent for this conversation
-        var currentAgent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kb =>
-        {
-            kb.Services.AddSingleton<ISystemService>(this);
-            kb.Services.AddSingleton(agentConfig);
-        }, cancellationToken: cancellationToken);
-
-        if (currentAgent == null)
-            throw new Exception($"Failed to create agent: {agentConfig.Name}");
-
-        Console.WriteLine($"[Console mode] Agent: {agentConfig.Name}");
-        Console.WriteLine("Press Enter to rebuild agent.");
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            Console.Write("You> ");
-            var line = Console.ReadLine();
-            if (line == null)
-                break;
-
-            // If user presses Enter (empty line), rebuild the agent
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                Console.WriteLine("Rebuilding agent...");
-                return;
-            }
-
-            var sb = new StringBuilder();
-            await foreach (var msg in InvokeAgentAsync(currentAgent, _history, line, cancellationToken))
-                sb.Append(msg);
-
-            var response = sb.ToString();            
-            Console.WriteLine($"Agent> {response}");
-        }
+        CancelHangupToken();
     }
-    */
-
-    /*
-    private async Task ConversationLoop(CancellationToken cancellationToken)
-    {
-        // Update the last conversation timestamp
-        _lastConversationTimestamp = DateTime.Now;
-
-        // Wait for wake word
-        var wakeWord = await WaitForWakeWord(cancellationToken);
-       
-        // Transient notification that we got out of wake word waiting 
-        _bus.Publish<WakeWordDetectedEvent>(this);
-
-        // Retrieve agent associated to wake word
-        var appConfig = _appConfigMonitor.CurrentValue;
-        var agentConfig = appConfig.Agents?.FirstOrDefault(t => 
-			!t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
-        if (agentConfig == null)
-        {
-            _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
-            return;
-        }
-
-        _logger.LogDebug($"Established agent: {agentConfig.Name}");
-
-        if (appConfig.ChatHistoryTimeToLiveMinutes > 0)
-        {
-            // If any current history is too old, clear it
-            var lastConversationTimeSpan = DateTime.Now - _lastConversationTimestamp;
-            _logger.LogDebug($"Last conversation was {@lastConversationTimeSpan} ago.");
-            if (lastConversationTimeSpan > TimeSpan.FromMinutes(appConfig.ChatHistoryTimeToLiveMinutes))
-            {
-                _logger.LogDebug("Clearing history.");
-                _history.Clear();
-            }
-        }
-        
-        // Instantiate agent - inject dynamic dependencies
-          var agent = await _agentFactoryService.CreateAgentAsync(agentConfig.Name, kernelBuilder => {
-            kernelBuilder.Services.AddSingleton<ISystemService>(this);
-            kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
-        }, cancellationToken: cancellationToken);
-
-        if (agent == null)
-        {
-            _logger.LogError($"Failed to instantiate agent: {agentConfig.Name}");
-            return;
-        }
-
-        while (!cancellationToken.IsCancellationRequested)
-        {            
-            byte[] userAudioBuffer;
-            var hangupToken = GetOrCreateHangupToken(cancellationToken);
-            try
-            {                                           
-                _bus.Publish<StartListeningEvent>(this);
-
-                // Wait for user speech message
-                var res = _voiceService.WaitForSpeech(out userAudioBuffer, cancellationToken: hangupToken);
-                if (res != ReceiveVoiceMessageResult.Ok)
-                {
-                    _logger.LogWarning($"{nameof(_voiceService.WaitForSpeech)} failed: {res}");
-
-                    return; // Complete the conversation loop
-                }
-            }
-            finally
-            {                    
-                _bus.Publish<StopListeningEvent>(this);
-            }
-                
-            // Pass hangupToken to enable cancellation during thinking phase
-            var agentMessage = await TranscribeAndThink(appConfig, agentConfig, userAudioBuffer, agent, hangupToken);
-            if (agentMessage == null)
-                return;
-
-            _logger.LogDebug($"Agent: {agentMessage}");
-
-            // Check for FollowResponseMarker and strip it out
-            var followMarker = agentMessage.LastIndexOf(FollowResponseMarker, StringComparison.OrdinalIgnoreCase);
-            if (followMarker != -1)
-                agentMessage = agentMessage.Remove(followMarker, FollowResponseMarker.Length);
-
-            // Speak back to user
-            try
-            {
-                _bus.Publish<StartTalkingEvent>(this);
-
-                // Wait for speech to complete - no wake word interruption during speech
-                await _voiceService.GenerateTextToSpeechAsync(agentMessage, agentConfig.SpeechSynthesisVoiceName, agentConfig.SpeechSynthesisInstructions, hangupToken);
-                _logger.LogDebug("Speech complete.");
-            }
-            finally
-            {
-                _bus.Publish<StopTalkingEvent>(this);
-            }
-
-            // If speech was cancelled (hangup), exit conversation loop to return to wake word waiting
-            if (hangupToken.IsCancellationRequested)
-            {
-                _logger.LogDebug("Conversation cancelled during speech, returning to wake word waiting.");
-                return; // Complete the conversation loop
-            }
-
-            // Heuristically detect if the agent message was a question (only works for English)
-            if (agentMessage.Contains("?"))
-                continue; // Continue the conversation loop
-
-            // If no FollowResponseMarker (AI detection of question content), complete the conversation.
-            if (followMarker < 0)
-                return; // Complete the conversation loop
-        }
-    }
-    */
-
-    /*
-    public async Task<string> TranscribeAndThink(AppConfig appConfig, AgentConfig agentConfig, byte[] userAudioBuffer, ChatCompletionAgent agent, CancellationToken cancellationToken)
-    {
-        try
-        {
-            _bus.Publish<StartThinkingEvent>(this);
-
-            var audioTranscriptionLanguage = "en";
-            if (appConfig.TextToSpeechServiceProvider == TextToSpeechServiceProviderConfig.AzureSpeechService)
-            {
-
-                var idx = agentConfig.SpeechSynthesisVoiceName.IndexOf('-');
-                if (idx < 0)
-                {
-                    _logger.LogError($"Invalid {nameof(AgentConfig.SpeechSynthesisVoiceName)} string format: {agentConfig.SpeechSynthesisVoiceName}");
-                    return null; // Complete the conversation loop
-                }
-
-                audioTranscriptionLanguage = agentConfig.SpeechSynthesisVoiceName.Substring(0, idx);
-
-            }
-            _logger.LogDebug($"Using AudioTranscriptionLanguage: {audioTranscriptionLanguage}");
-
-            // Transcribe user speech message
-            var userMessage = _voiceService.GenerateSpeechToText(userAudioBuffer, audioTranscriptionLanguage);
-            _logger.LogDebug($"User: {userMessage}");
-
-            // Ignore blank transcribed message (e.g. noise)
-            if (string.IsNullOrEmpty(userMessage))
-            {
-                _logger.LogWarning("Ignoring blank transcribed user message (noise?).");
-                return null; // Complete the conversation loop
-            }
-
-            // Check for cancellation before starting LLM call
-            if (cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogWarning($"{nameof(TranscribeAndThink)} cancelled before LLM invocation.");
-                return null; // Complete the conversation loop
-            }
-
-            // Stop on receiving custom "stop" message
-            //if (IsStopWord(agentConfig, userMessage))
-            //{
-            //    _logger.LogDebug("Received stop message.");
-            //    return null; // Complete the conversation loop
-            //}
-
-            var agentMessageBuilder = new StringBuilder();
-            try
-            {
-                await foreach (var message in InvokeAgentAsync(agent, _history, userMessage, cancellationToken: cancellationToken))
-                {
-                    agentMessageBuilder.AppendLine(message);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning($"{nameof(TranscribeAndThink)} cancelled during LLM invocation.");
-                return null; // Complete the conversation loop
-            }
-            var agentMessage = agentMessageBuilder.ToString();
-
-            return agentMessage;
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogWarning($"{nameof(TranscribeAndThink)} cancelled.");
-            return null; // Complete the conversation loop
-        }
-        finally
-        {
-            _bus.Publish<StopThinkingEvent>(this);
-        }
-    }
-    
-    private async IAsyncEnumerable<string> InvokeAgentAsync(ChatCompletionAgent agent, ChatHistory history, string userMessage, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _logger.LogDebug("Invoking LLM...");
-
-            var contentItemCollection = new ChatMessageContentItemCollection { new TextContent(userMessage) };
-            history.Add(new ChatMessageContent(AuthorRole.User, contentItemCollection));
-
-            await foreach (var responseMessage in agent.InvokeAsync(history, null, null, cancellationToken))
-            {
-                if (responseMessage.Message.Role == AuthorRole.Assistant)
-                    yield return responseMessage.Message.Content;
-
-                history.Add(responseMessage);
-            }
-
-            var res = await agent.ReduceAsync(history, cancellationToken);
-            if (res)
-                _logger.LogDebug("History truncated.");
-        }
-        finally
-        {
-            _logger.LogDebug("Invoking LLM complete.");
-        }
-    }
-    */
-
 }

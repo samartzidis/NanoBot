@@ -16,14 +16,6 @@ public class AppConfig
     [Description("OpenAI API access key.")]
     public string OpenAiApiKey { get; set; }
 
-    [DisplayName("Google API Key")]
-    [Description("Google API key used by the Google plug-in.")]
-    public string GoogleApiKey { get; set; }
-
-    [DisplayName("Google Search Engine ID")]
-    [Description("Google Search Engine Id used by the Google plug-in.")]
-    public string GoogleSearchEngineId { get; set; }
-
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
     public string Instructions { get; set; }

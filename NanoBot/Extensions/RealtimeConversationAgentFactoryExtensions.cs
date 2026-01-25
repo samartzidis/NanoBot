@@ -7,14 +7,17 @@ using NanoBot.Plugins.Native;
 using NanoBot.Util;
 using System.Text;
 
-namespace NanoBot;
+namespace NanoBot.Extensions;
 
 public static class RealtimeConversationAgentFactoryExtensions
 {
+    public const string RealtimeModel = "gpt-4o-mini-realtime-preview";
+    public const string DefaultSpeechSynthesisVoiceName = "marin";
+
     public static IServiceCollection AddRealtimeConversationAgentFactory(this IServiceCollection services)
     {
         // Register a base kernel builder configuration
-        services.AddSingleton<Func<AgentConfig, RealtimeConversationAgent>>(sp =>
+        services.AddSingleton<Func<AgentConfig, RealtimeAgent>>(sp =>
         {
             var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
@@ -27,10 +30,10 @@ public static class RealtimeConversationAgentFactoryExtensions
                 instructionsBuilder.AppendLine(agentConfig.Instructions);
                 var instructions = instructionsBuilder.ToString();
 
-                var options = new RealtimeConversationAgentOptions
+                var options = new RealtimeAgentOptions
                 {
-                    Model = "gpt-4o-mini-realtime-preview",
-                    Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : "marin",
+                    Model = RealtimeModel,
+                    Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : DefaultSpeechSynthesisVoiceName,
                     Instructions = instructions,
                     OpenAiApiKey = appConfig.OpenAiApiKey,
                     OpenAiEndpoint = null,
@@ -39,9 +42,9 @@ public static class RealtimeConversationAgentFactoryExtensions
 
                 var kernel = sp.GetRequiredService<Kernel>();
 
-                ConfigurePlugins(appConfig, agentConfig, kernel, loggerFactory, sp);
+                ConfigurePlugins(agentConfig, kernel, loggerFactory, sp);
 
-                var agent = new RealtimeConversationAgent(sp.GetRequiredService<ILogger<RealtimeConversationAgent>>(),
+                var agent = new RealtimeAgent(sp.GetRequiredService<ILogger<RealtimeAgent>>(),
                     kernel,
                     Options.Create(options));
 
@@ -52,7 +55,7 @@ public static class RealtimeConversationAgentFactoryExtensions
         return services;
     }
 
-    private static void ConfigurePlugins(AppConfig appConfig, AgentConfig agentConfig, Kernel kernel, ILoggerFactory loggerFactory, IServiceProvider sp)
+    private static void ConfigurePlugins(AgentConfig agentConfig, Kernel kernel, ILoggerFactory loggerFactory, IServiceProvider sp)
     {
         var logger = loggerFactory.CreateLogger<Program>();
 

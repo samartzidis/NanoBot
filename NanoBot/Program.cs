@@ -9,6 +9,7 @@ using Microsoft.OpenApi;
 using Microsoft.SemanticKernel;
 using NanoBot.Configuration;
 using NanoBot.Events;
+using NanoBot.Extensions;
 using NanoBot.Filters;
 using NanoBot.Services;
 using NanoBot.Util;

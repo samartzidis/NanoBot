@@ -11,17 +11,17 @@ using System.Text.Json;
 
 namespace NanoBot.Util;
 
-public class RealtimeConversationAgentOptions
+public sealed class RealtimeAgentOptions
 {
-    public string Model { get; set; } = "gpt-4o-mini-realtime-preview";
-    public string Voice { get; set; } = "marin";
+    public string Model { get; set; }
+    public string Voice { get; set; }
     public string Instructions { get; set; }
     public string OpenAiApiKey { get; set; }
     public string OpenAiEndpoint { get; set; }
     public float? Temperature { get; set; }
 }
 
-public enum RealtimeConversationAgentRealtimeRunResult
+public enum RealtimeAgentRunResult
 {
     Cancelled,
     InactivityTimeout,
@@ -31,7 +31,7 @@ public enum RealtimeConversationAgentRealtimeRunResult
 /// Manages a realtime conversation session with OpenAI using local VAD (Voice Activity Detection).
 /// The session persists across multiple RunAsync calls until the object is disposed.
 /// </summary>
-public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
+public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
 {
     // Audio configuration - must match Realtime API requirements
     private const int SampleRate = 24000; // Realtime API uses 24kHz
@@ -42,11 +42,11 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
-    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(10);
 
     private readonly Kernel _kernel;
     private readonly ILogger _logger;
-    private readonly RealtimeConversationAgentOptions _options;
+    private readonly RealtimeAgentOptions _options;
     private readonly object _speakerLock = new();
     private readonly Dictionary<string, StringBuilder> _functionArgumentBuildersById = new();
 
@@ -57,14 +57,14 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     // Receive task runs for the lifetime of the session (not per RunAsync call)
     private Task _receiveTask;
     // Session CTS is independent - only cancelled on dispose, not on RunAsync cancellation
-    private CancellationTokenSource? _sessionCts;
+    private CancellationTokenSource _sessionCts;
 
     // Shared state between receive task and audio loop
-    private PvSpeaker? _currentSpeaker;
+    private PvSpeaker _currentSpeaker;
     private volatile bool _modelIsSpeaking;
     private volatile bool _bargeInTriggered;
 
-    public RealtimeConversationAgent(ILogger<RealtimeConversationAgent> logger, Kernel kernel, IOptions<RealtimeConversationAgentOptions> options)
+    public RealtimeAgent(ILogger<RealtimeAgent> logger, Kernel kernel, IOptions<RealtimeAgentOptions> options)
     {
         _logger = logger;
         _kernel = kernel;
@@ -76,7 +76,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     /// Both cancellation and timeout preserve the session - call DisposeAsync to close the session.
     /// </summary>
     /// <returns>Why the loop returned.</returns>
-    public async Task<RealtimeConversationAgentRealtimeRunResult> RunAsync(CancellationToken cancellationToken = default)
+    public async Task<RealtimeAgentRunResult> RunAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -191,6 +191,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
         _receiveTask = null;
     }
 
+    /*
     /// <summary>
     /// Disposes the conversation, closing the session gracefully.
     /// </summary>
@@ -245,6 +246,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
         _sessionCts = null;
         _receiveTask = null;
     }
+    */
 
     /// <summary>
     /// Disposes the conversation synchronously.
@@ -252,7 +254,8 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed) 
+            return;
         _disposed = true;
 
         // Cancel the session
@@ -478,7 +481,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     /// Audio capture loop - runs until cancellation or inactivity timeout.
     /// Neither cancellation nor timeout closes the session.
     /// </summary>
-    private async Task<RealtimeConversationAgentRealtimeRunResult> AudioCaptureLoopAsync(
+    private async Task<RealtimeAgentRunResult> AudioCaptureLoopAsync(
         RealtimeSession session,
         PvRecorder recorder,
         PvSpeaker speaker,
@@ -618,7 +621,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
                     if (DateTime.UtcNow - lastSpeechUtc >= InactivityTimeout)
                     {
                         _logger.LogDebug("[Inactivity timeout - pausing audio capture...]");
-                        return RealtimeConversationAgentRealtimeRunResult.InactivityTimeout;
+                        return RealtimeAgentRunResult.InactivityTimeout;
                     }
                 }
 
@@ -636,7 +639,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
             speaker.Stop();
         }
 
-        return RealtimeConversationAgentRealtimeRunResult.Cancelled;
+        return RealtimeAgentRunResult.Cancelled;
     }
 
     private short[] DownsampleForVad(short[] input, int inputRate, int outputRate, int outputLength)

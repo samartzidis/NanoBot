@@ -22,17 +22,17 @@ public class SystemManagerPlugin
         _alsaControllerService = alsaControllerService;
     }
 
-    //[KernelFunction($"{nameof(ClearChatHistory)}")]
-    //[Description("Clears the current conversation chat history.")]
-    //public async Task ClearChatHistory(Kernel kernel)
-    //{
-    //    _logger.LogDebug($"{nameof(ClearChatHistory)} tool invoked.");
+    [KernelFunction($"{nameof(NotifyConversationEnd)}")]
+    [Description("Use this tool to ALWAYS notify the system that the user decided to finish the conversation. For example the user said 'ok', 'ok, thanks', 'bye', etc.")]
+    public async Task NotifyConversationEnd(Kernel kernel)
+    {
+        _logger.LogDebug($"{nameof(NotifyConversationEnd)} tool invoked.");
 
-    //    _systemService.History?.Clear();
-    //}
-    
+        await _systemService.NotifyConversationEnd();
+    }
+
     [KernelFunction($"{nameof(TurnOff)}")]
-    [Description("Turns off the system")]
+    [Description("Turns off the system. Only call this tool when you are clearly asked to turn yourself (the system) off.")]
     public async Task TurnOff(Kernel kernel)
     {
         _logger.LogDebug($"{nameof(TurnOff)} tool invoked.");
@@ -40,9 +40,9 @@ public class SystemManagerPlugin
         if (PlatformUtil.IsLinuxPlatform())
             ShellExecute("sudo", "shutdown now");
     }
-    
+
     [KernelFunction($"{nameof(Restart)}")]
-    [Description("Restarts the system")]
+    [Description("Restarts the system. Only call this tool when you are clearly asked to restart yourself (the system).")]
     public async Task Restart(Kernel kernel)
     {
         _logger.LogDebug($"{nameof(Restart)} tool invoked.");

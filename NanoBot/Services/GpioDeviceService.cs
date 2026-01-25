@@ -1,4 +1,4 @@
-using NanoBot.Events;
+﻿using NanoBot.Events;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Device.Gpio;
@@ -10,13 +10,13 @@ namespace NanoBot.Services;
 public enum GpioDeviceLedColor
 {
     Off,
+    White,
     Red,
     Green,
     Blue,    
     Yellow,
     Cyan,
-    Magenta,
-    White,
+    Magenta,    
     Orange
 }
 
@@ -87,12 +87,6 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         _bus.Subscribe<StartListeningEvent>(e => { ResetTransientStates(); _isListening = true; UpdateLed(); });
         _bus.Subscribe<StopListeningEvent>(e => { ResetTransientStates(); _isListening = false; UpdateLed(); });
 
-        //_bus.Subscribe<StartTalkingEvent>(e => { ResetTransientStates(); _isTalking = true; SetSpeaker(true); UpdateLed(); });
-        //_bus.Subscribe<StopTalkingEvent>(e => { ResetTransientStates(); _isTalking = false; SetSpeaker(false); UpdateLed(); });
-
-        //_bus.Subscribe<StartThinkingEvent>(e => { ResetTransientStates(); _isThinking = true; UpdateLed(); });
-        //_bus.Subscribe<StopThinkingEvent>(e => { ResetTransientStates(); _isThinking = false; UpdateLed(); });
-
         _bus.Subscribe<FunctionInvokingEvent>(e => { ResetTransientStates(); _isFunctionInvoking = true; UpdateLed(); });
         _bus.Subscribe<FunctionInvokedEvent>(e => { ResetTransientStates(); _isFunctionInvoking = false; UpdateLed(); });
 
@@ -115,13 +109,9 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         else if (_isError)
             SetLedColor(GpioDeviceLedColor.Red);
         else if (_isFunctionInvoking)
-            SetLedColor(GpioDeviceLedColor.Blue);
-        //else if (_isTalking)
-        //    SetLedColor(GpioDeviceLedColor.Magenta);            
+            SetLedColor(GpioDeviceLedColor.Blue);          
         else if (_isListening)
             SetLedColor(GpioDeviceLedColor.Green);
-        //else if (_isThinking)
-        //    SetLedColor(GpioDeviceLedColor.Cyan);
         else if (_isWakeWordDetected)
             SetLedColor(GpioDeviceLedColor.Orange);
         else if (_isNoiseDetected)

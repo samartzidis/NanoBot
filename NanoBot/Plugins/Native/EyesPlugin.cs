@@ -16,6 +16,24 @@ namespace NanoBot.Plugins.Native
             _logger = logger;
         }
 
+        [KernelFunction($"{nameof(TurnOn)}")]
+        [Description("Turn on the eyes (and sets the eye colour to normal).")]
+        public async Task TurnOn(Kernel kernel)
+        {
+            _logger.LogDebug($"{nameof(TurnOn)} tool invoked.");
+
+            _gpioDeviceService.DefaultLedColour = GpioDeviceLedColor.White;
+        }
+
+        [KernelFunction($"{nameof(TurnOff)}")]
+        [Description("Turn off the eyes.")]
+        public async Task TurnOff(Kernel kernel)
+        {
+            _logger.LogDebug($"{nameof(TurnOff)} tool invoked.");
+
+            _gpioDeviceService.DefaultLedColour = GpioDeviceLedColor.Off;
+        }
+
         [KernelFunction($"{nameof(SetEyeColour)}")]
         [Description("Set the eyes colour to the specified colour.")]
         public async Task SetEyeColour(Kernel kernel, GpioDeviceLedColor colour)
@@ -40,7 +58,7 @@ namespace NanoBot.Plugins.Native
         {
             _logger.LogDebug($"{nameof(GetAvailableEyesColours)} tool invoked.");
 
-            return Enum.GetNames< GpioDeviceLedColor>().ToList();
+            return Enum.GetNames<GpioDeviceLedColor>().ToList();
         }
     }
 }

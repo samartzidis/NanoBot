@@ -42,7 +42,7 @@ public sealed class RealtimeAgent : IDisposable
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
-    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(10);
 
     private readonly Kernel _kernel;
     private readonly ILogger _logger;

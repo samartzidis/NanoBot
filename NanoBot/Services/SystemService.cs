@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NanoBot.Configuration;
@@ -22,11 +22,11 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IHostApplicationLifetime _applicationLifetime;    
 
     private CancellationTokenSource _hangupCancellationTokenSource;
-    private readonly object _hangupCancellationTokenLock = new object();
+    private readonly object _hangupCancellationTokenLock = new();
 
-    private DateTime _lastConversationTimestamp;
     private readonly Func<AgentConfig, RealtimeAgent> _realtimeAgentFactory;
     private RealtimeAgent _realtimeAgent;
+    private DateTime? _realtimeAgentCreatedAt;
 
     private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
     {
@@ -86,6 +86,43 @@ public class SystemService : BackgroundService, ISystemService
             _logger.LogDebug($"Received {e.GetType().Name}");
             _alsaControllerService.VolumeDown();
         });
+    }
+
+    private bool IsRealtimeAgentSessionExpired()
+    {
+        if (_realtimeAgent == null || _realtimeAgentCreatedAt == null)
+            return false;
+
+        var sessionTimeoutMinutes = _appConfigMonitor.CurrentValue.SessionTimeoutMinutes;
+        if (sessionTimeoutMinutes <= 0)
+            return false;
+
+        var elapsed = DateTime.UtcNow - _realtimeAgentCreatedAt.Value;
+        return elapsed.TotalMinutes >= sessionTimeoutMinutes;
+    }
+
+    private RealtimeAgent GetOrCreateRealtimeAgent(AgentConfig agentConfig)
+    {
+        // Check if existing agent has exceeded session timeout
+        if (IsRealtimeAgentSessionExpired())
+        {
+            var elapsed = DateTime.UtcNow - _realtimeAgentCreatedAt!.Value;
+            _logger.LogInformation($"Session timeout exceeded ({elapsed.TotalMinutes.ToString("F1")} minutes). Disposing and recreating realtime agent.");
+            
+            _realtimeAgent?.Dispose();
+            _realtimeAgent = null;
+            _realtimeAgentCreatedAt = null;
+        }
+
+        // Create new agent if needed
+        if (_realtimeAgent == null)
+        {
+            _realtimeAgent = _realtimeAgentFactory(agentConfig);
+            _realtimeAgentCreatedAt = DateTime.UtcNow;
+            _logger.LogDebug($"Created new realtime agent at {_realtimeAgentCreatedAt.Value.ToString("O")}");
+        }
+
+        return _realtimeAgent;
     }        
 
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
@@ -135,10 +172,18 @@ public class SystemService : BackgroundService, ISystemService
 
                     _logger.LogDebug($"Established agent: {agentConfig.Name}");
 
-                    _realtimeAgent ??= _realtimeAgentFactory(agentConfig);
+                    var agent = GetOrCreateRealtimeAgent(agentConfig);
 
                     var hangupToken = GetOrCreateHangupToken(cancellationToken);
-                    var runResult = await _realtimeAgent.RunAsync(hangupToken);
+
+                    try
+                    {
+                        var runResult = await agent.RunAsync(() => { _bus.Publish<StartListeningEvent>(this); }, hangupToken);
+                    }
+                    finally
+                    {
+                        _bus.Publish<StopListeningEvent>(this);
+                    }
                     
                 }
                 catch (TaskCanceledException)
@@ -153,6 +198,7 @@ public class SystemService : BackgroundService, ISystemService
 
                     _realtimeAgent?.Dispose();
                     _realtimeAgent = null;
+                    _realtimeAgentCreatedAt = null;
 
                     await Task.Delay(5000, cancellationToken);
                 }

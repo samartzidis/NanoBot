@@ -24,14 +24,14 @@ public sealed class RealtimeAgentOptions
 public enum RealtimeAgentRunResult
 {
     Cancelled,
-    InactivityTimeout,
+    InactivityTimeout
 }
 
 /// <summary>
 /// Manages a realtime conversation session with OpenAI using local VAD (Voice Activity Detection).
 /// The session persists across multiple RunAsync calls until the object is disposed.
 /// </summary>
-public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
+public sealed class RealtimeAgent : IDisposable
 {
     // Audio configuration - must match Realtime API requirements
     private const int SampleRate = 24000; // Realtime API uses 24kHz
@@ -42,7 +42,7 @@ public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
-    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(20);
 
     private readonly Kernel _kernel;
     private readonly ILogger _logger;
@@ -76,7 +76,7 @@ public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
     /// Both cancellation and timeout preserve the session - call DisposeAsync to close the session.
     /// </summary>
     /// <returns>Why the loop returned.</returns>
-    public async Task<RealtimeAgentRunResult> RunAsync(CancellationToken cancellationToken = default)
+    public async Task<RealtimeAgentRunResult> RunAsync(Action readyNotificationActionHandler = null, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -135,6 +135,8 @@ public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
             _receiveTask = RunReceiveTaskAsync(_session, _sessionCts!.Token);
         }
 
+        readyNotificationActionHandler?.Invoke();
+
         // Start the conversation loop (audio capture)
         var result = await AudioCaptureLoopAsync(_session, recorder, speaker, vadDetector, cancellationToken);
 
@@ -190,63 +192,6 @@ public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
         _sessionCts = null;
         _receiveTask = null;
     }
-
-    /*
-    /// <summary>
-    /// Disposes the conversation, closing the session gracefully.
-    /// </summary>
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposed) return;
-        _disposed = true;
-
-        if (_session is not null)
-        {
-            _logger.LogDebug("[Closing session...]");
-
-            // Cancel the session to stop the receive task
-            if (_sessionCts is not null)
-            {
-                await _sessionCts.CancelAsync();
-            }
-
-            // Wait for receive task to complete
-            if (_receiveTask is not null)
-            {
-                try
-                {
-                    await _receiveTask;
-                }
-                catch (OperationCanceledException)
-                {
-                    // Expected
-                }
-                catch
-                {
-                    // Ignore errors during shutdown
-                }
-            }
-
-            // Dispose the session
-            if (_session is IAsyncDisposable asyncDisposable)
-            {
-                await asyncDisposable.DisposeAsync();
-            }
-            else if (_session is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-
-            _logger.LogDebug("[Session closed]");
-        }
-
-        _sessionCts?.Dispose();
-
-        _session = null;
-        _sessionCts = null;
-        _receiveTask = null;
-    }
-    */
 
     /// <summary>
     /// Disposes the conversation synchronously.
@@ -308,7 +253,7 @@ public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
 
                     if (!string.IsNullOrEmpty(streamingStartedUpdate.FunctionName))
                     {
-                        Console.Write($"[Calling: {streamingStartedUpdate.FunctionName}] ");
+                        _logger.LogDebug($"[Calling: {streamingStartedUpdate.FunctionName}] ");
                     }
                 }
 
@@ -317,12 +262,11 @@ public sealed class RealtimeAgent : IDisposable//, IAsyncDisposable
                 {
                     if (!string.IsNullOrEmpty(deltaUpdate.AudioTranscript))
                     {
-                        Console.Write(deltaUpdate.AudioTranscript);
+                        _logger.LogDebug(deltaUpdate.AudioTranscript);
                     }
                     if (!string.IsNullOrEmpty(deltaUpdate.Text))
                     {
                         _logger.LogDebug($"[TextDelta: {deltaUpdate.Text}]");
-                        Console.Write(deltaUpdate.Text);
                     }
 
                     // Handle audio bytes

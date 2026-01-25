@@ -23,27 +23,27 @@ public static class RealtimeConversationAgentFactoryExtensions
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
             return (agentConfig) =>
-            {
+            {                
                 // Combine global prompt with agent prompt
                 var instructionsBuilder = new StringBuilder();
                 instructionsBuilder.AppendLine(appConfig.Instructions);
                 instructionsBuilder.AppendLine(agentConfig.Instructions);
-                var instructions = instructionsBuilder.ToString();
+
+                // Get instance per dependency kernel instance and configure plugins
+                var kernel = sp.GetRequiredService<Kernel>();
+                ConfigurePlugins(agentConfig, kernel, loggerFactory, sp, instructionsBuilder);
 
                 var options = new RealtimeAgentOptions
                 {
                     Model = RealtimeModel,
                     Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : DefaultSpeechSynthesisVoiceName,
-                    Instructions = instructions,
+                    Instructions = instructionsBuilder.ToString(),
                     OpenAiApiKey = appConfig.OpenAiApiKey,
                     OpenAiEndpoint = null,
                     Temperature = agentConfig.Temperature
                 };
 
-                var kernel = sp.GetRequiredService<Kernel>();
-
-                ConfigurePlugins(agentConfig, kernel, loggerFactory, sp);
-
+                
                 var agent = new RealtimeAgent(sp.GetRequiredService<ILogger<RealtimeAgent>>(),
                     kernel,
                     Options.Create(options));
@@ -55,7 +55,7 @@ public static class RealtimeConversationAgentFactoryExtensions
         return services;
     }
 
-    private static void ConfigurePlugins(AgentConfig agentConfig, Kernel kernel, ILoggerFactory loggerFactory, IServiceProvider sp)
+    private static void ConfigurePlugins(AgentConfig agentConfig, Kernel kernel, ILoggerFactory loggerFactory, IServiceProvider sp, StringBuilder instructionsBuilder)
     {
         var logger = loggerFactory.CreateLogger<Program>();
 
@@ -67,6 +67,11 @@ public static class RealtimeConversationAgentFactoryExtensions
         if (agentConfig.MemoryPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(MemoryPlugin)}");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine("ALWAYS Use the MemoryPlugin to retrieve relevant memories when needed to answer user questions BEFORE using any other plugin.");
+            instructionsBuilder.AppendLine("ALWAYS ask the user before creating a new MemoryPlugin plugin memory or updating an existing one.NEVER do this before asking first.");
+            
             kernel.Plugins.AddFromType<MemoryPlugin>(nameof(MemoryPlugin), serviceProvider: sp);
         }
 
@@ -81,6 +86,10 @@ public static class RealtimeConversationAgentFactoryExtensions
         if (agentConfig.CalculatorPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(CalculatorPlugin)}");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(CalculatorPlugin)} if you need assistance in mathematical operations.");
+
             kernel.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin), serviceProvider: sp);
         }
 
@@ -88,6 +97,10 @@ public static class RealtimeConversationAgentFactoryExtensions
         if (agentConfig.DateTimePluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(DateTimePlugin)} for date and time information.");
+
             kernel.Plugins.AddFromType<DateTimePlugin>(nameof(DateTimePlugin), serviceProvider: sp);
         }
 
@@ -95,6 +108,10 @@ public static class RealtimeConversationAgentFactoryExtensions
         if (agentConfig.GeoIpPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(GeoIpPlugin)}");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(GeoIpPlugin)} for date and time information.");
+
             kernel.Plugins.AddFromType<GeoIpPlugin>(nameof(GeoIpPlugin), serviceProvider: sp);
         }
 
@@ -102,6 +119,10 @@ public static class RealtimeConversationAgentFactoryExtensions
         if (agentConfig.WeatherPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(WeatherPlugin)}");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(WeatherPlugin)} for weather information.");
+
             kernel.Plugins.AddFromType<WeatherPlugin>(nameof(WeatherPlugin), serviceProvider: sp);
         }
     }

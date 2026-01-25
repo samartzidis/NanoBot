@@ -20,10 +20,10 @@ public class AppConfig
     [Description("Global system instructions for all agents.")]
     public string Instructions { get; set; }
 
-    //[DisplayName("Chat History TTL")]
-    //[Description("Delete any existing chat history if the last conversation was after how many minutes. A value of '0' will not delete. Defaults to: '60'.")]
-    //[DefaultValue(60)]
-    //public int ChatHistoryTimeToLiveMinutes { get; set; } = 60;
+    [DisplayName("Session Timeout Minutes")]
+    [Description("Session timeout in minutes. When the session is idle for this number of minutes, it will be automatically closed. Defaults to: '60'.")]
+    [DefaultValue(60)]
+    public int SessionTimeoutMinutes { get; set; } = 60;
 
     [DisplayName("Memory Service Max Memories")]
     [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]

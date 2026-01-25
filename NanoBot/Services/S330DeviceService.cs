@@ -57,12 +57,12 @@ public class S330DeviceService : BackgroundService, IS330DeviceService
             SetCallState(false);
         });
 
-        _bus.Subscribe<StartTalkingEvent>(e => {
-            SetCallState(true);
-        });
-        _bus.Subscribe<StopTalkingEvent>(e => {
-            SetCallState(false);
-        });
+        //_bus.Subscribe<StartTalkingEvent>(e => {
+        //    SetCallState(true);
+        //});
+        //_bus.Subscribe<StopTalkingEvent>(e => {
+        //    SetCallState(false);
+        //});
 
         _bus.Subscribe<ShutdownEvent>(e => {
             SetCallState(false);

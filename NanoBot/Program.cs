@@ -103,15 +103,8 @@ public class Program
                     });
                 });
 
-                var kernelBuilder = services.AddKernel()
-                    .AddOpenAIChatCompletion(
-                        apiKey: appConfig.OpenAiApiKey,
-                        modelId: appConfig.OpenAiModelId);
+                var kernelBuilder = services.AddKernel();
                 kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, FunctionInvocationLoggingFilter>();
-                //kernelBuilder.Plugins.AddFromType<MemoryPlugin>();
-                kernelBuilder.AddOpenAIChatCompletion(
-                    apiKey: appConfig.OpenAiApiKey,
-                    modelId: appConfig.OpenAiModelId);
 
                 // Register a base kernel builder configuration
                 services.AddRealtimeConversationAgentFactory();

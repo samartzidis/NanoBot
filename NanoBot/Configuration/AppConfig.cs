@@ -7,11 +7,6 @@ public class AppConfig
 {
     public bool ConsoleDebugMode { get; set; }
 
-    [DisplayName("OpenAI Model")]
-    [Description("OpenAI model id (e.g. 'gpt-5-mini').")]
-    [DefaultValue("gpt-5-mini")]
-    public string OpenAiModelId { get; set; } = "gpt-5-mini";
-
     [DisplayName("OpenAI API Key")]
     [Description("OpenAI API access key.")]
     public string OpenAiApiKey { get; set; }
@@ -46,7 +41,8 @@ public class AppConfig
     public bool S330Enabled { get; set; }
 
     public List<AgentConfig> Agents { get; set; } = [ ];
-    public string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
+
+    public readonly string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
 }
 
 

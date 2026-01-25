@@ -7,13 +7,13 @@ public class AgentConfig
 {
     public const string DefaultWakeWord = "alexa_v0.1";
 
-    [Required]
-    [Description("Agent name.")]
-    public string Name { get; set; }
-
     [Description("Agent disabled.")]
     public bool Disabled { get; set; }
 
+    [Required]
+    [Description("Agent name.")]
+    public string Name { get; set; }
+    
     [Description("Additional instructions/prompt for the agent. Optional.")]
     public string Instructions { get; set; }
 

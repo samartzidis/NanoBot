@@ -20,36 +20,12 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
     private readonly IHostApplicationLifetime _applicationLifetime;    
-
     private CancellationTokenSource _hangupCancellationTokenSource;
     private readonly object _hangupCancellationTokenLock = new();
-
     private readonly Func<AgentConfig, RealtimeAgent> _realtimeAgentFactory;
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
-
-    private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
-    {
-        lock (_hangupCancellationTokenLock)
-        {
-            // If current token is cancelled or doesn't exist, create new one
-            if (_hangupCancellationTokenSource == null || _hangupCancellationTokenSource.Token.IsCancellationRequested)
-            {
-                _hangupCancellationTokenSource?.Dispose();
-                _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(baseToken);
-            }
-            return _hangupCancellationTokenSource.Token;
-        }
-    }
-
-    private void CancelHangupToken()
-    {
-        lock (_hangupCancellationTokenLock)
-        {
-            _hangupCancellationTokenSource?.Cancel();
-        }
-    }
-
+    
     public SystemService(
         ILogger<SystemService> logger,
         IOptionsMonitor<AppConfig> appConfigMonitor, 
@@ -85,6 +61,15 @@ public class SystemService : BackgroundService, ISystemService
         _bus.Subscribe<VolumeCtrlDownInputEvent>(e => {
             _logger.LogDebug($"Received {e.GetType().Name}");
             _alsaControllerService.VolumeDown();
+        });
+
+        _bus.Subscribe<ConfigChangedEvent>(e => {
+            _logger.LogDebug($"Received {e.GetType().Name}");
+            // TODO: Rebuild RealtimeAgent
+
+            _realtimeAgent?.Dispose();
+            _realtimeAgent = null;
+            _realtimeAgentCreatedAt = null;
         });
     }
 
@@ -272,5 +257,26 @@ public class SystemService : BackgroundService, ISystemService
     public async Task NotifyConversationEnd()
     {
         CancelHangupToken();
+    }
+    private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
+    {
+        lock (_hangupCancellationTokenLock)
+        {
+            // If current token is cancelled or doesn't exist, create new one
+            if (_hangupCancellationTokenSource == null || _hangupCancellationTokenSource.Token.IsCancellationRequested)
+            {
+                _hangupCancellationTokenSource?.Dispose();
+                _hangupCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(baseToken);
+            }
+            return _hangupCancellationTokenSource.Token;
+        }
+    }
+
+    private void CancelHangupToken()
+    {
+        lock (_hangupCancellationTokenLock)
+        {
+            _hangupCancellationTokenSource?.Cancel();
+        }
     }
 }

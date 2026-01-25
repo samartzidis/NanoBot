@@ -6,8 +6,8 @@ namespace NanoBot.Configuration;
 public enum TextToSpeechServiceProviderConfig { AzureSpeechService, OpenAI }
 
 public class AppConfig
-{   
-    public bool ConsoleDebug { get; set; }  = false;
+{
+    public bool ConsoleDebugMode { get; set; }
 
     [DisplayName("OpenAI Model")]
     [Description("OpenAI model id (e.g. 'gpt-5-mini').")]
@@ -26,26 +26,26 @@ public class AppConfig
     [Description("Google Search Engine Id used by the Google plug-in.")]
     public string GoogleSearchEngineId { get; set; }
 
-    [Description("The Text-To-Speech engine to use. Can be 'AzureSpeechService' or 'OpenAI'.")]
-    [DefaultValue(TextToSpeechServiceProviderConfig.AzureSpeechService)]
-    public TextToSpeechServiceProviderConfig TextToSpeechServiceProvider { get; set; } = TextToSpeechServiceProviderConfig.AzureSpeechService;
+    //[Description("The Text-To-Speech engine to use. Can be 'AzureSpeechService' or 'OpenAI'.")]
+    //[DefaultValue(TextToSpeechServiceProviderConfig.AzureSpeechService)]
+    //public TextToSpeechServiceProviderConfig TextToSpeechServiceProvider { get; set; } = TextToSpeechServiceProviderConfig.AzureSpeechService;
 
-    [DisplayName("Azure Speech Service Key")]
-    [Description("Azure Speech Service access key.")]
-    public string AzureSpeechServiceKey { get; set; }
+    //[DisplayName("Azure Speech Service Key")]
+    //[Description("Azure Speech Service access key.")]
+    //public string AzureSpeechServiceKey { get; set; }
 
-    [DisplayName("Azure Speech Service Region")]
-    [Description("Azure Speech Service region. E.g. 'westeurope'.")]
-    public string AzureSpeechServiceRegion { get; set; }
+    //[DisplayName("Azure Speech Service Region")]
+    //[Description("Azure Speech Service region. E.g. 'westeurope'.")]
+    //public string AzureSpeechServiceRegion { get; set; }
 
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
     public string Instructions { get; set; }
 
-    [DisplayName("Chat History TTL")]
-    [Description("Delete any existing chat history if the last conversation was after how many minutes. A value of '0' will not delete. Defaults to: '60'.")]
-    [DefaultValue(60)]
-    public int ChatHistoryTimeToLiveMinutes { get; set; } = 60;
+    //[DisplayName("Chat History TTL")]
+    //[Description("Delete any existing chat history if the last conversation was after how many minutes. A value of '0' will not delete. Defaults to: '60'.")]
+    //[DefaultValue(60)]
+    //public int ChatHistoryTimeToLiveMinutes { get; set; } = 60;
 
     [DisplayName("Memory Service Max Memories")]
     [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
@@ -67,7 +67,9 @@ public class AppConfig
     [Description("Enable device driver for Anker PowerConf S330 speakerphone.")]
     public bool S330Enabled { get; set; }
 
-    public List<AgentConfig> Agents { get; set; } = [ ];    
+    public List<AgentConfig> Agents { get; set; } = [ ];
+
+    public string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
 }
 
 

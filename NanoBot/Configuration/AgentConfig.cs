@@ -26,9 +26,9 @@ public class AgentConfig
     [Description("TopP controls the diversity of the completion. The higher the TopP, the more diverse the completion. Optional.")]
     public double? TopP { get; set; }
 
-    [Description("Max history size (total messages). Defaults to: '100'.")]
-    [DefaultValue(100)]
-    public int MaxHistory { get; set; } = 100;
+    //[Description("Max history size (total messages). Defaults to: '100'.")]
+    //[DefaultValue(100)]
+    //public int MaxHistory { get; set; } = 100;
 
     [Required]
     [Description("User word that wakes up the agent. This is not arbitrary. It needs to be one of the pre-installed wake word models.")]
@@ -45,12 +45,12 @@ public class AgentConfig
     [DefaultValue(3)]
     public int WakeWordTriggerLevel { get; set; } = 3;
 
-    [Required]
-    [Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]
-    public string SpeechSynthesisVoiceName { get; set; }
+    //[Required]
+    //[Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]
+    //public string SpeechSynthesisVoiceName { get; set; }
 
-    [Description("Instructions for OpenAI TTS to guide voice style, tone, accent, etc. Only applies when using OpenAI TTS. Optional.")]
-    public string SpeechSynthesisInstructions { get; set; }
+    //[Description("Instructions for OpenAI TTS to guide voice style, tone, accent, etc. Only applies when using OpenAI TTS. Optional.")]
+    //public string SpeechSynthesisInstructions { get; set; }
 
     #region Plugins
     [DisplayName("Calculator Plug-in")]

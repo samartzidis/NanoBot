@@ -125,7 +125,7 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         // Enable keyboard hangup listener only when not in console debug mode
-        if (!appConfig.ConsoleDebug)
+        if (!appConfig.ConsoleDebugMode)
         {
             // Fire-and-forget keyboard listener; do not block ExecuteAsync
             _ = StartKeyboardSpacebarListener(cancellationToken);
@@ -139,12 +139,27 @@ public class SystemService : BackgroundService, ISystemService
                 {                    
                     _bus.Publish<SystemOkEvent>(this);
 
-                    //if (!appConfig.ConsoleDebug)
-                    //    await ConversationLoop(cancellationToken);
-                    //else
-                    //    await ConsoleDebugConversationLoop(cancellationToken);
+                    // Wait for wake word
+                    var wakeWord = await WaitForWakeWord(cancellationToken);
 
-                    await RealtimeConversationLoop(cancellationToken);
+                    // Transient notification that we got out of wake word waiting 
+                    _bus.Publish<WakeWordDetectedEvent>(this);
+
+                    // Retrieve agent associated to wake word
+                    var appConfig = _appConfigMonitor.CurrentValue;
+                    var agentConfig = appConfig.Agents?.FirstOrDefault(t =>
+                        !t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
+                    if (agentConfig == null)
+                    {
+                        _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
+                        return;
+                    }
+
+                    _logger.LogDebug($"Established agent: {agentConfig.Name}");
+
+                    _realtimeAgent ??= _realtimeAgentFactory(agentConfig);
+
+                    await _realtimeAgent.RunAsync(cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -160,69 +175,6 @@ public class SystemService : BackgroundService, ISystemService
                 }
             }
         }, cancellationToken);
-    }
-
-    private async Task RealtimeConversationLoop(CancellationToken cancellationToken)
-    {
-        // Wait for wake word
-        var wakeWord = await WaitForWakeWord(cancellationToken);
-
-        // Transient notification that we got out of wake word waiting 
-        _bus.Publish<WakeWordDetectedEvent>(this);
-
-        // Retrieve agent associated to wake word
-        var appConfig = _appConfigMonitor.CurrentValue;
-        var agentConfig = appConfig.Agents?.FirstOrDefault(t =>
-            !t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));
-        if (agentConfig == null)
-        {
-            _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
-            return;
-        }
-
-        _logger.LogDebug($"Established agent: {agentConfig.Name}");
-
-
-        if (_realtimeAgent == null)
-        {
-            // Instantiate agent - inject dynamic dependencies
-            //var agent = await _agentFactoryService.CreateRealtimeAgentAsync(agentConfig.Name, kernelBuilder =>
-            //{
-            //    kernelBuilder.Services.AddSingleton<ISystemService>(this);
-            //    kernelBuilder.Services.AddSingleton<AgentConfig>(agentConfig);
-            //});
-
-            //if (agent == null)
-            //{
-            //    _logger.LogError($"Failed to instantiate agent: {agentConfig.Name}");
-            //    return;
-            //}
-            //_realtimeAgent = agent;
-
-            // Combine global prompt with agent prompt
-            //var instructionsBuilder = new StringBuilder();
-            //instructionsBuilder.AppendLine(appConfig.Instructions);
-            //instructionsBuilder.AppendLine(agentConfig.Instructions);
-            //var instructions = instructionsBuilder.ToString();
-
-            //_logger.LogDebug($"Instructions: {instructions}");
-
-            //var options = new RealtimeConversationAgentOptions
-            //{
-            //    Model = "gpt-4o-mini-realtime-preview",
-            //    Voice = "marin",
-            //    Instructions = instructions,
-            //    OpenAiApiKey = appConfig.OpenAiApiKey,
-            //    OpenAiEndpoint = null
-            //};
-
-            //var agent = new RealtimeConversationAgent(_loggerFactory.CreateLogger<RealtimeConversationAgent>(), kernel, Options.Create(options));
-
-            _realtimeAgent = _realtimeAgentFactory(agentConfig);
-        }
-
-        await _realtimeAgent.RunAsync(cancellationToken);
-
     }
 
     public async Task<string> WaitForWakeWord(CancellationToken cancellationToken)

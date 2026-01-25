@@ -66,6 +66,11 @@ public class ConfigurationController : ControllerBase
             //        agentsConfig["SpeechSynthesisVoiceName"]["enum"] = JArray.FromObject(voiceNames);
             //}
 
+            // Update schema for "SpeechSynthesisVoiceName"
+            var voiceNames = _appConfigOptions.Value.OpenAiVoiceNames;
+            if (agentsConfig != null && agentsConfig["SpeechSynthesisVoiceName"] != null)
+                agentsConfig["SpeechSynthesisVoiceName"]["enum"] = JArray.FromObject(voiceNames);
+
             // Fetch available wake words
             var wakeWordModels = WakeWordUtil.GetModels();
             if (wakeWordModels != null)

@@ -22,18 +22,21 @@ public class AppConfig
     public string Instructions { get; set; }
 
     [DisplayName("Session Timeout Minutes")]
-    [Description("Session timeout in minutes. When the session is idle for this number of minutes, it will be automatically closed. Defaults to: '60'.")]
-    [DefaultValue(60)]
-    public int SessionTimeoutMinutes { get; set; } = 60;
+    [Description("Session timeout in minutes. When the session is idle for this number of minutes, it will be automatically closed. Defaults to: '30'.")]
+    [DefaultValue(30)]
+    [Range(1, 60)]
+    public int SessionTimeoutMinutes { get; set; } = 30;
 
     [DisplayName("Memory Service Max Memories")]
     [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
     [DefaultValue(100)]
+    [Range(10, 1000)]
     public int MemoryServiceMaxMemories { get; set; } = 100;
 
     [DisplayName("Playback Volume")]
     [Description("Playback volume level (0-10). Defaults to: '5'.")]
     [DefaultValue(5)]
+    [Range(0, 10)]
     public int PlaybackVolume { get; set; } = 5;
 
     [DisplayName("Wake Word Silence Sample Amplitude Threshold")]

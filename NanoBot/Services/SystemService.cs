@@ -65,8 +65,8 @@ public class SystemService : BackgroundService, ISystemService
 
         _bus.Subscribe<ConfigChangedEvent>(e => {
             _logger.LogDebug($"Received {e.GetType().Name}");
-            // TODO: Rebuild RealtimeAgent
-
+            
+            // Rebuild RealtimeAgent
             _realtimeAgent?.Dispose();
             _realtimeAgent = null;
             _realtimeAgentCreatedAt = null;

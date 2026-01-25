@@ -13,27 +13,13 @@ namespace NanoBot.Util;
 
 public class RealtimeConversationAgentOptions
 {
-    /// <summary>
-    /// The model to use for the conversation.
-    /// Default is "gpt-4o-mini-realtime-preview".
-    /// </summary>
     public string Model { get; set; } = "gpt-4o-mini-realtime-preview";
-
-    /// <summary>
-    /// The voice to use for the assistant.
-    /// Default is "marin".
-    /// </summary>
     public string Voice { get; set; } = "marin";
-
-    /// <summary>
-    /// The system instructions for the assistant.
-    /// </summary>
-    public string? Instructions { get; set; }
-
+    public string Instructions { get; set; }
     public string OpenAiApiKey { get; set; }
     public string OpenAiEndpoint { get; set; }
+    public float? Temperature { get; set; }
 }
-
 
 public enum RealtimeConversationAgentRealtimeRunResult
 {
@@ -452,7 +438,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
                 // Handle errors
                 if (update is RealtimeErrorUpdate errorUpdate)
                 {
-                    _logger.LogDebug($"[Error: {errorUpdate.Message}]");
+                    _logger.LogError($"[Error: {errorUpdate.Message}]");
                 }
             }
         }
@@ -760,13 +746,17 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
             InputAudioFormat = RealtimeAudioFormat.Pcm16,
             OutputAudioFormat = RealtimeAudioFormat.Pcm16,
             Instructions = _options.Instructions,
-            TurnDetectionOptions = TurnDetectionOptions.CreateDisabledTurnDetectionOptions() // Disable server-side VAD - we handle it locally
+            TurnDetectionOptions = TurnDetectionOptions.CreateDisabledTurnDetectionOptions(), // Disable server-side VAD - we handle it locally
+            Temperature = _options.Temperature
         };
 
         if (_kernel != null)
         {
             foreach (var tool in ConvertFunctions(_kernel))
+            {
+                _logger.LogDebug($"[Adding tool: {tool.Name}: {tool.Description}]");
                 sessionOptions.Tools.Add(tool);
+            }
 
             if (sessionOptions.Tools.Count > 0)
                 sessionOptions.ToolChoice = ConversationToolChoice.CreateAutoToolChoice();
@@ -778,7 +768,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     /// <summary>
     /// Converts Semantic Kernel plugins to OpenAI Realtime conversation tools.
     /// </summary>
-    public IEnumerable<ConversationTool> ConvertFunctions(Kernel kernel)
+    public IEnumerable<ConversationFunctionTool> ConvertFunctions(Kernel kernel)
     {
         foreach (var plugin in kernel.Plugins)
         {
@@ -801,9 +791,9 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     /// Parses a fully qualified function name into its component parts.
     /// Format: "PluginName-FunctionName" or just "FunctionName".
     /// </summary>
-    public (string FunctionName, string? PluginName) ParseFunctionName(string fullyQualifiedName)
+    public (string FunctionName, string PluginName) ParseFunctionName(string fullyQualifiedName)
     {
-        string? pluginName = null;
+        string pluginName = null;
         string functionName = fullyQualifiedName;
 
         int separatorPos = fullyQualifiedName.IndexOf(FunctionNameSeparator, StringComparison.Ordinal);
@@ -819,7 +809,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     /// <summary>
     /// Deserializes JSON arguments string to KernelArguments.
     /// </summary>
-    public KernelArguments? DeserializeArguments(string argumentsString)
+    public KernelArguments DeserializeArguments(string argumentsString)
     {
         var arguments = JsonSerializer.Deserialize<KernelArguments>(argumentsString);
 

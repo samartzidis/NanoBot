@@ -3,8 +3,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NanoBot.Configuration;
 
-public enum TextToSpeechServiceProviderConfig { AzureSpeechService, OpenAI }
-
 public class AppConfig
 {
     public bool ConsoleDebugMode { get; set; }
@@ -25,18 +23,6 @@ public class AppConfig
     [DisplayName("Google Search Engine ID")]
     [Description("Google Search Engine Id used by the Google plug-in.")]
     public string GoogleSearchEngineId { get; set; }
-
-    //[Description("The Text-To-Speech engine to use. Can be 'AzureSpeechService' or 'OpenAI'.")]
-    //[DefaultValue(TextToSpeechServiceProviderConfig.AzureSpeechService)]
-    //public TextToSpeechServiceProviderConfig TextToSpeechServiceProvider { get; set; } = TextToSpeechServiceProviderConfig.AzureSpeechService;
-
-    //[DisplayName("Azure Speech Service Key")]
-    //[Description("Azure Speech Service access key.")]
-    //public string AzureSpeechServiceKey { get; set; }
-
-    //[DisplayName("Azure Speech Service Region")]
-    //[Description("Azure Speech Service region. E.g. 'westeurope'.")]
-    //public string AzureSpeechServiceRegion { get; set; }
 
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
@@ -68,7 +54,6 @@ public class AppConfig
     public bool S330Enabled { get; set; }
 
     public List<AgentConfig> Agents { get; set; } = [ ];
-
     public string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
 }
 

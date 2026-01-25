@@ -125,7 +125,7 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         // Enable keyboard hangup listener only when not in console debug mode
-        if (!appConfig.ConsoleDebugMode)
+        if (appConfig.ConsoleDebugMode)
         {
             // Fire-and-forget keyboard listener; do not block ExecuteAsync
             _ = StartKeyboardSpacebarListener(cancellationToken);

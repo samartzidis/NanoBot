@@ -33,7 +33,6 @@
     <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.70.0-preview" />
     <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.70.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.70.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Web" Version="1.70.0-alpha" />    
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />   
     <PackageReference Include="System.Device.Gpio" Version="4.1.0" />   
   </ItemGroup>

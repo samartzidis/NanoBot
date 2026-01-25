@@ -18,17 +18,7 @@ public class AgentConfig
     public string Instructions { get; set; }
 
     [Description("Temperature controls the randomness of the completion. The higher the temperature, the more random the completion. Optional.")]
-    public double? Temperature { get; set; }
-
-    [Description("The maximum number of tokens to generate in the completion.")]
-    public int? MaxTokens { get; set; }
-
-    [Description("TopP controls the diversity of the completion. The higher the TopP, the more diverse the completion. Optional.")]
-    public double? TopP { get; set; }
-
-    //[Description("Max history size (total messages). Defaults to: '100'.")]
-    //[DefaultValue(100)]
-    //public int MaxHistory { get; set; } = 100;
+    public float? Temperature { get; set; }
 
     [Required]
     [Description("User word that wakes up the agent. This is not arbitrary. It needs to be one of the pre-installed wake word models.")]
@@ -45,21 +35,14 @@ public class AgentConfig
     [DefaultValue(3)]
     public int WakeWordTriggerLevel { get; set; } = 3;
 
-    //[Required]
-    //[Description($"Speech synthesis voice name. E.g. 'en-GB-SoniaNeural' if using Azure, 'nova' if using OpenAI.")]
-    //public string SpeechSynthesisVoiceName { get; set; }
-
-    //[Description("Instructions for OpenAI TTS to guide voice style, tone, accent, etc. Only applies when using OpenAI TTS. Optional.")]
-    //public string SpeechSynthesisInstructions { get; set; }
+    [Required]
+    [Description($"Speech synthesis voice name. E.g. 'marin'.")]
+    public string SpeechSynthesisVoiceName { get; set; }
 
     #region Plugins
     [DisplayName("Calculator Plug-in")]
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]
     public bool CalculatorPluginEnabled { get; set; }
-
-    [DisplayName("Google Plug-in")]
-    [Description("Provides methods to search using Google Custom Search API.")]
-    public bool GooglePluginEnabled { get; set; }
 
     [DisplayName("DateTime Plug-in")]
     [Description("Provides functions for date and time operations, formatting, and calculations.")]

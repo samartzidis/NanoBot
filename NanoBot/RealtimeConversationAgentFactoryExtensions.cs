@@ -1,17 +1,11 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Plugins.Web;
-using Microsoft.SemanticKernel.Plugins.Web.Google;
 using NanoBot.Configuration;
 using NanoBot.Plugins.Native;
 using NanoBot.Util;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace NanoBot;
 
@@ -36,10 +30,11 @@ public static class RealtimeConversationAgentFactoryExtensions
                 var options = new RealtimeConversationAgentOptions
                 {
                     Model = "gpt-4o-mini-realtime-preview",
-                    Voice = "marin",
+                    Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : "marin",
                     Instructions = instructions,
                     OpenAiApiKey = appConfig.OpenAiApiKey,
-                    OpenAiEndpoint = null
+                    OpenAiEndpoint = null,
+                    Temperature = agentConfig.Temperature
                 };
 
                 var kernel = sp.GetRequiredService<Kernel>();
@@ -60,33 +55,6 @@ public static class RealtimeConversationAgentFactoryExtensions
     private static void ConfigurePlugins(AppConfig appConfig, AgentConfig agentConfig, Kernel kernel, ILoggerFactory loggerFactory, IServiceProvider sp)
     {
         var logger = loggerFactory.CreateLogger<Program>();
-
-        // Configure Google plugin
-        if (agentConfig.GooglePluginEnabled)
-        {
-            //_logger.LogInformation("Adding Google plugin");
-
-            if (string.IsNullOrEmpty(appConfig.GoogleApiKey) || string.IsNullOrEmpty(appConfig.GoogleSearchEngineId))
-            {
-                var msg = $"Google plug-in enabled but mandatory **{nameof(AppConfig.GoogleApiKey)}** and/or **{nameof(AppConfig.GoogleSearchEngineId)}** settings " +
-                          "are not provided in configuration. Google plugin will be disabled. To stop getting this message either disable the Google plug-in " +
-                          "in the Agent's configuration or add the missing settings.";
-                logger.LogWarning(msg);
-            }
-            else
-            {
-                var googleConnector = new GoogleConnector(
-                    apiKey: appConfig.GoogleApiKey,
-                    searchEngineId: appConfig.GoogleSearchEngineId,
-                    loggerFactory);
-
-                kernel.Plugins.AddFromObject(new WebSearchEnginePlugin(googleConnector), "Google");
-            }
-        }
-        else
-        {
-            logger.LogInformation("Google plugin not enabled in configuration.");
-        }
 
         // SystemManager plugin
         logger.LogInformation($"Adding {nameof(SystemManagerPlugin)}");

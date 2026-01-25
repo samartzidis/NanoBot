@@ -1,4 +1,4 @@
-﻿/*
+/*
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -139,7 +139,7 @@ public class AgentFactoryService : IAgentFactoryService
         var options = new RealtimeConversationAgentOptions
         {
             Model = "gpt-4o-mini-realtime-preview",
-            Voice = "marin",
+            Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : "marin",
             Instructions = instructions,
             OpenAiApiKey = appConfig.OpenAiApiKey,
             OpenAiEndpoint = null

@@ -33,7 +33,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/NanoBot.sln"
+                "${workspaceFolder}/NanoBot/NanoBot.csproj"
             ],
             "problemMatcher": "$msCompile"
         },

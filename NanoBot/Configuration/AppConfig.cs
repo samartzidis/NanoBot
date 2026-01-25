@@ -7,9 +7,15 @@ public class AppConfig
 {
     public bool ConsoleDebugMode { get; set; }
 
+    [Required]
     [DisplayName("OpenAI API Key")]
-    [Description("OpenAI API access key.")]
+    [Description("OpenAI API access key.")]    
     public string OpenAiApiKey { get; set; }
+
+    [Required]
+    [DisplayName("OpenAI Model")]
+    [Description("OpenAI model to use. Defaults to: 'gpt-4o-mini-realtime-preview'.")]    
+    public string OpenAiModel { get; set; } = "gpt-4o-mini-realtime-preview";
 
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
@@ -42,7 +48,8 @@ public class AppConfig
 
     public List<AgentConfig> Agents { get; set; } = [ ];
 
-    public readonly string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
+    internal readonly string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
+    internal readonly string[] OpenAiModels = [ "gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview"]; // Also see: https://platform.openai.com/docs/pricing
 }
 
 

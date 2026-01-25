@@ -6,9 +6,9 @@ const systemUiSchema = {
         {
             type: "Group",
             label: "General",
-            elements: [      
-                //{ type: "Control", scope: "#/properties/OpenAiModelId" },
+            elements: [                      
                 { type: "Control", scope: "#/properties/OpenAiApiKey" },
+                { type: "Control", scope: "#/properties/OpenAiModel" },
                 { type: "Control", scope: "#/properties/SessionTimeoutMinutes" },
                 { type: "Control", scope: "#/properties/MemoryServiceMaxMemories" },                
                 { type: "Control", scope: "#/properties/PlaybackVolume" },

@@ -19,20 +19,17 @@ public class ConfigurationController : ControllerBase
     private readonly IDynamicOptions<AppConfig> _appConfigOptions;
     private readonly ILogger<ConfigurationController> _logger;
     private readonly string _userSettingsPath;
-    //private readonly IVoiceService _voiceService;
     private readonly IConfiguration _configuration;
     private readonly IEventBus _bus;
 
     public ConfigurationController(
         IDynamicOptions<AppConfig> appConfigOptions, 
         ILogger<ConfigurationController> logger, 
-        //IVoiceService voiceService,
         IConfiguration configuration,
         IEventBus bus)
     {
         _appConfigOptions = appConfigOptions;
         _logger = logger;
-        //_voiceService = voiceService;
         _userSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.user.json");
         _configuration = configuration;
         _bus = bus;
@@ -53,23 +50,17 @@ public class ConfigurationController : ControllerBase
             var schemaJson = JsonConvert.DeserializeObject<JObject>(schemaStr);
 
             var agentsConfig = NavigateToProperty(schemaJson, "properties", "Agents", "items", "properties");
-
-            // Fetch available voices
-            //var voiceProvider = _appConfigOptions.Value.TextToSpeechServiceProvider;
-            //var voices = await _voiceService.GetAvailableVoicesAsync(voiceProvider, cancellationToken);
-            //if (voices != null)
-            //{
-            //    var voiceNames = voices.Select(t => t.ShortName).ToArray();
-
-            //    // Update schema for "SpeechSynthesisVoiceName"              
-            //    if (agentsConfig != null && agentsConfig["SpeechSynthesisVoiceName"] != null)
-            //        agentsConfig["SpeechSynthesisVoiceName"]["enum"] = JArray.FromObject(voiceNames);
-            //}
+            var appConfig = NavigateToProperty(schemaJson, "properties");
 
             // Update schema for "SpeechSynthesisVoiceName"
             var voiceNames = _appConfigOptions.Value.OpenAiVoiceNames;
             if (agentsConfig != null && agentsConfig["SpeechSynthesisVoiceName"] != null)
                 agentsConfig["SpeechSynthesisVoiceName"]["enum"] = JArray.FromObject(voiceNames);
+
+            // Update schema for "OpenAiModelId"
+            var modelNames = _appConfigOptions.Value.OpenAiModels;
+            if (appConfig != null && appConfig["OpenAiModel"] != null)
+                appConfig["OpenAiModel"]["enum"] = JArray.FromObject(modelNames);
 
             // Fetch available wake words
             var wakeWordModels = WakeWordUtil.GetModels();

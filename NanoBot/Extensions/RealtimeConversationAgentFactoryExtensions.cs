@@ -11,7 +11,7 @@ namespace NanoBot.Extensions;
 
 public static class RealtimeConversationAgentFactoryExtensions
 {
-    public const string RealtimeModel = "gpt-4o-mini-realtime-preview";
+    public const string DefaultOpenAiModel = "gpt-4o-mini-realtime-preview";
     public const string DefaultSpeechSynthesisVoiceName = "marin";
 
     public static IServiceCollection AddRealtimeConversationAgentFactory(this IServiceCollection services)
@@ -35,7 +35,7 @@ public static class RealtimeConversationAgentFactoryExtensions
 
                 var options = new RealtimeAgentOptions
                 {
-                    Model = RealtimeModel,
+                    Model = !string.IsNullOrEmpty(appConfig.OpenAiModel) ? appConfig.OpenAiModel : DefaultOpenAiModel,
                     Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : DefaultSpeechSynthesisVoiceName,
                     Instructions = instructionsBuilder.ToString(),
                     OpenAiApiKey = appConfig.OpenAiApiKey,

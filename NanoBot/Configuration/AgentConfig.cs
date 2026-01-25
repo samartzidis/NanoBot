@@ -5,7 +5,7 @@ namespace NanoBot.Configuration;
 
 public class AgentConfig
 {
-    public const string DefaultWakeWord = "alexa_v0.1";
+    internal const string DefaultWakeWord = "alexa_v0.1";
 
     [Description("Agent disabled.")]
     public bool Disabled { get; set; }
@@ -30,14 +30,14 @@ public class AgentConfig
     [DefaultValue(0.7f)]
     public float WakeWordThreshold { get; set; } = 0.7f;
     
-    [Description("Wake word trigger level (1 - 10). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '4'.")]
+    [Description("Wake word trigger level (1 - 10). Lower number increases sensitivity, higher number reduces false detections. Defaults to: '3'.")]
     [Range(1, 10, ErrorMessage = $"{nameof(WakeWordTriggerLevel)} must be an integer value between '1' and '10'. Defaults to: '3'.")]
     [DefaultValue(3)]
     public int WakeWordTriggerLevel { get; set; } = 3;
 
     [Required]
     [Description($"Speech synthesis voice name. E.g. 'marin'.")]
-    public string SpeechSynthesisVoiceName { get; set; }
+    public string SpeechSynthesisVoiceName { get; set; } = "marin";
 
     #region Plugins
     [DisplayName("Calculator Plug-in")]

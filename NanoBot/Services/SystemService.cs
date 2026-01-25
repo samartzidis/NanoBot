@@ -207,6 +207,38 @@ public class SystemService : BackgroundService, ISystemService
             return null;
         }
     }
+    private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)
+    {
+        return Task.Run(async () =>
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    // Skip if no console or input is redirected (e.g., service/daemon)
+                    if (!Console.IsInputRedirected && Console.KeyAvailable)
+                    {
+                        var key = Console.ReadKey(intercept: true);
+                        if (key.Key == ConsoleKey.Spacebar)
+                        {
+                            _logger.LogDebug("Spacebar pressed -> publishing HangupInputEvent.");
+                            _bus.Publish<HangupInputEvent>(this);
+                        }
+                    }
+
+                    await Task.Delay(50, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // normal on shutdown
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Keyboard listener failed.");
+            }
+        }, cancellationToken);
+    }
 
     /*
     private async Task ConsoleDebugConversationLoop(CancellationToken cancellationToken)
@@ -471,36 +503,5 @@ public class SystemService : BackgroundService, ISystemService
         }
     }
     */
-    private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)
-    {
-        return Task.Run(async () =>
-        {
-            try
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    // Skip if no console or input is redirected (e.g., service/daemon)
-                    if (!Console.IsInputRedirected && Console.KeyAvailable)
-                    {
-                        var key = Console.ReadKey(intercept: true);
-                        if (key.Key == ConsoleKey.Spacebar)
-                        {
-                            _logger.LogDebug("Spacebar pressed -> publishing HangupInputEvent.");
-                            _bus.Publish<HangupInputEvent>(this);
-                        }
-                    }
 
-                    await Task.Delay(50, cancellationToken);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // normal on shutdown
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Keyboard listener failed.");
-            }
-        }, cancellationToken);
-    }
 }

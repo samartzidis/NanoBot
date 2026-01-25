@@ -64,13 +64,12 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     private readonly object _speakerLock = new();
     private readonly Dictionary<string, StringBuilder> _functionArgumentBuildersById = new();
 
-    private RealtimeClient? _realtimeClient;
-    private RealtimeSession? _session;
-    //private bool _sessionConfigured;
+    private RealtimeClient _realtimeClient;
+    private RealtimeSession _session;
     private bool _disposed;
 
     // Receive task runs for the lifetime of the session (not per RunAsync call)
-    private Task? _receiveTask;
+    private Task _receiveTask;
     // Session CTS is independent - only cancelled on dispose, not on RunAsync cancellation
     private CancellationTokenSource? _sessionCts;
 
@@ -82,12 +81,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
     public RealtimeConversationAgent(ILogger<RealtimeConversationAgent> logger, Kernel kernel, IOptions<RealtimeConversationAgentOptions> options)
     {
         _logger = logger;
-
         _kernel = kernel;
-        //_kernel = Kernel.CreateBuilder().Build();
-        //_kernel.ImportPluginFromType<WeatherPlugin2>();
-        //_kernel.ImportPluginFromType<CalculatorPlugin>();
-
         _options = options.Value;
     }
 
@@ -113,36 +107,9 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
             _session = await _realtimeClient.StartConversationSessionAsync(
                 _options.Model,
                 cancellationToken: cancellationToken);
-        //}
 
-        //if (!_sessionConfigured)
-        //{
             // Configure session with LOCAL VAD (server VAD disabled)
-            ConversationSessionOptions sessionOptions = new()
-            {
-                Voice = _options.Voice,
-                InputAudioFormat = RealtimeAudioFormat.Pcm16,
-                OutputAudioFormat = RealtimeAudioFormat.Pcm16,
-                Instructions = _options.Instructions,
-                // InputTranscriptionOptions = new()
-                // {
-                //     Model = "whisper-1",
-                // },                
-                TurnDetectionOptions = TurnDetectionOptions.CreateDisabledTurnDetectionOptions() // Disable server-side VAD - we handle it locally
-            };
-
-            if (_kernel != null)
-            {
-                // Add plugins as tools
-                foreach (var tool in ConvertFunctions(_kernel))
-                    sessionOptions.Tools.Add(tool);
-
-                if (sessionOptions.Tools.Count > 0)
-                    sessionOptions.ToolChoice = ConversationToolChoice.CreateAutoToolChoice();
-            }
-
-            await _session.ConfigureConversationSessionAsync(sessionOptions, cancellationToken);
-            //_sessionConfigured = true;
+            await ConfigureSessionAsync(_session, cancellationToken);
 
             _logger.LogDebug("Session configured.");
         }
@@ -173,29 +140,7 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
                 cancellationToken: cancellationToken);
 
             // Reconfigure session
-            ConversationSessionOptions sessionOptions = new()
-            {
-                Voice = _options.Voice,
-                InputAudioFormat = RealtimeAudioFormat.Pcm16,
-                OutputAudioFormat = RealtimeAudioFormat.Pcm16,
-                Instructions = _options.Instructions,
-                // InputTranscriptionOptions = new()
-                // {
-                //     Model = "whisper-1",
-                // },
-                TurnDetectionOptions = TurnDetectionOptions.CreateDisabledTurnDetectionOptions()
-            };
-
-            if (_kernel != null)
-            {
-                foreach (var tool in ConvertFunctions(_kernel))
-                    sessionOptions.Tools.Add(tool);
-
-                if (sessionOptions.Tools.Count > 0)
-                    sessionOptions.ToolChoice = ConversationToolChoice.CreateAutoToolChoice();
-            }
-
-            await _session.ConfigureConversationSessionAsync(sessionOptions, cancellationToken);
+            await ConfigureSessionAsync(_session, cancellationToken);
         }
 
         // Start the receive task if not already running
@@ -313,7 +258,6 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
         _session = null;
         _sessionCts = null;
         _receiveTask = null;
-        //_sessionConfigured = false;
     }
 
     /// <summary>
@@ -341,7 +285,6 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
         _session = null;
         _sessionCts = null;
         _receiveTask = null;
-        //_sessionConfigured = false;
     }
 
     /// <summary>
@@ -438,13 +381,26 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
 
                         _logger.LogDebug($"[Executing function: {streamingFinishedUpdate.FunctionName}]");
 
-                        var functionOutputItem = await InvokeFunctionAsync(
-                            streamingFinishedUpdate.FunctionName,
-                            streamingFinishedUpdate.FunctionCallId,
-                            streamingFinishedUpdate.ItemId,
-                            _functionArgumentBuildersById,
-                            _kernel,
-                            sessionToken);
+                        RealtimeItem functionOutputItem;
+                        try
+                        {
+                            functionOutputItem = await InvokeFunctionAsync(
+                                streamingFinishedUpdate.FunctionName,
+                                streamingFinishedUpdate.FunctionCallId,
+                                streamingFinishedUpdate.ItemId,
+                                _functionArgumentBuildersById,
+                                _kernel,
+                                sessionToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"[Function '{streamingFinishedUpdate.FunctionName}' failed: {ex.Message}]");
+                            
+                            // Return error to model so it can respond appropriately
+                            functionOutputItem = RealtimeItem.CreateFunctionCallOutput(
+                                callId: streamingFinishedUpdate.FunctionCallId,
+                                output: $"Error: {ex.Message}");
+                        }
 
                         await session.AddItemAsync(functionOutputItem, sessionToken);
                     }
@@ -454,11 +410,11 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
                     }
                 }
 
-                // Input audio transcription completed (disabled - Whisper transcription not needed)
-                // if (update is InputAudioTranscriptionFinishedUpdate transcriptionUpdate)
-                // {
-                //     _logger.LogDebug($"[You said: {transcriptionUpdate.Transcript}]");
-                // }
+                // Input audio transcription completed (only if whisper transcription is enabled)
+                if (update is InputAudioTranscriptionFinishedUpdate transcriptionUpdate)
+                {
+                    _logger.LogDebug($"[You said: {transcriptionUpdate.Transcript}]");
+                }
 
                 // Response finished
                 if (update is ResponseFinishedUpdate responseFinishedUpdate)
@@ -791,6 +747,32 @@ public sealed class RealtimeConversationAgent : IAsyncDisposable, IDisposable
         return RealtimeItem.CreateFunctionCallOutput(
             callId: functionCallId,
             output: ProcessFunctionResult(resultContent.Result));
+    }
+
+    /// <summary>
+    /// Configures a conversation session with standard options (voice, audio format, instructions, tools).
+    /// </summary>
+    private async Task ConfigureSessionAsync(RealtimeSession session, CancellationToken cancellationToken)
+    {
+        var sessionOptions = new ConversationSessionOptions()
+        {
+            Voice = _options.Voice,
+            InputAudioFormat = RealtimeAudioFormat.Pcm16,
+            OutputAudioFormat = RealtimeAudioFormat.Pcm16,
+            Instructions = _options.Instructions,
+            TurnDetectionOptions = TurnDetectionOptions.CreateDisabledTurnDetectionOptions() // Disable server-side VAD - we handle it locally
+        };
+
+        if (_kernel != null)
+        {
+            foreach (var tool in ConvertFunctions(_kernel))
+                sessionOptions.Tools.Add(tool);
+
+            if (sessionOptions.Tools.Count > 0)
+                sessionOptions.ToolChoice = ConversationToolChoice.CreateAutoToolChoice();
+        }
+
+        await session.ConfigureConversationSessionAsync(sessionOptions, cancellationToken);
     }
 
     /// <summary>

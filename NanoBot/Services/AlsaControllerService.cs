@@ -1,4 +1,4 @@
-﻿using NanoBot.Util;
+using NanoBot.Util;
 using Alsa.Net;
 using Microsoft.Extensions.Logging;
 
@@ -58,6 +58,9 @@ internal class AlsaControllerService : IAlsaControllerService
         HandleVolumeChangeNotification();
     }
 
+    // Exponent for perceptual volume curve (< 1 boosts lower volumes)
+    private const double VolumeExponent = 0.4;
+
     public void SetPlaybackVolume(int volume)
     {
         if (volume < 0 || volume > 10)
@@ -74,8 +77,19 @@ internal class AlsaControllerService : IAlsaControllerService
                 var minVolume = alsaDevice.PlaybackVolumeMin;
                 var maxVolume = alsaDevice.PlaybackVolumeMax;
 
-                // Map logical volume (0-10) to hardware volume range
-                var hardwareVolume = minVolume + (long)(volume * (maxVolume - minVolume) / 10.0);
+                // Map logical volume (0-10) to hardware volume using perceptual curve
+                // Using power curve with exponent < 1 to boost lower volumes
+                long hardwareVolume;
+                if (volume == 0)
+                {
+                    hardwareVolume = minVolume;
+                }
+                else
+                {
+                    double normalizedVolume = volume / 10.0;
+                    double curvedVolume = Math.Pow(normalizedVolume, VolumeExponent);
+                    hardwareVolume = minVolume + (long)(curvedVolume * (maxVolume - minVolume));
+                }
 
                 _logger.LogDebug($"Set playback volume to {volume}/10 (hardware: {hardwareVolume}, range: {minVolume}-{maxVolume})");
                 alsaDevice.PlaybackVolume = hardwareVolume;                
@@ -104,11 +118,22 @@ internal class AlsaControllerService : IAlsaControllerService
             var minVolume = alsaDevice.PlaybackVolumeMin;
             var maxVolume = alsaDevice.PlaybackVolumeMax;
 
-            // Map hardware volume to logical volume (0-10)
+            // Map hardware volume to logical volume (0-10) using inverse of perceptual curve
             if (maxVolume == minVolume)
                 return 0; // Avoid division by zero
 
-            var logicalVolume = (int)Math.Round((currentVolume - minVolume) * 10.0 / (maxVolume - minVolume));
+            int logicalVolume;
+            if (currentVolume <= minVolume)
+            {
+                logicalVolume = 0;
+            }
+            else
+            {
+                // Inverse of the power curve: if hw = max * (vol/10)^exp, then vol = 10 * (hw/max)^(1/exp)
+                double normalizedHardware = (double)(currentVolume - minVolume) / (maxVolume - minVolume);
+                double inverseExponent = 1.0 / VolumeExponent;
+                logicalVolume = (int)Math.Round(10.0 * Math.Pow(normalizedHardware, inverseExponent));
+            }
             
             // Clamp to valid range
             logicalVolume = Math.Max(0, Math.Min(10, logicalVolume));

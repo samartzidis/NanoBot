@@ -40,7 +40,8 @@ public static class RealtimeConversationAgentFactoryExtensions
                     Instructions = instructionsBuilder.ToString(),
                     OpenAiApiKey = appConfig.OpenAiApiKey,
                     OpenAiEndpoint = null,
-                    Temperature = agentConfig.Temperature
+                    Temperature = agentConfig.Temperature,
+                    ConversationInactivityTimeoutSeconds = appConfig.ConversationInactivityTimeoutSeconds,
                 };
 
                 

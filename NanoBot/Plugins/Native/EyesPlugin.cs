@@ -17,7 +17,7 @@ namespace NanoBot.Plugins.Native
         }
 
         [KernelFunction($"{nameof(TurnOn)}")]
-        [Description("Turn on the eyes (and sets the eye colour to normal).")]
+        [Description("Turn on the eyes (and sets the eye colour to normal). Example: the user says: 'eyes on'.")]
         public async Task TurnOn(Kernel kernel)
         {
             _logger.LogDebug($"{nameof(TurnOn)} tool invoked.");
@@ -26,7 +26,7 @@ namespace NanoBot.Plugins.Native
         }
 
         [KernelFunction($"{nameof(TurnOff)}")]
-        [Description("Turn off the eyes.")]
+        [Description("Turn off the eyes.. Example: the user says: 'eyes off'.")]
         public async Task TurnOff(Kernel kernel)
         {
             _logger.LogDebug($"{nameof(TurnOff)} tool invoked.");
@@ -35,7 +35,7 @@ namespace NanoBot.Plugins.Native
         }
 
         [KernelFunction($"{nameof(SetEyeColour)}")]
-        [Description("Set the eyes colour to the specified colour.")]
+        [Description("Set the eyes colour to the specified colour.. Example: the user says: 'eyes blue' or 'eyes white', etc.")]
         public async Task SetEyeColour(Kernel kernel, GpioDeviceLedColor colour)
         {
             _logger.LogDebug($"{nameof(SetEyeColour)} tool invoked.");

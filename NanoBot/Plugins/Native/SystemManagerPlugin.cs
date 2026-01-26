@@ -52,7 +52,7 @@ public class SystemManagerPlugin
     }
 
     [KernelFunction($"{nameof(VolumeUp)}")]
-    [Description("Increases the playback volume by 1 level (range 0-10).")]
+    [Description("Increases the playback volume by 1 level (range 0-10). Example: user says 'volume up'.")]
     public async Task VolumeUp(Kernel kernel)
     {
         _logger.LogDebug($"{nameof(VolumeUp)} tool invoked.");
@@ -61,7 +61,7 @@ public class SystemManagerPlugin
     }
 
     [KernelFunction($"{nameof(VolumeDown)}")]
-    [Description("Decreases the playback volume by 1 level (range 0-10).")]
+    [Description("Decreases the playback volume by 1 level (range 0-10). Example: user says 'volume down'.")]
     public async Task VolumeDown(Kernel kernel)
     {
         _logger.LogDebug($"{nameof(VolumeDown)} tool invoked.");
@@ -70,7 +70,7 @@ public class SystemManagerPlugin
     }
 
     [KernelFunction($"{nameof(SetVolume)}")]
-    [Description("Sets the playback volume to a specific level. Volume must be between 1 and 10.")]
+    [Description("Sets the playback volume to a specific level. Volume must be between 1 and 10. Example: user says 'volume 5' etc.")]
     public async Task SetVolume(
         Kernel kernel,
         [Description("The volume level to set (1-10).")] int volume)
@@ -87,7 +87,7 @@ public class SystemManagerPlugin
     }
     
     [KernelFunction($"{nameof(GetPlaybackVolume)}")]
-    [Description("Gets the current playback volume level (0-10).")]
+    [Description("Gets the current playback volume level (0-10). Example: user says 'current volume', 'current volume level', 'volume level', etc.")]
     public async Task<int> GetPlaybackVolume(Kernel kernel)
     {
         _logger.LogDebug($"{nameof(GetPlaybackVolume)} tool invoked.");

@@ -27,6 +27,12 @@ public class AppConfig
     [Range(1, 60)]
     public int SessionTimeoutMinutes { get; set; } = 30;
 
+    [DisplayName("Conversation Inactivity Timeout Seconds")]
+    [Description("Conversation inactivity timeout in seconds. When the conversation is inactive for this number of seconds, it will be automatically go back to Wake Word detection mode. Defaults to: '10'.")]
+    [DefaultValue(10)]
+    [Range(1, 60)]
+    public int ConversationInactivityTimeoutSeconds { get; set; } = 10;
+
     [DisplayName("Memory Service Max Memories")]
     [Description("Maximum number of memories to store. When exceeded, least frequently used memories will be evicted. Defaults to: '100'.")]
     [DefaultValue(100)]
@@ -34,10 +40,10 @@ public class AppConfig
     public int MemoryServiceMaxMemories { get; set; } = 100;
 
     [DisplayName("Playback Volume")]
-    [Description("Playback volume level (0-10). Defaults to: '5'.")]
-    [DefaultValue(5)]
+    [Description("Startup playback volume level (0-10). If unspecified the system will not set the volume level at startup.")]
+    [DefaultValue(null)]
     [Range(0, 10)]
-    public int PlaybackVolume { get; set; } = 5;
+    public int? PlaybackVolume { get; set; }
 
     [DisplayName("Wake Word Silence Sample Amplitude Threshold")]
     [Description("Threshold for silence detection in wake word. Defaults to: '1200'.")]

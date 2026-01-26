@@ -10,6 +10,7 @@ const systemUiSchema = {
                 { type: "Control", scope: "#/properties/OpenAiApiKey" },
                 { type: "Control", scope: "#/properties/OpenAiModel" },
                 { type: "Control", scope: "#/properties/SessionTimeoutMinutes" },
+                { type: "Control", scope: "#/properties/ConversationInactivityTimeoutSeconds" },
                 { type: "Control", scope: "#/properties/MemoryServiceMaxMemories" },                
                 { type: "Control", scope: "#/properties/PlaybackVolume" },
                 { type: "Control", scope: "#/properties/WakeWordSilenceSampleAmplitudeThreshold" },

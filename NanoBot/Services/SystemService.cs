@@ -115,13 +115,16 @@ public class SystemService : BackgroundService, ISystemService
         var appConfig = _appConfigMonitor.CurrentValue;
 
         // Set initial playback volume from config
-        if (appConfig.PlaybackVolume >= 0 && appConfig.PlaybackVolume <= 10)
+        if (appConfig.PlaybackVolume.HasValue)
         {
-            _alsaControllerService.SetPlaybackVolume(appConfig.PlaybackVolume);
-        }
-        else
-        {
-            _logger.LogWarning($"Invalid PlaybackVolume value: {appConfig.PlaybackVolume}. Must be between 0 and 10.");
+            if (appConfig.PlaybackVolume >= 0 && appConfig.PlaybackVolume <= 10)
+            {
+                _alsaControllerService.SetPlaybackVolume(appConfig.PlaybackVolume.Value);
+            }
+            else
+            {
+                _logger.LogWarning($"Invalid PlaybackVolume value: {appConfig.PlaybackVolume}. Must be between 0 and 10.");
+            }
         }
 
         // Enable keyboard hangup listener only when not in console debug mode

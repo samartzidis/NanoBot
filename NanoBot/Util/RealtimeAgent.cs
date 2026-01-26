@@ -19,6 +19,7 @@ public sealed class RealtimeAgentOptions
     public string OpenAiApiKey { get; set; }
     public string OpenAiEndpoint { get; set; }
     public float? Temperature { get; set; }
+    public int? ConversationInactivityTimeoutSeconds { get; set; }
 }
 
 public enum RealtimeAgentRunResult
@@ -42,7 +43,6 @@ public sealed class RealtimeAgent : IDisposable
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
-    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromSeconds(10);
 
     private readonly Kernel _kernel;
     private readonly ILogger _logger;
@@ -437,7 +437,8 @@ public sealed class RealtimeAgent : IDisposable
         bool isRecording = false;
         int speechFrameCount = 0;
         int silenceFrameCount = 0;
-        var lastSpeechUtc = DateTime.UtcNow;
+        bool wasModelSpeaking = false;
+        var lastActivityUtc = DateTime.UtcNow;
 
         recorder.Start();
         speaker.Start();
@@ -463,8 +464,15 @@ public sealed class RealtimeAgent : IDisposable
                 bool isSpeech = speechProb >= VadThreshold;
                 if (isSpeech)
                 {
-                    lastSpeechUtc = DateTime.UtcNow;
+                    lastActivityUtc = DateTime.UtcNow;
                 }
+
+                // Reset inactivity timer when model finishes speaking
+                if (wasModelSpeaking && !_modelIsSpeaking)
+                {
+                    lastActivityUtc = DateTime.UtcNow;
+                }
+                wasModelSpeaking = _modelIsSpeaking;
 
                 // If model is speaking and we detect speech, trigger barge-in
                 if (_modelIsSpeaking && isSpeech)
@@ -559,10 +567,12 @@ public sealed class RealtimeAgent : IDisposable
                     }
                 }
 
-                // Check for inactivity timeout
+                // Check for inactivity timeout (since robot finished talking and user hasn't responded)
                 if (!isRecording && !_modelIsSpeaking)
                 {
-                    if (DateTime.UtcNow - lastSpeechUtc >= InactivityTimeout)
+                    var inactivityTimeout = TimeSpan.FromSeconds(_options.ConversationInactivityTimeoutSeconds ?? 10);
+
+                    if (DateTime.UtcNow - lastActivityUtc >= inactivityTimeout)
                     {
                         _logger.LogDebug("[Inactivity timeout - pausing audio capture...]");
                         return RealtimeAgentRunResult.InactivityTimeout;

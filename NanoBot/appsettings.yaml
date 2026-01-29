@@ -1,4 +1,4 @@
-Serilog:
+﻿Serilog:
   MinimumLevel:
     Default: Debug
     Override:
@@ -9,6 +9,8 @@ Kestrel:
   EndPoints:
     Http:
       Url: http://*:8080
+
+FileLoggingEnabled: false
 
 Instructions: |
     You are a voice-only chat assistant.  

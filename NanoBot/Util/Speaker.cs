@@ -28,7 +28,7 @@ public class Speaker : IDisposable
     private LevelMeterAnalyzer _levelMeter;
     private Timer _vuMeterTimer;
     private Action<byte> _vuMeterAction;
-    private const int VuMeterUpdateIntervalMs = 50; // Update 20 times per second
+    private const int VuMeterUpdateIntervalMs = 100;//50; // Update 20 times per second
 
     // PCM normalization divisors: convert signed integer samples to -1.0 to 1.0 float range
     private const float Pcm16BitMaxValue = 32768.0f;      // 2^15 (16-bit signed max + 1)
@@ -43,7 +43,7 @@ public class Speaker : IDisposable
     /// <param name="bufferSizeSecs">Size of internal PCM buffer in seconds</param>
     /// <param name="deviceIndex">Index of output audio device (-1 for default)</param>
     /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux to avoid probing warnings)</param>
-    public Speaker(int sampleRate, int bitsPerSample, int bufferSizeSecs = 20, int deviceIndex = -1, MiniAudioBackend[] preferredBackends = null, Action<byte> vuMeterAction = null)
+    public Speaker(int sampleRate, int bitsPerSample, int bufferSizeSecs = 60, int deviceIndex = -1, MiniAudioBackend[] preferredBackends = null, Action<byte> vuMeterAction = null)
     {
         _sampleRate = sampleRate;
         _bitsPerSample = bitsPerSample;

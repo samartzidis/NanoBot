@@ -22,11 +22,13 @@ public class SystemManagerPlugin
         _alsaControllerService = alsaControllerService;
     }
 
-    [KernelFunction($"{nameof(NotifyConversationEnd)}")]
-    [Description("Use this tool to ALWAYS notify the system that the user decided to finish the conversation. For example the user said 'ok', 'ok, thanks', 'bye', etc.")]
-    public async Task NotifyConversationEnd(Kernel kernel)
+    [KernelFunction($"{nameof(NotifyConversationStopRequested)}")]
+    [Description(
+        @"*IMPORTANT*: Use this tool to ALWAYS notify the system that the user decided to end the conversation.
+        For example if the user said: 'stop', 'OK, stop', 'OK', 'OK, thanks', 'bye', etc.")]
+    public async Task NotifyConversationStopRequested(Kernel kernel)
     {
-        _logger.LogDebug($"{nameof(NotifyConversationEnd)} tool invoked.");
+        _logger.LogDebug($"{nameof(NotifyConversationStopRequested)} tool invoked.");
 
         await _systemService.NotifyConversationEnd();
     }

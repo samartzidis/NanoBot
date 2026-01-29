@@ -63,6 +63,11 @@ public sealed class RealtimeAgent : IDisposable
     private Speaker _currentSpeaker;
     private volatile bool _modelIsSpeaking;
     private volatile bool _bargeInTriggered;
+    
+    // Barge-in tracking for truncation
+    private readonly object _outputAudioLock = new();
+    private string _currentStreamingItemId;
+    private int _audioBytesSentToSpeaker;
 
     public RealtimeAgent(ILogger<RealtimeAgent> logger, Kernel kernel, IOptions<RealtimeAgentOptions> options)
     {
@@ -77,7 +82,7 @@ public sealed class RealtimeAgent : IDisposable
     /// Both cancellation and timeout preserve the session - call DisposeAsync to close the session.
     /// </summary>
     /// <returns>Why the loop returned.</returns>
-    public async Task<RealtimeAgentRunResult> RunAsync(Action readyNotificationActionHandler = null, Action<byte> vuMeterAction = null, CancellationToken cancellationToken = default)
+    public async Task<RealtimeAgentRunResult> RunAsync(Action readyNotificationAction = null, Action<byte> vuMeterAction = null, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -136,7 +141,7 @@ public sealed class RealtimeAgent : IDisposable
             _receiveTask = RunReceiveTaskAsync(_session, _sessionCts!.Token);
         }
 
-        readyNotificationActionHandler?.Invoke();
+        readyNotificationAction?.Invoke();
 
         // Start the conversation loop (audio capture)
         var result = await AudioCaptureLoopAsync(_session, recorder, speaker, vadDetector, cancellationToken);
@@ -248,7 +253,13 @@ public sealed class RealtimeAgent : IDisposable
                 {
                     _modelIsSpeaking = true;
                     _bargeInTriggered = false;
-                    outputAudioBuffer.Clear();
+                    
+                    lock (_outputAudioLock)
+                    {
+                        outputAudioBuffer.Clear();
+                        _currentStreamingItemId = streamingStartedUpdate.ItemId;
+                        _audioBytesSentToSpeaker = 0;
+                    }
 
                     _logger.LogDebug($"[OutputStreamingStarted: FunctionName={streamingStartedUpdate.FunctionName ?? "null"}, ItemId={streamingStartedUpdate.ItemId ?? "null"}]");
 
@@ -270,18 +281,25 @@ public sealed class RealtimeAgent : IDisposable
                         _logger.LogDebug($"[TextDelta: {deltaUpdate.Text}]");
                     }
 
-                    // Handle audio bytes
-                    if (deltaUpdate.AudioBytes is not null && !_bargeInTriggered)
+                    // Handle audio bytes (use lock to synchronize with barge-in)
+                    if (deltaUpdate.AudioBytes is not null)
                     {
-                        var audioBytes = deltaUpdate.AudioBytes.ToArray();
-                        outputAudioBuffer.AddRange(audioBytes);
-
-                        while (outputAudioBuffer.Count >= SpeakerChunkSize)
+                        lock (_outputAudioLock)
                         {
-                            byte[] chunk = new byte[SpeakerChunkSize];
-                            outputAudioBuffer.CopyTo(0, chunk, 0, SpeakerChunkSize);
-                            outputAudioBuffer.RemoveRange(0, SpeakerChunkSize);
-                            WriteSpeakerSafe(chunk);
+                            if (!_bargeInTriggered)
+                            {
+                                var audioBytes = deltaUpdate.AudioBytes.ToArray();
+                                outputAudioBuffer.AddRange(audioBytes);
+
+                                while (outputAudioBuffer.Count >= SpeakerChunkSize)
+                                {
+                                    byte[] chunk = new byte[SpeakerChunkSize];
+                                    outputAudioBuffer.CopyTo(0, chunk, 0, SpeakerChunkSize);
+                                    outputAudioBuffer.RemoveRange(0, SpeakerChunkSize);
+                                    WriteSpeakerSafe(chunk);
+                                    _audioBytesSentToSpeaker += SpeakerChunkSize;
+                                }
+                            }
                         }
                     }
 
@@ -354,12 +372,16 @@ public sealed class RealtimeAgent : IDisposable
                 if (update is ResponseFinishedUpdate responseFinishedUpdate)
                 {
                     // Write any remaining buffered audio
-                    if (outputAudioBuffer.Count > 0 && !_bargeInTriggered)
+                    lock (_outputAudioLock)
                     {
-                        byte[] remainingChunk = new byte[outputAudioBuffer.Count];
-                        outputAudioBuffer.CopyTo(remainingChunk, 0);
-                        WriteSpeakerSafe(remainingChunk);
-                        outputAudioBuffer.Clear();
+                        if (outputAudioBuffer.Count > 0 && !_bargeInTriggered)
+                        {
+                            byte[] remainingChunk = new byte[outputAudioBuffer.Count];
+                            outputAudioBuffer.CopyTo(remainingChunk, 0);
+                            WriteSpeakerSafe(remainingChunk);
+                            _audioBytesSentToSpeaker += remainingChunk.Length;
+                            outputAudioBuffer.Clear();
+                        }
                     }
 
                     // Wait for playback to finish (allows barge-in during playback since _modelIsSpeaking stays true)
@@ -500,18 +522,36 @@ public sealed class RealtimeAgent : IDisposable
                     speechFrameCount++;
                     if (speechFrameCount >= MinSpeechFramesForBargeIn)
                     {
-                        _logger.LogWarning("[Barge-in detected - interrupting model]");
+                        // Calculate playback position before clearing
+                        // 24kHz mono 16-bit = 48000 bytes/second
+                        string truncateItemId;
+                        int audioEndMs;
+                        
+                        lock (_outputAudioLock)
+                        {
+                            _bargeInTriggered = true;
+                            truncateItemId = _currentStreamingItemId;
+                            audioEndMs = (int)((_audioBytesSentToSpeaker / 48000.0) * 1000);
+                        }
+                        
+                        _logger.LogWarning($"[Barge-in detected - interrupting model at {audioEndMs}ms, ItemId={truncateItemId}]");
 
-                        _bargeInTriggered = true;
                         ClearSpeakerSafe(); // Clear buffered audio immediately
 
                         try
                         {
                             await session.CancelResponseAsync(cancellationToken);
+                            
+                            // TODO: Call TruncateItemAsync when SDK supports it
+                            // This tells the server how much audio the user actually heard
+                            // Without truncate, the server's conversation history contains
+                            // the full response, causing the model to continue from where
+                            // it generated (not where the user interrupted)
+                            await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Response may have already finished
+                            _logger.LogDebug($"[Cancel/truncate failed: {ex.Message}]");
                         }
 
                         _modelIsSpeaking = false;

@@ -46,7 +46,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
     private bool _buttonPressed;
     private bool _isShutdown, _isListening, _isFunctionInvoking, _isWakeWordDetected, _isError, _isNoiseDetected;
-    private byte _talkLevel;
+    private byte? _talkLevel;
 
     public GpioDeviceService(ILogger<GpioDeviceService> logger, IEventBus bus)
     {
@@ -104,7 +104,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     {
         _isWakeWordDetected = false;
         _isNoiseDetected = false;
-        _talkLevel = 0;
+        _talkLevel = null;
     }
 
     private void UpdateLed()
@@ -115,17 +115,18 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             SetLedColor(GpioDeviceLedColor.Red);
         else if (_isFunctionInvoking)
             SetLedColor(GpioDeviceLedColor.Blue);
-        else if (_talkLevel > 0)
+        else if (_talkLevel.HasValue)
         {
             const byte minInput = 0;
             const byte maxInput = 255;
-            const byte minOutput = 32;
+            const byte minOutput = 16;
             const byte maxOutput = 255;
             var mappedLevel = (byte)(minOutput + (_talkLevel - minInput) * (maxOutput - minOutput) / (maxInput - minInput));
-            SetLedColor((byte)(mappedLevel / 2), mappedLevel, false);
+            SetLedColor(0, mappedLevel, false);
         }
         else if (_isListening)
-            SetLedColor(GpioDeviceLedColor.LightGreen);
+            //SetLedColor(GpioDeviceLedColor.LightGreen);
+            SetLedColor(0, 16, false);
         else if (_isWakeWordDetected)
             SetLedColor(GpioDeviceLedColor.Orange);
         else if (_isNoiseDetected)
@@ -166,7 +167,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
     private void SetLedColor(byte red, byte green, bool blue)
     {
-        _logger.LogDebug($"{nameof(SetLedColor)}: {red}, {green}, {blue}");
+        //_logger.LogDebug($"{nameof(SetLedColor)}: {red}, {green}, {blue}");
 
         if (PlatformUtil.IsRaspberryPi())
         {

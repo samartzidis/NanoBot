@@ -81,7 +81,7 @@ public class EventBus : IEventBus
     {
         var eventType = typeof(TEvent);
 
-        _logger.LogDebug($"Publishing {eventType.Name} from sender {@event?.Sender}.");
+        //_logger.LogDebug($"Publishing {eventType.Name} from sender {@event?.Sender}.");
 
         List<Delegate> handlersCopy;
         lock (_lock)

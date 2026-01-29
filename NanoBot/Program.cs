@@ -27,16 +27,24 @@ public class Program
 
         var host = Host.CreateDefaultBuilder(args)
             .UseSerilog((context, configuration) =>
-                configuration.ReadFrom.Configuration(context.Configuration)
-                    .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.ffffff} [{Level}] [{SourceContext}] {Message}{NewLine:l}{Exception:l}")
-                    .WriteTo.File(
-                        path: "log.txt", // Rolling file naming
+            {
+                configuration
+                    .ReadFrom.Configuration(context.Configuration)
+                    .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.ffffff} [{Level}] [{SourceContext}] {Message}{NewLine:l}{Exception:l}");
+
+                if (context.Configuration.Get<AppConfig>().FileLoggingEnabled)
+                {
+                    configuration.WriteTo.File(
+                        path: "log.txt",
                         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.ffffff} [{Level}] {Message}{NewLine:l}{Exception:l}",
                         fileSizeLimitBytes: 1 * 1024 * 1024, // 1MB
                         rollOnFileSizeLimit: true,
                         retainedFileCountLimit: 3,
-                        shared: true)
-                    .Enrich.FromLogContext())
+                        shared: true);
+                }
+
+                configuration.Enrich.FromLogContext();
+            })
             .ConfigureHostConfiguration(configurationBuilder =>
             {
                 configurationBuilder.AddYamlFile("appsettings.yaml", optional: false, reloadOnChange: true);

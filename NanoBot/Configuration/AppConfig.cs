@@ -7,6 +7,11 @@ public class AppConfig
 {
     public bool ConsoleDebugMode { get; set; }
 
+    [DisplayName("Enable File Logging")]
+    [Description("Enable file logging in the application directory. Defaults to: 'false'.")]
+    [DefaultValue(false)]
+    public bool FileLoggingEnabled { get; set; }
+
     [Required]
     [DisplayName("OpenAI API Key")]
     [Description("OpenAI API access key.")]    
@@ -46,10 +51,10 @@ public class AppConfig
     public int? PlaybackVolume { get; set; }
 
     [DisplayName("Wake Word Silence Sample Amplitude Threshold")]
-    [Description("Threshold for silence detection in wake word. Defaults to: '1200'.")]
-    [DefaultValue(1200)]
+    [Description("Threshold for silence detection in wake word. Defaults to: '800'.")]
+    [DefaultValue(800)]
     [Range(0, 10000)]
-    public int WakeWordSilenceSampleAmplitudeThreshold { get; set; } = 1200;
+    public int WakeWordSilenceSampleAmplitudeThreshold { get; set; } = 800;
 
     [DisplayName("Enable Anker PowerConf S330 Driver")]
     [Description("Enable device driver for Anker PowerConf S330 speakerphone.")]

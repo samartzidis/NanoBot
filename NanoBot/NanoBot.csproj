@@ -41,6 +41,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Remove="C:\Users\gs\.nuget\packages\soundflow\1.4.0\contentFiles\any\net8.0\STATEMENT.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="appsettings.local.yaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

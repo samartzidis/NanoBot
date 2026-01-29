@@ -5,11 +5,10 @@ namespace NanoBot.Events;
 public class StartListeningEvent(object sender) : EventBase(sender);
 public class StopListeningEvent(object sender) : EventBase(sender);
 
-//public class StartTalkingEvent(object sender) : EventBase(sender);
-//public class StopTalkingEvent(object sender) : EventBase(sender);
-
-//public class StartThinkingEvent(object sender) : EventBase(sender);
-//public class StopThinkingEvent(object sender) : EventBase(sender);
+public class TalkLevelEvent(object sender, byte level = 0) : EventBase(sender)
+{
+    public byte Level { get; } = level;
+}
 
 public class ShutdownEvent(object sender) : EventBase(sender);
 

@@ -166,7 +166,13 @@ public class SystemService : BackgroundService, ISystemService
 
                     try
                     {
-                        var runResult = await agent.RunAsync(() => { _bus.Publish<StartListeningEvent>(this); }, hangupToken);
+                        var runResult = await agent.RunAsync(
+                            () => { _bus.Publish<StartListeningEvent>(this); }, 
+                            level => 
+                            {
+                                _bus.Publish<TalkLevelEvent>(new TalkLevelEvent(this, level));
+                            }, 
+                            hangupToken);
                     }
                     finally
                     {

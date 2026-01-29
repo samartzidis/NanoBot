@@ -18,14 +18,12 @@
     <PackageReference Include="NanoWakeWord" Version="1.2.1" />
     <PackageReference Include="NetEscapades.Configuration.Yaml" Version="3.1.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
-    <PackageReference Include="PvSpeaker" Version="1.0.2" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="DataAnnotationsValidator.NETCore" Version="1.0.3" />
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.47.0" />
     <PackageReference Include="PvRecorder" Version="1.2.13" />    
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.70.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.70.0" />
@@ -34,7 +32,8 @@
     <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.70.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.70.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />   
-    <PackageReference Include="System.Device.Gpio" Version="4.1.0" />   
+    <PackageReference Include="System.Device.Gpio" Version="4.1.0" />
+    <PackageReference Include="SoundFlow" Version="1.4.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -19,7 +19,7 @@ public sealed class RealtimeAgentOptions
     public string OpenAiApiKey { get; set; }
     public string OpenAiEndpoint { get; set; }
     public float? Temperature { get; set; }
-    public int? ConversationInactivityTimeoutSeconds { get; set; }
+    public int? ConversationInactivityTimeoutSeconds { get; set; }    
 }
 
 public enum RealtimeAgentRunResult
@@ -60,7 +60,7 @@ public sealed class RealtimeAgent : IDisposable
     private CancellationTokenSource _sessionCts;
 
     // Shared state between receive task and audio loop
-    private PvSpeaker _currentSpeaker;
+    private Speaker _currentSpeaker;
     private volatile bool _modelIsSpeaking;
     private volatile bool _bargeInTriggered;
 
@@ -71,12 +71,13 @@ public sealed class RealtimeAgent : IDisposable
         _options = options.Value;
     }
 
+
     /// <summary>
     /// Runs the conversation loop until cancellation is requested or VAD inactivity timeout occurs.
     /// Both cancellation and timeout preserve the session - call DisposeAsync to close the session.
     /// </summary>
     /// <returns>Why the loop returned.</returns>
-    public async Task<RealtimeAgentRunResult> RunAsync(Action readyNotificationActionHandler = null, CancellationToken cancellationToken = default)
+    public async Task<RealtimeAgentRunResult> RunAsync(Action readyNotificationActionHandler = null, Action<byte> vuMeterAction = null, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -101,9 +102,10 @@ public sealed class RealtimeAgent : IDisposable
         }
 
         using var recorder = PvRecorder.Create(frameLength: FrameLength, deviceIndex: -1);
-        using var speaker = new PvSpeaker(sampleRate: SampleRate, bitsPerSample: 16, bufferSizeSecs: 60);
+        using var speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16);
+        speaker.SetVuMeterAction(vuMeterAction);
         using var vadDetector = new SileroVadDetector(VadSampleRate);
-
+        
         // Set current speaker for receive task to use
         lock (_speakerLock)
         {
@@ -361,11 +363,13 @@ public sealed class RealtimeAgent : IDisposable
                         outputAudioBuffer.Clear();
                     }
 
-                    FlushSpeakerSafe();
+                    // Wait for playback to finish (allows barge-in during playback since _modelIsSpeaking stays true)
+                    await FlushSpeakerSafeAsync(sessionToken);
                     _modelIsSpeaking = false;
 
                     // Log created items for debugging
                     _logger.LogDebug($"[ResponseFinished: {responseFinishedUpdate.CreatedItems.Count} items created]");
+                    
                     foreach (var item in responseFinishedUpdate.CreatedItems)
                     {
                         _logger.LogDebug($"  - Item: FunctionName={item.FunctionName ?? "null"}, FunctionCallId={item.FunctionCallId ?? "null"}, MessageRole={item.MessageRole}");
@@ -411,13 +415,30 @@ public sealed class RealtimeAgent : IDisposable
     }
 
     /// <summary>
-    /// Safely flush speaker.
+    /// Safely clear speaker buffer.
     /// </summary>
-    private void FlushSpeakerSafe()
+    private void ClearSpeakerSafe()
     {
         lock (_speakerLock)
         {
-            _currentSpeaker?.Flush();
+            _currentSpeaker?.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Safely wait for speaker playback to finish.
+    /// </summary>
+    private async Task FlushSpeakerSafeAsync(CancellationToken cancellationToken)
+    {
+        Speaker speaker;
+        lock (_speakerLock)
+        {
+            speaker = _currentSpeaker;
+        }
+
+        if (speaker != null)
+        {
+            await speaker.FlushAsync(cancellationToken);
         }
     }
 
@@ -428,7 +449,7 @@ public sealed class RealtimeAgent : IDisposable
     private async Task<RealtimeAgentRunResult> AudioCaptureLoopAsync(
         RealtimeSession session,
         PvRecorder recorder,
-        PvSpeaker speaker,
+        Speaker speaker,
         SileroVadDetector vadDetector,
         CancellationToken cancellationToken)
     {
@@ -480,10 +501,10 @@ public sealed class RealtimeAgent : IDisposable
                     speechFrameCount++;
                     if (speechFrameCount >= MinSpeechFramesForBargeIn)
                     {
-                        _logger.LogDebug("[Barge-in detected - interrupting model]");
+                        _logger.LogWarning("[Barge-in detected - interrupting model]");
 
                         _bargeInTriggered = true;
-                        speaker.Stop();
+                        ClearSpeakerSafe(); // Clear buffered audio immediately
 
                         try
                         {
@@ -493,8 +514,6 @@ public sealed class RealtimeAgent : IDisposable
                         {
                             // Response may have already finished
                         }
-
-                        speaker.Start();
 
                         _modelIsSpeaking = false;
                         isRecording = true;

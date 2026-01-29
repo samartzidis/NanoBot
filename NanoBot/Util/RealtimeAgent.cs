@@ -102,8 +102,7 @@ public sealed class RealtimeAgent : IDisposable
         }
 
         using var recorder = PvRecorder.Create(frameLength: FrameLength, deviceIndex: -1);
-        using var speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16);
-        speaker.SetVuMeterAction(vuMeterAction);
+        using var speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16, vuMeterAction: vuMeterAction);
         using var vadDetector = new SileroVadDetector(VadSampleRate);
         
         // Set current speaker for receive task to use

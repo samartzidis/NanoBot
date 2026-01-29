@@ -43,7 +43,7 @@ public class Speaker : IDisposable
     /// <param name="bufferSizeSecs">Size of internal PCM buffer in seconds</param>
     /// <param name="deviceIndex">Index of output audio device (-1 for default)</param>
     /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux to avoid probing warnings)</param>
-    public Speaker(int sampleRate, int bitsPerSample, int bufferSizeSecs = 20, int deviceIndex = -1, MiniAudioBackend[] preferredBackends = null)
+    public Speaker(int sampleRate, int bitsPerSample, int bufferSizeSecs = 20, int deviceIndex = -1, MiniAudioBackend[] preferredBackends = null, Action<byte> vuMeterAction = null)
     {
         _sampleRate = sampleRate;
         _bitsPerSample = bitsPerSample;
@@ -64,8 +64,11 @@ public class Speaker : IDisposable
 
         // Initialize SoundFlow engine with preferred backends (if specified)
         _engine = new MiniAudioEngine(preferredBackends);
+
+        _vuMeterAction = vuMeterAction;
     }
 
+    /*
     /// <summary>
     /// Registers an optional callback to receive VU meter updates during playback.
     /// The callback will be called periodically with values ranging from 0-255.
@@ -91,6 +94,7 @@ public class Speaker : IDisposable
             _vuMeterTimer = null;
         }
     }
+    */
 
     /// <summary>
     /// Updates the VU meter by reading the level meter and calling the registered callback.

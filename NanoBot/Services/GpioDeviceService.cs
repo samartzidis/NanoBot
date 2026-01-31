@@ -12,8 +12,8 @@ public enum GpioDeviceLedColor
     Off,
     White,
     Red,
-    LightGreen,
     Green,
+    LightGreen,
     Blue,    
     Yellow,
     Cyan,
@@ -34,7 +34,6 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     private const int GreenPin = 19; // GPIO19 (Physical Pin 35) - Hardware PWM1 (default)
     private const int BluePin = 16; // GPIO16 (Physical Pin 36) - Simple GPIO output (no PWM)
     private const int ButtonPin = 26; // GPIO26 (Pin 37 on the header)
-    //private const int SpeakerPin = 12; // GPIO12 (Physical Pin 32)
 
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
@@ -71,9 +70,6 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
             // Blue LED uses simple GPIO output (GPIO 21) - no PWM
             _gpioController.OpenPin(BluePin, PinMode.Output);
-
-            // Speaker pin remains as simple GPIO output
-            //_gpioController.OpenPin(SpeakerPin, PinMode.Output);
         }
 
         WireUpEventHandlers();
@@ -116,10 +112,9 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         else if (_isFunctionInvoking)
             SetLedColor(GpioDeviceLedColor.Blue);
         else if (_talkLevel.HasValue)        
-            SetLedColor(0, _talkLevel.Value, false);        
+            SetLedColor(0, _talkLevel.Value, false, false);  // Disable SetLedColor logging for talk level      
         else if (_isListening)
-            //SetLedColor(GpioDeviceLedColor.LightGreen);
-            SetLedColor(0, 16, false);
+            SetLedColor(GpioDeviceLedColor.LightGreen);
         else if (_isWakeWordDetected)
             SetLedColor(GpioDeviceLedColor.Orange);
         else if (_isNoiseDetected)
@@ -158,9 +153,52 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         }
     }
 
-    private void SetLedColor(byte red, byte green, bool blue)
+    private void SetLedColor(GpioDeviceLedColor color, bool log = true)
     {
-        //_logger.LogDebug($"{nameof(SetLedColor)}: {red}, {green}, {blue}");
+        if (log)
+            _logger.LogDebug($"{nameof(SetLedColor)}: {@color}");
+
+        switch (color)
+        {
+            case GpioDeviceLedColor.Red:
+                SetLedColor(255, 0, false, log);
+                break;
+            case GpioDeviceLedColor.Green:
+                SetLedColor(0, 255, false, log);
+                break;
+            case GpioDeviceLedColor.LightGreen:
+                SetLedColor(0, 16, false, log);
+                break;
+            case GpioDeviceLedColor.Blue:
+                SetLedColor(0, 0, true, log);
+                break;            
+            case GpioDeviceLedColor.Cyan:
+                SetLedColor(0, 255, true, log);
+                break;
+            case GpioDeviceLedColor.Magenta:
+                SetLedColor(255, 0, true, log);
+                break;
+            case GpioDeviceLedColor.White:
+                SetLedColor(255, 255, true, log);
+                break;
+            case GpioDeviceLedColor.Yellow:
+                SetLedColor(255, 128, false, log);
+                break;
+            case GpioDeviceLedColor.Orange:
+                SetLedColor(255, 64, false, log);
+                break;
+            case GpioDeviceLedColor.Off:
+                SetLedColor(0, 0, false, log);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void SetLedColor(byte red, byte green, bool blue, bool log = true)
+    {
+        if (log)
+            _logger.LogDebug($"{nameof(SetLedColor)}: r={red}, g={green}, b={blue}");
 
         if (PlatformUtil.IsRaspberryPi())
         {
@@ -170,10 +208,11 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             if (_greenPwmChannel != null)
                 _greenPwmChannel.DutyCycle = (double)green / 255.0;
 
-            _gpioController.Write(BluePin, blue);
+            _gpioController.Write(BluePin, blue ? PinValue.High : PinValue.Low);
         }
     }
 
+    /*
     private void SetLedColor(GpioDeviceLedColor color)
     {
         _logger.LogDebug($"{nameof(SetLedColor)}: {@color}");
@@ -234,17 +273,8 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             _gpioController.Write(BluePin, blue);
         }
     }
-
-    //private void SetSpeaker(bool enabled)
-    //{
-    //    _logger.LogDebug($"{nameof(SetSpeaker)}: {enabled}");
-
-    //    if (PlatformUtil.IsRaspberryPi())
-    //    {
-    //        _gpioController.Write(SpeakerPin, enabled ? PinValue.High : PinValue.Low);
-    //    }
-    //}
-
+    */
+    
     public override void Dispose()
     {
         if (PlatformUtil.IsRaspberryPi())

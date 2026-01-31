@@ -12,6 +12,11 @@ public class AppConfig
     [DefaultValue(false)]
     public bool FileLoggingEnabled { get; set; }
 
+    // [DisplayName("Enable Night Mode")]
+    // [Description("Enable night mode. In this mode, eyes will stay off when idle. Defaults to: 'false'.")]
+    // [DefaultValue(false)]
+    // public bool NightModeEnabled { get; set; }
+
     [Required]
     [DisplayName("OpenAI API Key")]
     [Description("OpenAI API access key.")]    

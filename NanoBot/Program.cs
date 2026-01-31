@@ -65,12 +65,9 @@ public class Program
 
                 // Register more application services
                 services.AddSingleton(typeof(IDynamicOptions<>), typeof(DynamicOptions<>));
-                //services.AddSingleton<IAgentFactoryService, AgentFactoryService>();
-                //services.AddSingleton<IVoiceService, VoiceService>();
                 services.AddSingleton<IWakeWordService, WakeWordService>();
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
                 services.AddSingleton<IEventBus, EventBus>();                
-                //services.AddSingleton<IValidateOptions<AppConfig>, AppConfigValidator>(); // Add automatic configuration validation
                 
                 // Register HttpClient for external API calls
                 services.AddHttpClient();

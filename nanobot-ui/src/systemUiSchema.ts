@@ -14,6 +14,7 @@ const systemUiSchema = {
                 { type: "Control", scope: "#/properties/MemoryServiceMaxMemories" },                
                 { type: "Control", scope: "#/properties/PlaybackVolume" },
                 { type: "Control", scope: "#/properties/WakeWordSilenceSampleAmplitudeThreshold" },
+                { type: "Control", scope: "#/properties/FileLoggingEnabled" },
                 { type: "Control", scope: "#/properties/S330Enabled" },
             ]
       }

@@ -28,6 +28,11 @@ public enum RealtimeAgentRunResult
     InactivityTimeout
 }
 
+public enum StateUpdate
+{
+    Ready
+}
+
 /// <summary>
 /// Manages a realtime conversation session with OpenAI using local VAD (Voice Activity Detection).
 /// The session persists across multiple RunAsync calls until the object is disposed.
@@ -62,6 +67,7 @@ public sealed class RealtimeAgent : IDisposable
     // Shared state between receive task and audio loop
     private Speaker _currentSpeaker;
     private volatile bool _modelIsSpeaking;
+    private volatile Action<StateUpdate> _stateUpdateAction;
     private volatile bool _bargeInTriggered;
     
     // Barge-in tracking for truncation
@@ -82,7 +88,10 @@ public sealed class RealtimeAgent : IDisposable
     /// Both cancellation and timeout preserve the session - call DisposeAsync to close the session.
     /// </summary>
     /// <returns>Why the loop returned.</returns>
-    public async Task<RealtimeAgentRunResult> RunAsync(Action readyNotificationAction = null, Action<byte> vuMeterAction = null, CancellationToken cancellationToken = default)
+    public async Task<RealtimeAgentRunResult> RunAsync(
+        Action<StateUpdate> stateUpdateAction = null, 
+        Action<byte> vuMeterAction = null, 
+        CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -141,7 +150,8 @@ public sealed class RealtimeAgent : IDisposable
             _receiveTask = RunReceiveTaskAsync(_session, _sessionCts!.Token);
         }
 
-        readyNotificationAction?.Invoke();
+        _stateUpdateAction = stateUpdateAction;
+        stateUpdateAction?.Invoke(StateUpdate.Ready);
 
         // Start the conversation loop (audio capture)
         var result = await AudioCaptureLoopAsync(_session, recorder, speaker, vadDetector, cancellationToken);
@@ -404,6 +414,7 @@ public sealed class RealtimeAgent : IDisposable
                     else
                     {
                         _logger.LogDebug("[Ready for your next question...]");
+                        _stateUpdateAction?.Invoke(StateUpdate.Ready);
                     }
                 }
 

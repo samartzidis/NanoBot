@@ -115,15 +115,8 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             SetLedColor(GpioDeviceLedColor.Red);
         else if (_isFunctionInvoking)
             SetLedColor(GpioDeviceLedColor.Blue);
-        else if (_talkLevel.HasValue)
-        {
-            const byte minInput = 0;
-            const byte maxInput = 255;
-            const byte minOutput = 16;
-            const byte maxOutput = 255;
-            var mappedLevel = (byte)(minOutput + (_talkLevel - minInput) * (maxOutput - minOutput) / (maxInput - minInput));
-            SetLedColor(0, mappedLevel, false);
-        }
+        else if (_talkLevel.HasValue)        
+            SetLedColor(0, _talkLevel.Value, false);        
         else if (_isListening)
             //SetLedColor(GpioDeviceLedColor.LightGreen);
             SetLedColor(0, 16, false);

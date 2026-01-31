@@ -167,7 +167,10 @@ public class SystemService : BackgroundService, ISystemService
                     try
                     {
                         var runResult = await agent.RunAsync(
-                            readyNotificationAction: () => _bus.Publish<StartListeningEvent>(this),
+                            stateUpdateAction: (state) => { 
+                                if (state == StateUpdate.Ready)
+                                    _bus.Publish<StartListeningEvent>(this); 
+                            },
                             vuMeterAction: level => _bus.Publish<TalkLevelEvent>(new TalkLevelEvent(this, level)),
                             cancellationToken: hangupToken);
                     }

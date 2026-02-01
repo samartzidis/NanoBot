@@ -1,39 +1,35 @@
 # NanoBot
 <img src="logo.png" alt="NanoBot Logo" height="240"/>
 
-**NanoBot** is a free, Raspberry Pi powered AI chat robot, ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
+**NanoBot** is a free, Raspberry Pi powered AI **real-time** chat robot. It is ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
-It is primarily designed to run on Raspberry Pi devices but can also run on desktop (Windows and Linux) for testing and evaluation. It is designed for the `Raspberry Pi Zero 2 W` platform but will also run fine on more powerful Pi models. Note that it requires a 64-bit ARM CPU so it will not run on the Pi Zero 1, Pi 1 and Pi 2.
+Its focus on real-time aspects, allows it to keep a highly responsive live conversational experience with the user. It allows user interruptions (barge-in) while the robot is still speaking and maintaining the correct live conversation state context.
+
+It is optimised to run efficiently on the little CPU and RAM resources of the `Raspberry Pi Zero 2 W`, but can also run on desktop (Windows and Linux) for testing and evaluation. It requires a 64-bit ARM CPU so it will not run on the less capable Pi Zero 1, Pi 1 and Pi 2 devices.
 
 Its basic core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token.
 
 It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) engine with custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
 
-<a href="image-7.png"><img src="image-7.png" height="320" /></a> <a href="image-0.png"><img src="image-0.png" height="320" /></a> 
-
-<a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> <a href="image-9.png"><img src="image-9.png" height="320" title="Model" /></a>
+<a href="image-0.png"><img src="image-0.png" height="320" /></a> <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> 
 
 <a href="image.png"><img src="image.png" width="160" title="Agents Config" /></a> <a href="image-1.png"><img src="image-1.png" width="160" title="Agents Config" /></a> <a href="image-2.png"><img src="image-2.png" width="160" title="System Config" /></a>
 
-A minimal example using the custom wake-word _constantina_ and asking a question with no follow-up message or plug-in invocations:
-
-https://github.com/user-attachments/assets/a3b1ffc4-5398-4894-bc98-23dac8880478
-
 ## Features
 
-NanoBot has capabilities such as: 
-- Google search (for live internet Web search). 
-- RAG (Retrieval Augmented Generation) memory (for permanent semantic memory).
+It is activated by configurable wake words or the *talk/hangup* button on its head. 
+
+The wake-word AI engine **runs 100% locally** on the CPU (without sending anything over the Internet, for privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot. 
+
+It self-controls its 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface, based on its status and current interaction with the user.
+
+NanoBot has tool capabilities such as: 
+- RAG (Retrieval Augmented Generation) memory tool for persistent memory.
 - Knowing about the current date and time.
-- Live weather and GeoIP information.
-- Calculator (for accurate and correct math operations).
-- It can also control its eye colour and respond to various user commands such as: "turn off", "restart", "volume up/down", "volume 8", etc.
-
-It provides a configuration Web page for configuring the robot remotely from a PC.
-
-It is activated (i.e. starts listening to questions) by configurable wake words or by a button press (the *talk/hangup* button) on its head. The wake-word AI engine runs fully locally on the CPU (without using the Internet, to ensure privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot as well as the extra one: *constantina*, that was created for Nanobot. It self-controls 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface.
-
-It aims to keep running costs at a minimum by only using OpenAI's chat completion API and _STT_ (speech-to-text) and the _TTS_ (text-to-speech) models (_whisper-1_, _tts-1_). Additionally, the default OpenAI _tts-1_ model can be replaced with the Azure Speech Service API (more natural speech and free but requires the creation of an Azure account). 
+- Live weather and GeoIP location information.
+- Scientific calculator (for math operations).
+- Controls its eyes colour and responds to various user commands such as: "turn off", "restart", "volume up/down", "volume 8" (ranging from 0-10), etc.
+- Provides a simple Web configuration page for configuring it remotely.
 
 ## Operation
 
@@ -41,26 +37,17 @@ It aims to keep running costs at a minimum by only using OpenAI's chat completio
 
 - **Off** - The robot is off.
 - **White** - The robot is on standby.
-- **Orange** - The robot has detected sound activity (VAD engine activated).
-- **Yellow** - The robot has detected a wake-up word and is initializing a configured agent.
-- **Green** - The robot is listening for user speech. This mode almost immediately follows after the previous one.
-- **Magenta** - The robot is talking.
-- **Cyan** - The robot is thinking, i.e. invoking the OpenAI API for AI.
-- **Blue** - The robot is invoking one of its internal plug-ins (e.g. the persistent memory store plug-in or the date/time plug-in, etc.). This is also mentioned as the deep-thinking phase.
+- **Yellow** - The robot has detected sound activity (**local** noise detection engine activated).
+- **Orange** - The robot has detected a configured wake-up word (both **local** VAD and **local** wake word inference engines activated) and is initializing for live conversation.
+- **Green** - Live conversation is active. The robot is now listening and is ready to respond (a live Web socket connection is streaming further conversation over the internet to your OpenAI account).
+- **Flashing Green** - The robot is talking, using a Peak Level Meter visualisation (similar to Knight Rider's KITT).
+- **Blue** - The robot is invoking one of its internal plug-ins.
 - **Red** - An error has occurred. If it is a transient error, e.g. an external API timeout, it will automatically recover. If not, you may want to inspect the logs (via the management Web-page or the SSH).
-
-#### Operation Cycle
-
-1. _Standby phase:_ The robot's eyes are white. The robot is waiting to wake up by voice or a talk/hangup button press.
-2. _Wake-up phase:_ Talk to the robot using the configured wake-up word or alternatively press the talk/hangup button on the head. On wake-word detection the eyes will turn yellow.
-3. _Listening phase:_ Then almost immediately the eyes will turn green, meaning that the robot is listening for voice commands. If there is no user voice for a few seconds, this phase will time-out and the robot will go back into stand-by mode. During this phase, the user can press the talk/hang-up buttons to cancel and return the robot immediately into stand-by.
-4. _Thinking/deep-thinking phases:_ After receiving a voice message, the robot will try to process it by invoking AI APIs and internal plug-ins. The eyes will turn cyan and blue. These phases can be interrupted as previously, by pressing the talk/hang-up buttons.
-5. _Response phase:_ The robot will respond back to the user. Its eyes are magenta while talking back. As previously, this phase can be interrupted by pressing the talk/hang-up buttons.
-6. _Completion/follow-up phase:_ If the robot expects a follow-up conversation message from the user, it will automatically enter the Listening Phase again, which can be cancelled by the user if desired. If the robot does not expect a user message, it will go back into the _Standby_ phase.
 
 ## Hardware Build Components and Specific Requirements
 
 - A **Raspberry Pi Zero 2 W** with a soldered GPIO header (you might as well purchase the Raspberry Pi Zero 2 WH).
+- An **Anker PowerConf S330** speakerphone or a similar speakerphone with *acoustic echo cancellation* (AEC), or alternatively a plain USB headset connected directly to the Raspberry Pi USB port.
 - Optional but highly recommended - a **heatsink**. A recommended heatsink is [Geekworm Raspberry Pi Zero 2 W Heatsink](https://www.amazon.co.uk/dp/B09QMBCXLB). Ideally install it using the thermal heatsink paste option instead of the included heatsink pad.
 - A Raspberry Pi compatible **USB sound card** - e.g. [this one](https://www.amazon.co.uk/dp/B01N905VOY).
   - Note that you will need to cut the USB-A male connector and replace with a micro-USB male connector or alternatively use an adaptor - although doing so will take precious extra space inside the robot.
@@ -71,13 +58,8 @@ It aims to keep running costs at a minimum by only using OpenAI's chat completio
 - A **momentary 19mm push-button** for the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
 - A self tapping **M2 screws**. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
 - 6x 220K **resistors** for each one of the 2 RGB LEDs anode (+) pins.
-- A Raspberry Pi compatible **MOSFET switch**, ideally something [like this](https://thepihut.com/products/moswitch-9a-28v-spdt-mosfet-switch) for controlling the power supply to the mini amplifier gia GPIO.
-- A mini 4Ohm 5W **speaker** such as [this one](https://www.amazon.co.uk/sourcing-map-JST-PH2-0-Electronic-Advertising/dp/B0D9QWWB6K).
-- A PAM8302-based or similar class-D mono **audio amplifier** such as [this one](https://thepihut.com/products/adafruit-mono-2-5w-class-d-audio-amplifier-pam8302).
 
 <a href="image-3.png"><img src="image-3.png" width="160" title="Raspberry Pi Board Assembly" /></a> <a href="image-4.png"><img src="image-4.png" width="160" title="LED Eyes Assembly" /></a>
-
-The MOSFET switch is used so that the audio amplifier is only turned on when the robot talks. This saves power but primarily prevents audible hiss from the speaker to be picked by the microphone and significantly reduce the audio detection sensitivity and clarity.
 
 Printing will take several hours but it's relatively straightforward. No supports required. You will need epoxy glue to glue the shell parts together.
 
@@ -86,12 +68,10 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 ## GPIO Interface Hardware Connections
 
 - **Ground** (physical **Pin 34**) ⇒ Push **button** terminal 1 (of 2) and to the 2 RGB LED common cathode pins.
-- **Ground** (physical **Pin 6**) ⇒  External audio amplifier ground and MOSFET switch ground.
 - **GPIO 18** (physical **Pin 12**) ⇒ **Red** RGB LED pins via 220K resistors. (Hardware PWM0)
 - **GPIO 19** (physical **Pin 35**) ⇒ **Green** RGB LED pins via 220K resistors. (Hardware PWM1)
 - **GPIO 16** (physical **Pin 36**) ⇒ **Blue** RGB LED pins via 220K resistors. (Simple GPIO output, no PWM)
 - **GPIO 26** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
-- **GPIO 12** (physical **Pin 32**) ⇒ External audio amplifier on/off control signal.
 
 <a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" /></a>
 
@@ -127,7 +107,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 ## Software Installation and Configuration
 
 1. Create the directory `/home/pi/nanobot` and copy/extract the release build files there.
-2. Check if NanoBot works when running from the console by running: `dotnet NanoBot.dll`.
+2. Check if NanoBot works when running from the console by running: `./NanoBot`.
 3. Now install NanoBot as a service. Create and edit the file `/etc/systemd/system/nanobot.service` with the following content:
     ```
     [Unit]

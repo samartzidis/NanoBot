@@ -46,7 +46,7 @@ NanoBot has tool capabilities such as:
 - **Yellow** - The robot has detected sound activity (**local** noise detection engine activated).
 - **Orange** - The robot has detected a configured wake-up word (both **local** VAD and **local** wake word inference engines activated) and is initializing for live conversation.
 - **Green** - Live conversation is active. The robot is now listening and is ready to respond (a live Web socket connection is streaming further conversation over the internet to your OpenAI account).
-- **Flashing Green** - The robot is talking, using a Peak Level Meter visualisation (similar to Knight Rider's KITT).
+- **Flashing Green** - The robot is talking, using a Peak Level Meter visualisation.
 - **Blue** - The robot is invoking one of its internal plug-ins.
 - **Red** - An error has occurred. If it is a transient error, e.g. an external API timeout, it will automatically recover. If not, you may want to inspect the logs (via the management Web-page or the SSH).
 
@@ -55,9 +55,6 @@ NanoBot has tool capabilities such as:
 - A **Raspberry Pi Zero 2 W** with a soldered GPIO header (you might as well purchase the Raspberry Pi Zero 2 WH).
 - An **Anker PowerConf S330** speakerphone or a similar speakerphone with *acoustic echo cancellation* (AEC), or alternatively a plain USB headset connected directly to the Raspberry Pi USB port.
 - Optional but highly recommended - a **heatsink**. A recommended heatsink is [Geekworm Raspberry Pi Zero 2 W Heatsink](https://www.amazon.co.uk/dp/B09QMBCXLB). Ideally install it using the thermal heatsink paste option instead of the included heatsink pad.
-- A Raspberry Pi compatible **USB sound card** - e.g. [this one](https://www.amazon.co.uk/dp/B01N905VOY).
-  - Note that you will need to cut the USB-A male connector and replace with a micro-USB male connector or alternatively use an adaptor - although doing so will take precious extra space inside the robot.
-- A 14 mm **electret microphone** (for optimal performance) such as [this one](https://www.amazon.co.uk/dp/B0FMY43SQM) but can use smaller electret mic sizes as well.
 - 5mm round common cathode **RGB LEDs** for the robot eyes.
 - Multicoloured 28AWG (ideally silicone) **cables**.
 - For making the custom length connector cables, a kit of several female **Dupont 2.54 mm pitch 1-Pin connectors** such as [these](https://www.amazon.co.uk/dp/B096DC1J3X) and an equivalent crimping tool such as [this one](https://www.amazon.co.uk/dp/B01N4L8QMW).

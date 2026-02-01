@@ -30,7 +30,9 @@ public enum RealtimeAgentRunResult
 
 public enum StateUpdate
 {
-    Ready
+    Ready,
+    SpeakingStarted,
+    SpeakingStopped
 }
 
 /// <summary>
@@ -262,6 +264,7 @@ public sealed class RealtimeAgent : IDisposable
                 if (update is OutputStreamingStartedUpdate streamingStartedUpdate)
                 {
                     _modelIsSpeaking = true;
+                    _stateUpdateAction?.Invoke(StateUpdate.SpeakingStarted);
                     _bargeInTriggered = false;
                     
                     lock (_outputAudioLock)
@@ -397,6 +400,7 @@ public sealed class RealtimeAgent : IDisposable
                     // Wait for playback to finish (allows barge-in during playback since _modelIsSpeaking stays true)
                     await FlushSpeakerSafeAsync(sessionToken);
                     _modelIsSpeaking = false;
+                    _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
 
                     // Log created items for debugging
                     _logger.LogDebug($"[ResponseFinished: {responseFinishedUpdate.CreatedItems.Count} items created]");
@@ -414,7 +418,6 @@ public sealed class RealtimeAgent : IDisposable
                     else
                     {
                         _logger.LogDebug("[Ready for your next question...]");
-                        _stateUpdateAction?.Invoke(StateUpdate.Ready);
                     }
                 }
 
@@ -566,6 +569,7 @@ public sealed class RealtimeAgent : IDisposable
                         }
 
                         _modelIsSpeaking = false;
+                        _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
                         isRecording = true;
                         audioBuffer.Clear();
                         vadDetector.Reset();

@@ -158,13 +158,13 @@ public class Program
         lifetime.ApplicationStopping.Register(() =>
         {
             logger.LogInformation("Application is stopping...");
-            bus.Publish<ShutdownEvent>(null);
+            bus.Publish<ShutdownEvent>(default);
 
         });
         Console.CancelKeyPress += (sender, eventArgs) =>
         {
             logger.LogInformation("Ctrl+C pressed. Shutting down...");
-            bus.Publish<ShutdownEvent>(null);
+            bus.Publish<ShutdownEvent>(default);
 
             eventArgs.Cancel = true; // Prevent the process from terminating immediately
             lifetime.StopApplication(); // Signal graceful shutdown

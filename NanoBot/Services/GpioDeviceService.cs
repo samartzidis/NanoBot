@@ -38,8 +38,8 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
     private readonly GpioController _gpioController;
-    private PwmChannel _redPwmChannel;
-    private PwmChannel _greenPwmChannel;
+    private readonly PwmChannel _redPwmChannel;
+    private readonly PwmChannel _greenPwmChannel;
 
     private const int PwmFrequency = 1000; // 1kHz frequency for smooth LED control
 

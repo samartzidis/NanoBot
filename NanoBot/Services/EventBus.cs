@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace NanoBot.Services;
 
@@ -6,12 +6,16 @@ public interface IEvent
 {
     DateTime Timestamp { get; }
     object Sender { get; }
+
+    bool SkipLogging { get; }
 }
 
 public class EventBase : IEvent
 {
     public DateTime Timestamp { get; } = DateTime.UtcNow;
     public object Sender { get; }
+
+    public bool SkipLogging { get; }
 
     public EventBase()
     {
@@ -21,14 +25,19 @@ public class EventBase : IEvent
     {
         Sender = sender;
     }
+
+    public EventBase(object sender, bool skipLogging) : this(sender)
+    {
+        SkipLogging = skipLogging;
+    }
 }
 
 
 public interface IEventBus
 {
-    void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent;
-    void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent;
-    void Publish<TEvent>(TEvent @event) where TEvent : IEvent;
+    void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class, IEvent;
+    void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : class, IEvent;
+    void Publish<TEvent>(TEvent @event) where TEvent : class, IEvent;
     void Publish<TEvent>(object sender) where TEvent : class, IEvent;
 }
 
@@ -43,7 +52,7 @@ public class EventBus : IEventBus
         _logger = logger;
     }
 
-    public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent
+    public void Subscribe<TEvent>(Action<TEvent> handler) where TEvent : class, IEvent
     {
         var eventType = typeof(TEvent);
 
@@ -61,7 +70,7 @@ public class EventBus : IEventBus
     }
 
 
-    public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : IEvent
+    public void Unsubscribe<TEvent>(Action<TEvent> handler) where TEvent : class, IEvent
     {
         var eventType = typeof(TEvent);
 
@@ -77,19 +86,20 @@ public class EventBus : IEventBus
         }
     }
 
-    public void Publish<TEvent>(TEvent @event) where TEvent : IEvent
+    public void Publish<TEvent>(TEvent @event) where TEvent : class, IEvent
     {
         var eventType = typeof(TEvent);
 
-        //_logger.LogDebug($"Publishing {eventType.Name} from sender {@event?.Sender}.");
+        if (@event != null && !@event.SkipLogging)
+            _logger.LogDebug($"Publishing {eventType.Name} from sender {@event?.Sender}.");
 
-        List<Delegate> handlersCopy;
+        List <Delegate> handlersCopy;
         lock (_lock)
         {
             if (!_handlers.TryGetValue(eventType, out var handlers))
                 return;
 
-            handlersCopy = new List<Delegate>(handlers);
+            handlersCopy = [..handlers];
         }
 
         foreach (var handler in handlersCopy)

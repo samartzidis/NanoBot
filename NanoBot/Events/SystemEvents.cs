@@ -5,9 +5,9 @@ namespace NanoBot.Events;
 public class StartListeningEvent(object sender) : EventBase(sender);
 public class StopListeningEvent(object sender) : EventBase(sender);
 
-public class TalkLevelEvent(object sender, byte level = 0) : EventBase(sender)
+public class TalkLevelEvent(object sender, byte? level, bool skipLogging) : EventBase(sender, skipLogging)
 {
-    public byte Level { get; } = level;
+    public byte? Level { get; } = level;    
 }
 
 public class ShutdownEvent(object sender) : EventBase(sender);

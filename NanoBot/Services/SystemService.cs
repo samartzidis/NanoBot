@@ -142,13 +142,17 @@ public class SystemService : BackgroundService, ISystemService
                 {                    
                     _bus.Publish<SystemOkEvent>(this);
 
-                    // Wait for wake word
+                    // Wait for wake word (or hangup button as legitimate wake-up)
                     var wakeWord = await WaitForWakeWord(cancellationToken);
 
-                    // Transient notification that we got out of wake word waiting 
+                    // App shutdown: exit without publishing or starting agent
+                    if (wakeWord == null && cancellationToken.IsCancellationRequested)
+                        continue;
+
+                    // Transient notification that we got out of wake word waiting
                     _bus.Publish<WakeWordDetectedEvent>(this);
 
-                    // Retrieve agent associated to wake word
+                    // Retrieve agent: match wake word, or first agent when wakeWord is null (hangup wake-up)
                     var appConfig = _appConfigMonitor.CurrentValue;
                     var agentConfig = appConfig.Agents?.FirstOrDefault(t =>
                         !t.Disabled && (wakeWord == null || string.Equals(t.WakeWord, wakeWord, StringComparison.OrdinalIgnoreCase)));

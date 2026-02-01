@@ -62,7 +62,6 @@ NanoBot has tool capabilities such as:
 - Multicoloured 28AWG (ideally silicone) **cables**.
 - For making the custom length connector cables, a kit of several female **Dupont 2.54 mm pitch 1-Pin connectors** such as [these](https://www.amazon.co.uk/dp/B096DC1J3X) and an equivalent crimping tool such as [this one](https://www.amazon.co.uk/dp/B01N4L8QMW).
 - A **19mm momentary push-button** to place on the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
-  <a href="20260201205910.png"><img src="20260201205910.png" height="160" /></a>
 - A self tapping **M2 screws**. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
 - 6x 220K **resistors** for each one of the 2 RGB LEDs anode (+) pins.
 

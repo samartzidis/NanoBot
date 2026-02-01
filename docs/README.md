@@ -59,8 +59,6 @@ NanoBot has tool capabilities such as:
 - A self tapping **M2 screws**. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
 - 6x 220K **resistors** for each one of the 2 RGB LEDs anode (+) pins.
 
-<a href="image-3.png"><img src="image-3.png" width="160" title="Raspberry Pi Board Assembly" /></a> <a href="image-4.png"><img src="image-4.png" width="160" title="LED Eyes Assembly" /></a>
-
 Printing will take several hours but it's relatively straightforward. No supports required. You will need epoxy glue to glue the shell parts together.
 
 A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will be needed (or weird failures will happen during operation if weaker power supply used).

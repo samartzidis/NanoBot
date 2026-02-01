@@ -90,7 +90,7 @@ public sealed class RealtimeAgent : IDisposable
     /// <returns>Why the loop returned.</returns>
     public async Task<RealtimeAgentRunResult> RunAsync(
         Action<StateUpdate> stateUpdateAction = null, 
-        Action<byte> vuMeterAction = null, 
+        Action<byte> meterAction = null, 
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -116,7 +116,7 @@ public sealed class RealtimeAgent : IDisposable
         }
 
         using var recorder = PvRecorder.Create(frameLength: FrameLength, deviceIndex: -1);
-        using var speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16, vuMeterAction: vuMeterAction);
+        using var speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16, meterAction: meterAction);
         using var vadDetector = new SileroVadDetector(VadSampleRate);
         
         // Set current speaker for receive task to use

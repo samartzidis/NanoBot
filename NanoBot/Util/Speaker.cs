@@ -25,10 +25,11 @@ public class Speaker : IDisposable
     private QueueDataProvider _dataProvider;
     private SoundPlayer _soundPlayer;
     private readonly AudioFormat _audioFormat;
-    private LevelMeterAnalyzer _levelMeter;
-    private Timer _vuMeterTimer;
-    private readonly Action<byte> _vuMeterAction;
-    private const int VuMeterUpdateIntervalMs = 100; // Update 10 times per second
+
+    private LevelMeterAnalyzer _levelMeterAnalyzer;
+    private Timer _meterTimer;
+    private readonly Action<byte> _meterAction;
+    private const int MeterUpdateIntervalMs = 100; // Update 10 times per second
 
     // PCM normalization divisors: convert signed integer samples to -1.0 to 1.0 float range
     private const float Pcm16BitMaxValue = 32768.0f;      // 2^15 (16-bit signed max + 1)
@@ -36,15 +37,28 @@ public class Speaker : IDisposable
     private const float Pcm32BitMaxValue = 2147483648.0f; // 2^31 (32-bit signed max + 1)
 
     /// <summary>
-    /// Initializes a new instance of PvSpeaker.
+    /// Initializes a new instance of Speaker.
     /// </summary>
     /// <param name="sampleRate">Sample rate in Hz</param>
     /// <param name="bitsPerSample">Bits per sample (typically 16 or 24)</param>
     /// <param name="bufferSizeSecs">Size of internal PCM buffer in seconds</param>
     /// <param name="deviceIndex">Index of output audio device (-1 for default)</param>
-    /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux to avoid probing warnings)</param>
-    public Speaker(int sampleRate, int bitsPerSample, int bufferSizeSecs = 60, int deviceIndex = -1, MiniAudioBackend[] preferredBackends = null, Action<byte> vuMeterAction = null)
+    /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux to avoid probing warnings)</param>    
+    /// <param name="meterAction">Action to call when the audio peak level meter changes</param>
+    public Speaker(
+        int sampleRate, 
+        int bitsPerSample, 
+        int bufferSizeSecs = 60, 
+        int deviceIndex = -1, 
+        MiniAudioBackend[] preferredBackends = null, 
+        Action<byte> meterAction = null)
     {
+        if (bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32)
+            throw new ArgumentOutOfRangeException(nameof(bitsPerSample), bitsPerSample, "Bits per sample must be 16, 24, or 32.");
+
+        if (sampleRate < 8000 || sampleRate > 192000)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate), sampleRate, "Sample rate must be between 8000 and 192000 Hz.");
+
         _sampleRate = sampleRate;
         _bitsPerSample = bitsPerSample;
         _bufferSizeSecs = bufferSizeSecs;
@@ -57,7 +71,7 @@ public class Speaker : IDisposable
         _audioFormat = new AudioFormat
         {
             Format = SampleFormat.F32,
-            Channels = 1, // Mono as per PvSpeaker requirements
+            Channels = 1, // Mono as per Speaker requirements
             Layout = ChannelLayout.Mono,
             SampleRate = sampleRate
         };
@@ -65,27 +79,27 @@ public class Speaker : IDisposable
         // Initialize SoundFlow engine with preferred backends (if specified)
         _engine = new MiniAudioEngine(preferredBackends);
 
-        _vuMeterAction = vuMeterAction;
+        _meterAction = meterAction;
     }
 
     /// <summary>
-    /// Updates the VU meter by reading the level meter and calling the registered callback.
+    /// Updates the meter by reading the level meter and calling the registered callback.
     /// </summary>
-    private void UpdateVuMeter(object state)
+    private void UpdateMeter(object state)
     {
-        if (_disposed || _levelMeter == null || _vuMeterAction == null)
+        if (_disposed || _levelMeterAnalyzer == null || _meterAction == null)
             return;
 
-        // Only update VU meter when there's audio data in the playback buffer
+        // Only update meter when there's audio data in the playback buffer
         if (_dataProvider == null || _dataProvider.SamplesAvailable == 0)
             return;
 
         try
         {
-            // Get Peak level (more responsive than RMS for VU meter display)
-            float peak = _levelMeter.Peak;
+            // Get Peak level (more responsive than RMS for peak meter display)
+            float peak = _levelMeterAnalyzer.Peak;
 
-            // Use logarithmic (dB) scale for perceptually-accurate VU meter
+            // Use logarithmic (dB) scale for perceptually-accurate peak meter
             // Convert linear amplitude to dB: dB = 20 * log10(amplitude)
             // Map -60 dB to 0 dB range to 0-255 range
             byte level;
@@ -108,11 +122,11 @@ public class Speaker : IDisposable
             }
 
             // Call the callback
-            _vuMeterAction(level);
+            _meterAction(level);
         }
         catch
         {
-            // Ignore errors in VU meter updates to prevent disrupting playback
+            // Ignore errors in meter updates to prevent disrupting playback
         }
     }
 
@@ -172,7 +186,7 @@ public class Speaker : IDisposable
                 throw new InvalidOperationException("No playback devices available");
             }
 
-            // Create device configuration with low-latency settings for responsive VU metering
+            // Create device configuration with low-latency settings for responsive metering
             // Small period size = lower latency but higher CPU usage
             const uint lowLatencyPeriodFrames = 512; // ~10ms at 48kHz
             var deviceConfig = new MiniAudioDeviceConfig
@@ -205,19 +219,19 @@ public class Speaker : IDisposable
 
             // Add level meter analyzer to MasterMixer (not SoundPlayer) if callback is registered
             // Adding to MasterMixer ensures we analyze the final output in sync with actual playback
-            if (_vuMeterAction != null)
+            if (_meterAction != null)
             {
-                _levelMeter = new LevelMeterAnalyzer(_audioFormat);
-                _playbackDevice.MasterMixer.AddAnalyzer(_levelMeter);
+                _levelMeterAnalyzer = new LevelMeterAnalyzer(_audioFormat);
+                _playbackDevice.MasterMixer.AddAnalyzer(_levelMeterAnalyzer);
             }
 
             // Start the device
             _playbackDevice.Start();
 
-            // Start VU meter timer if callback is registered
-            if (_vuMeterAction != null && _levelMeter != null)
+            // Start meter timer if callback is registered
+            if (_meterAction != null && _levelMeterAnalyzer != null)
             {
-                _vuMeterTimer = new Timer(UpdateVuMeter, null, VuMeterUpdateIntervalMs, VuMeterUpdateIntervalMs);
+                _meterTimer = new Timer(UpdateMeter, null, MeterUpdateIntervalMs, MeterUpdateIntervalMs);
             }
 
             _isStarted = true;
@@ -350,9 +364,9 @@ public class Speaker : IDisposable
 
         lock (_bufferLock)
         {
-            // Stop VU meter timer
-            _vuMeterTimer?.Dispose();
-            _vuMeterTimer = null;
+            // Stop meter timer
+            _meterTimer?.Dispose();
+            _meterTimer = null;
 
             // Stop sound player
             if (_soundPlayer != null)
@@ -361,11 +375,11 @@ public class Speaker : IDisposable
             }
 
             // Remove level meter analyzer if present
-            if (_playbackDevice != null && _levelMeter != null)
+            if (_playbackDevice != null && _levelMeterAnalyzer != null)
             {
                 try
                 {
-                    _playbackDevice.MasterMixer.RemoveAnalyzer(_levelMeter);
+                    _playbackDevice.MasterMixer.RemoveAnalyzer(_levelMeterAnalyzer);
                 }
                 catch
                 {
@@ -413,13 +427,13 @@ public class Speaker : IDisposable
 
         lock (_bufferLock)
         {
-            // Stop and dispose VU meter timer
-            _vuMeterTimer?.Dispose();
-            _vuMeterTimer = null;
+            // Stop and dispose meter timer
+            _meterTimer?.Dispose();
+            _meterTimer = null;
 
             // Dispose SoundFlow components
             _soundPlayer?.Dispose();
-            _levelMeter = null; // LevelMeterAnalyzer doesn't implement IDisposable
+            _levelMeterAnalyzer = null; // LevelMeterAnalyzer doesn't implement IDisposable
             _dataProvider?.Dispose();
             _playbackDevice?.Dispose();
         }

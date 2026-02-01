@@ -171,7 +171,7 @@ public class SystemService : BackgroundService, ISystemService
                                 if (state == StateUpdate.Ready)
                                     _bus.Publish<StartListeningEvent>(this); 
                             },
-                            vuMeterAction: level => _bus.Publish<TalkLevelEvent>(new TalkLevelEvent(this, level)),
+                            meterAction: level => _bus.Publish<TalkLevelEvent>(new TalkLevelEvent(this, level)),
                             cancellationToken: hangupToken);
                     }
                     finally

@@ -27,8 +27,8 @@ public class Speaker : IDisposable
     private readonly AudioFormat _audioFormat;
     private LevelMeterAnalyzer _levelMeter;
     private Timer _vuMeterTimer;
-    private Action<byte> _vuMeterAction;
-    private const int VuMeterUpdateIntervalMs = 100;//50; // Update 20 times per second
+    private readonly Action<byte> _vuMeterAction;
+    private const int VuMeterUpdateIntervalMs = 100; // Update 10 times per second
 
     // PCM normalization divisors: convert signed integer samples to -1.0 to 1.0 float range
     private const float Pcm16BitMaxValue = 32768.0f;      // 2^15 (16-bit signed max + 1)
@@ -67,34 +67,6 @@ public class Speaker : IDisposable
 
         _vuMeterAction = vuMeterAction;
     }
-
-    /*
-    /// <summary>
-    /// Registers an optional callback to receive VU meter updates during playback.
-    /// The callback will be called periodically with values ranging from 0-255.
-    /// </summary>
-    /// <param name="action">Callback function that receives VU meter values (0-255)</param>
-    public void SetVuMeterAction(Action<byte> action)
-    {
-        _vuMeterAction = action;
-
-        // If already started and callback was just registered, add level meter
-        if (_isStarted && action != null && _soundPlayer != null && _levelMeter == null)
-        {
-            _levelMeter = new LevelMeterAnalyzer(_audioFormat);
-            _soundPlayer.AddAnalyzer(_levelMeter);
-            _vuMeterTimer = new Timer(UpdateVuMeter, null, VuMeterUpdateIntervalMs, VuMeterUpdateIntervalMs);
-        }
-        // If callback was removed and already started, remove level meter
-        else if (_isStarted && action == null && _levelMeter != null && _playbackDevice != null)
-        {
-            _playbackDevice.MasterMixer.RemoveAnalyzer(_levelMeter);
-            _levelMeter = null;
-            _vuMeterTimer?.Dispose();
-            _vuMeterTimer = null;
-        }
-    }
-    */
 
     /// <summary>
     /// Updates the VU meter by reading the level meter and calling the registered callback.

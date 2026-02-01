@@ -1,6 +1,14 @@
 using NanoBot.Util;
-using Alsa.Net;
 using Microsoft.Extensions.Logging;
+//using SoundFlow.Abstracts;
+//using SoundFlow.Abstracts.Devices;
+//using SoundFlow.Backends.MiniAudio;
+//using SoundFlow.Backends.MiniAudio.Devices;
+//using SoundFlow.Backends.MiniAudio.Enums;
+//using SoundFlow.Components;
+//using SoundFlow.Enums;
+//using SoundFlow.Providers;
+//using SoundFlow.Structs;
 
 namespace NanoBot.Services;
 
@@ -14,12 +22,19 @@ public interface IAlsaControllerService
 
 internal class AlsaControllerService : IAlsaControllerService
 {
-    private const string NotifyMediaPath = "Resources/notify.wav";
+    //private const string NotifyMediaPath = "Resources/notify.wav";
 
     private readonly ILogger _logger;
 
-    private readonly TimeSpan _debounceDelay = TimeSpan.FromMilliseconds(500);
-    private CancellationTokenSource _debounceCts;
+    //private readonly TimeSpan _debounceDelay = TimeSpan.FromMilliseconds(500);
+    //private CancellationTokenSource _debounceCts;
+    //private static readonly Lazy<AudioEngine> SoundFlowEngine = new(() => new MiniAudioEngine());
+    //private static readonly AudioFormat SoundFlowFormat = AudioFormat.DvdHq;
+    //private static readonly DeviceConfig SoundFlowDeviceConfig = new MiniAudioDeviceConfig
+    //{
+    //    PeriodSizeInFrames = 9600,
+    //    Playback = new DeviceSubConfig { ShareMode = ShareMode.Shared }
+    //};
 
     public AlsaControllerService(ILogger<AlsaControllerService> logger) 
     {
@@ -39,7 +54,7 @@ internal class AlsaControllerService : IAlsaControllerService
         var newVolume = Math.Min(10, currentVolume + 1);
         SetPlaybackVolume(newVolume);
 
-        HandleVolumeChangeNotification();
+        //HandleVolumeChangeNotification();
     }
 
     public void VolumeDown()
@@ -55,7 +70,7 @@ internal class AlsaControllerService : IAlsaControllerService
         var newVolume = Math.Max(0, currentVolume - 1);
         SetPlaybackVolume(newVolume);
 
-        HandleVolumeChangeNotification();
+        //HandleVolumeChangeNotification();
     }
 
     // Exponent for perceptual volume curve (< 1 boosts lower volumes)
@@ -70,12 +85,11 @@ internal class AlsaControllerService : IAlsaControllerService
         {
             try
             {
-                var soundDeviceSettings = new SoundDeviceSettings();
-                using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
+                using var mixer = new AlsaMixerControl();
 
                 // Get hardware min/max volume range
-                var minVolume = alsaDevice.PlaybackVolumeMin;
-                var maxVolume = alsaDevice.PlaybackVolumeMax;
+                var minVolume = mixer.PlaybackVolumeMin;
+                var maxVolume = mixer.PlaybackVolumeMax;
 
                 // Map logical volume (0-10) to hardware volume using perceptual curve
                 // Using power curve with exponent < 1 to boost lower volumes
@@ -92,7 +106,7 @@ internal class AlsaControllerService : IAlsaControllerService
                 }
 
                 _logger.LogDebug($"Set playback volume to {volume}/10 (hardware: {hardwareVolume}, range: {minVolume}-{maxVolume})");
-                alsaDevice.PlaybackVolume = hardwareVolume;                
+                mixer.PlaybackVolume = hardwareVolume;                
             }
             catch (Exception m)
             {
@@ -104,19 +118,16 @@ internal class AlsaControllerService : IAlsaControllerService
     public int GetPlaybackVolume()
     {
         if (!PlatformUtil.IsLinuxPlatform())
-        {
             return -1; // Not available on non-Linux platforms
-        }
 
         try
         {
-            var soundDeviceSettings = new SoundDeviceSettings();
-            using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
+            using var mixer = new AlsaMixerControl();
 
             // Get current hardware volume and range
-            var currentVolume = alsaDevice.PlaybackVolume;
-            var minVolume = alsaDevice.PlaybackVolumeMin;
-            var maxVolume = alsaDevice.PlaybackVolumeMax;
+            var currentVolume = mixer.PlaybackVolume;
+            var minVolume = mixer.PlaybackVolumeMin;
+            var maxVolume = mixer.PlaybackVolumeMax;
 
             // Map hardware volume to logical volume (0-10) using inverse of perceptual curve
             if (maxVolume == minVolume)
@@ -148,6 +159,7 @@ internal class AlsaControllerService : IAlsaControllerService
         }
     }
 
+    /*
     private void HandleVolumeChangeNotification()
     {
         _logger.LogDebug($"{nameof(HandleVolumeChangeNotification)}");
@@ -163,10 +175,9 @@ internal class AlsaControllerService : IAlsaControllerService
             {
                 if (!t.IsCanceled && !token.IsCancellationRequested)
                 {
-                    var soundDeviceSettings = new SoundDeviceSettings();
-                    using var alsaDevice = AlsaDeviceBuilder.Create(soundDeviceSettings);
-                    alsaDevice.Play(NotifyMediaPath, token);
+                    PlayNotifySound(token);
                 }
             }, TaskScheduler.Default);
     }
+    */
 }

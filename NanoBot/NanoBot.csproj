@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -6,7 +6,8 @@
     <Version>1.0.0</Version>
     <IsPackable>false</IsPackable>    
     <Nullable>disable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>    
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoWarn>1701;1702;1998;CS1591;SKEXP0050;SKEXP0101;SKEXP0101;SKEXP0110;SKEXP0001;OPENAI001;OPENAI002;SKEXP0010;SKEXP0020</NoWarn>
   </PropertyGroup>
 
@@ -70,10 +71,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\models\constantina.onnx" />
     <EmbeddedResource Include="Resources\models\hey_anna.onnx" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Alsa.Net\Alsa.Net.csproj" />
   </ItemGroup>
 
 </Project>

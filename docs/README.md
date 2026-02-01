@@ -13,7 +13,7 @@ It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/
 
 <a href="image-0.png"><img src="image-0.png" height="320" /></a> <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> 
 
-<a href="image.png"><img src="image.png" width="160" title="Agents Config" /></a> <a href="image-1.png"><img src="image-1.png" width="160" title="Agents Config" /></a> <a href="image-2.png"><img src="image-2.png" width="160" title="System Config" /></a>
+<a href="image-2.png"><img src="image-2.png" width="160" title="System Config" /></a>
 
 https://github.com/user-attachments/assets/f00467bd-f123-4fde-8da9-e328a8ddb24d
 

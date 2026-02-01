@@ -13,9 +13,9 @@ It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/
 
 <a href="image-0.png"><img src="image-0.png" height="320" /></a> <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> 
 
-**Configuration Web page:**
+**Configuration Web portal:**
 
-<a href="image-2.png"><img src="image-2.png" width="160" title="System Config" /></a>
+<a href="image-2.png"><img src="image-2.png" width="320" title="System Config" /></a>
 
 **Real-time chat example:**
 

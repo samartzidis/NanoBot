@@ -15,6 +15,8 @@ It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/
 
 <a href="image.png"><img src="image.png" width="160" title="Agents Config" /></a> <a href="image-1.png"><img src="image-1.png" width="160" title="Agents Config" /></a> <a href="image-2.png"><img src="image-2.png" width="160" title="System Config" /></a>
 
+https://github.com/user-attachments/assets/f00467bd-f123-4fde-8da9-e328a8ddb24d
+
 ## Features
 
 It is activated by configurable wake words or the *talk/hangup* button on its head. 
@@ -55,13 +57,16 @@ NanoBot has tool capabilities such as:
 - 5mm round common cathode **RGB LEDs** for the robot eyes.
 - Multicoloured 28AWG (ideally silicone) **cables**.
 - For making the custom length connector cables, a kit of several female **Dupont 2.54 mm pitch 1-Pin connectors** such as [these](https://www.amazon.co.uk/dp/B096DC1J3X) and an equivalent crimping tool such as [this one](https://www.amazon.co.uk/dp/B01N4L8QMW).
-- A **momentary 19mm push-button** for the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
+- A **19mm momentary push-button** to place on the robot's head. E.g. [this one](https://www.amazon.co.uk/dp/B0DB2BYQKW).
+  <a href="20260201205910.png"><img src="20260201205910.png" height="160" /></a>
 - A self tapping **M2 screws**. Specifically: 4x 13mm and 4x 11mm. You can also get one of [these sets](https://www.amazon.co.uk/dp/B09NDMWBC2).
 - 6x 220K **resistors** for each one of the 2 RGB LEDs anode (+) pins.
 
-Printing will take several hours but it's relatively straightforward. No supports required. You will need epoxy glue to glue the shell parts together.
+Printing will take several hours but it's relatively straightforward. Supports are not required but use **brim** (build plate andhesion setting) to prevent warping at the edges. You will also need a regular **epoxy glue** to glue the parts together.
 
 A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will be needed (or weird failures will happen during operation if weaker power supply used).
+
+<a href="20260201205437.png"><img src="20260201205437.png" height="320" /></a> <a href="20260201205724.png"><img src="20260201205724.png" height="320" /></a>
 
 ## GPIO Interface Hardware Connections
 

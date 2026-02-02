@@ -11,7 +11,7 @@ Its basic core AI capability is provided by the [OpenAI Platform](https://platfo
 
 <a href="image-0.png"><img src="image-0.png" height="320" /></a> <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> 
 
-**Configuration Web portal:**
+**Configuration Web page:**
 
 <a href="image-2.png"><img src="image-2.png" width="320" title="System Config" /></a>
 

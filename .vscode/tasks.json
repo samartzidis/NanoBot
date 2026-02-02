@@ -7,33 +7,37 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/NanoBot.sln",
+                "${workspaceFolder}/NanoBot/NanoBot.sln",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "publish",
+            "label": "publish-linux-arm64",
+            "dependsOn": ["build-ui"],
             "command": "dotnet",
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/NanoBot.sln",
+                "${workspaceFolder}/NanoBot/NanoBot.csproj",
+                "/p:PublishProfile=linux-arm64",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "watch",
+            "label": "publish-win-x64",
+            "dependsOn": ["build-ui"],
             "command": "dotnet",
             "type": "process",
             "args": [
-                "watch",
-                "run",
-                "--project",
-                "${workspaceFolder}/NanoBot/NanoBot.csproj"
+                "publish",
+                "${workspaceFolder}/NanoBot/NanoBot.csproj",
+                "/p:PublishProfile=win-x64",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
             "problemMatcher": "$msCompile"
         },

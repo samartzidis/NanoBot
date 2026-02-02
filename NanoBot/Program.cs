@@ -14,6 +14,7 @@ using NanoBot.Filters;
 using NanoBot.Services;
 using NanoBot.Util;
 using Serilog;
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -171,7 +172,14 @@ public class Program
         };
 
         // Start the host
-        await host.StartAsync();            
+        await host.StartAsync();
+
+        // Show version at startup
+        var entryAssembly = Assembly.GetEntryAssembly();
+        var version = entryAssembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? entryAssembly?.GetName().Version?.ToString()
+            ?? "unknown";
+        logger.LogInformation("NanoBot {Version}", version);
 
         // Show Kestrel endpoint info
         var serverAddressesFeature = host.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<IServerAddressesFeature>();

@@ -167,7 +167,7 @@ const LogsConfig: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          📋 System Logs
+          System Logs
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Real-time log monitoring with polling

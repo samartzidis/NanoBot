@@ -262,7 +262,7 @@ const MemoryConfig: React.FC = () => {
     <Container maxWidth="xl">
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-        🗃️ Memory Configuration
+        Memory Configuration
         </Typography>
         <Typography variant="body1" color="text.secondary">
           Manage stored memories and view memory statistics

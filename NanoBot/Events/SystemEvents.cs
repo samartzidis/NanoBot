@@ -1,4 +1,4 @@
-﻿using NanoBot.Services;
+using NanoBot.Services;
 
 namespace NanoBot.Events;
 
@@ -24,3 +24,6 @@ public class NoiseDetectedEvent(object sender) : EventBase(sender);
 public class SilenceDetectedEvent(object sender) : EventBase(sender);
 
 public class ConfigChangedEvent(object sender) : EventBase(sender);
+
+public class NightModeActivatedEvent(object sender) : EventBase(sender);
+public class NightModeDeactivatedEvent(object sender) : EventBase(sender);

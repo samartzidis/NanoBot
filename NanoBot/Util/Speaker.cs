@@ -46,11 +46,11 @@ public class Speaker : IDisposable
     /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux to avoid probing warnings)</param>    
     /// <param name="meterAction">Action to call when the audio peak level meter changes</param>
     public Speaker(
-        int sampleRate, 
-        int bitsPerSample, 
-        int bufferSizeSecs = 60, 
-        int deviceIndex = -1, 
-        MiniAudioBackend[] preferredBackends = null, 
+        int sampleRate,
+        int bitsPerSample,
+        int bufferSizeSecs = 60,
+        int deviceIndex = -1,
+        MiniAudioBackend[] preferredBackends = null,
         Action<byte> meterAction = null)
     {
         if (bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32)
@@ -80,6 +80,49 @@ public class Speaker : IDisposable
         _engine = new MiniAudioEngine(preferredBackends);
 
         _meterAction = meterAction;
+    }
+
+    /// <summary>
+    /// Gets the number of queued samples that have not been consumed by playback yet.
+    /// </summary>
+    public int GetQueuedSampleCount()
+    {
+        lock (_bufferLock)
+        {
+            return _dataProvider?.SamplesAvailable ?? 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets an estimate of how many samples have been consumed from the queue by the playback pipeline.
+    /// This tracks render progress, not exact speaker cone output timing.
+    /// </summary>
+    public long GetEstimatedPlayedSampleCount()
+    {
+        lock (_bufferLock)
+        {
+            return _dataProvider?.Position ?? 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets an estimated played duration in milliseconds.
+    /// Subtracts samples still queued in downstream buffers from the total consumed count
+    /// to approximate what has actually reached the speaker hardware.
+    /// </summary>
+    public int GetEstimatedPlayedMilliseconds()
+    {
+        if (_sampleRate <= 0)
+            return 0;
+
+        lock (_bufferLock)
+        {
+            var consumed = _dataProvider?.Position ?? 0;
+            var queued = _dataProvider?.SamplesAvailable ?? 0;
+            var played = consumed - queued;
+            if (played < 0) played = 0;
+            return (int)((played * 1000L) / _sampleRate);
+        }
     }
 
     /// <summary>
@@ -135,7 +178,7 @@ public class Speaker : IDisposable
     /// </summary>
     /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux)</param>
     /// <returns>Array of device names</returns>
-    public static string[] GetAvailableDevices(MiniAudioBackend[]? preferredBackends = null)
+    public static string[] GetAvailableDevices(MiniAudioBackend[] preferredBackends = null)
     {
         try
         {

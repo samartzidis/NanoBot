@@ -5,7 +5,7 @@ import { CssBaseline, Container, Button, Stack, Box } from '@mui/material';
 import { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import { createAjv } from '@jsonforms/core';
 
-import mainUiSchema from '../mainUiSchema'; 
+import agentsUiSchema from '../agentsUiSchema'; 
 import { apiBaseUrl } from '../config';
 
 const AgentsConfig: React.FC = () => {
@@ -24,7 +24,7 @@ const AgentsConfig: React.FC = () => {
         const appSettings = await settingsResponse.json();
 
         setSchema(schemaData);
-        setUiSchema(mainUiSchema);
+        setUiSchema(agentsUiSchema);
         setData(appSettings);
       } catch (error) {
         console.error('Error fetching schema or settings:', error);
@@ -61,7 +61,7 @@ const AgentsConfig: React.FC = () => {
   return (
     <Container>
       <CssBaseline />
-      <h1 className="mb-4">👥 Agents Configuration</h1>
+      <h1 className="mb-4">Agents Configuration</h1>
       <JsonForms
         schema={schema}
         uischema={uischema}

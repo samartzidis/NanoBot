@@ -1,2 +1,2 @@
-﻿global using NanoBot.Logging;
+global using NanoBot.Logging;
 

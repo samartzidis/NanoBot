@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/NanoBot/NanoBot.sln",
+                "${workspaceFolder}/NanoBot.sln",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -50,7 +50,7 @@
                 "build"
             ],
             "options": {
-                "cwd": "${workspaceFolder}/nanobot-ui"
+                "cwd": "${workspaceFolder}/ui"
             },
             "problemMatcher": []
         }

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NanoBot.Configuration;
@@ -61,6 +61,11 @@ public class ConfigurationController : ControllerBase
             var modelNames = _appConfigOptions.Value.OpenAiModels;
             if (appConfig != null && appConfig["OpenAiModel"] != null)
                 appConfig["OpenAiModel"]["enum"] = JArray.FromObject(modelNames);
+
+            // Update schema for "PowerOpenAiModel"
+            var powerAiModelNames = _appConfigOptions.Value.PowerOpenAiModels;
+            if (appConfig != null && appConfig["PowerOpenAiModel"] != null)
+                appConfig["PowerOpenAiModel"]["enum"] = JArray.FromObject(powerAiModelNames);
 
             // Fetch available wake words
             var wakeWordModels = WakeWordUtil.GetModels();

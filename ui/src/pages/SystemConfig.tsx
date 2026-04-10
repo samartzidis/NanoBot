@@ -5,7 +5,7 @@ import { CssBaseline, Container, Button, Stack, Box, Dialog, DialogTitle, Dialog
 import { JsonSchema, UISchemaElement, JsonFormsRendererRegistryEntry, RankedTester } from '@jsonforms/core';
 import { createAjv } from '@jsonforms/core';
 
-import defaultUiSchema from '../systemUiSchema';
+import appUiSchema from '../appUiSchema';
 import { apiBaseUrl } from '../config';
 import FileUploadDownloadRenderer from '../components/FileUploadDownloadRenderer';
 
@@ -59,7 +59,7 @@ const SystemConfig: React.FC = () => {
         const appSettings = await settingsResponse.json();
 
         setSchema(schemaData);
-        setUiSchema(defaultUiSchema);
+        setUiSchema(appUiSchema);
         setData(appSettings);
       } catch (error) {
         console.error('Error fetching schema or settings:', error);
@@ -120,7 +120,7 @@ const SystemConfig: React.FC = () => {
   return (
     <Container>
       <CssBaseline />
-      <h1 className="mb-4">⚙️ System Configuration</h1>
+      <h1 className="mb-4">System Configuration</h1>
       <JsonForms
         schema={schema}
         uischema={uischema}

@@ -19,12 +19,16 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IOptionsMonitor<AppConfig> _appConfigMonitor;   
     private readonly IEventBus _bus;
     private readonly IAlsaControllerService _alsaControllerService;
-    private readonly IHostApplicationLifetime _applicationLifetime;    
+    private readonly IHostApplicationLifetime _applicationLifetime;
     private CancellationTokenSource _hangupCancellationTokenSource;
     private readonly object _hangupCancellationTokenLock = new();
     private readonly Func<AgentConfig, RealtimeAgent> _realtimeAgentFactory;
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
+    
+    // Night mode tracking
+    private DateTime _lastActivityTime = DateTime.UtcNow;
+    private bool _nightModeActive = false;
     
     public SystemService(
         ILogger<SystemService> logger,
@@ -50,6 +54,7 @@ public class SystemService : BackgroundService, ISystemService
     {
         _bus.Subscribe<HangupInputEvent>(e => {
             _logger.LogDebug($"Received {e.GetType().Name}");
+            ResetNightMode();
             CancelHangupToken();
         });
 
@@ -134,6 +139,9 @@ public class SystemService : BackgroundService, ISystemService
             _ = StartKeyboardSpacebarListener(cancellationToken);
         }
 
+        // Start night mode monitor
+        _ = MonitorNightModeAsync(cancellationToken);
+
         return Task.Run(async () =>
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -149,6 +157,9 @@ public class SystemService : BackgroundService, ISystemService
                     if (wakeWord == null && cancellationToken.IsCancellationRequested)
                         continue;
 
+                    // Reset night mode on activity
+                    ResetNightMode();
+
                     // Transient notification that we got out of wake word waiting
                     _bus.Publish<WakeWordDetectedEvent>(this);
 
@@ -159,7 +170,7 @@ public class SystemService : BackgroundService, ISystemService
                     if (agentConfig == null)
                     {
                         _logger.LogError($"Could not establish agent associated to wake word: {wakeWord}");
-                        return;
+                        continue;
                     }
 
                     _logger.LogDebug($"Established agent: {agentConfig.Name}");
@@ -186,9 +197,17 @@ public class SystemService : BackgroundService, ISystemService
                     }
                     
                 }
-                catch (TaskCanceledException)
+                catch (OperationCanceledException)
                 {
-                    break;
+                    // Only exit the loop if the main cancellation token is cancelled (app shutdown)
+                    // If it was just a hangup cancellation, continue the loop
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogInformation("Main loop exiting due to application shutdown.");
+                        break;
+                    }
+                    
+                    _logger.LogDebug("Operation cancelled (hangup), continuing main loop.");
                 }
                 catch (Exception m)
                 {
@@ -292,6 +311,59 @@ public class SystemService : BackgroundService, ISystemService
         lock (_hangupCancellationTokenLock)
         {
             _hangupCancellationTokenSource?.Cancel();
+        }
+    }
+
+    private async Task MonitorNightModeAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var config = _appConfigMonitor.CurrentValue;
+
+                if (config.NightModeEnabled)
+                {
+                    var idleDuration = DateTime.UtcNow - _lastActivityTime;
+                    var timeout = TimeSpan.FromMinutes(config.NightModeIdleTimeoutMinutes);
+
+                    if (idleDuration >= timeout && !_nightModeActive)
+                    {
+                        _logger.LogInformation("Night mode activated.");
+
+                        _nightModeActive = true;
+                        _bus.Publish<NightModeActivatedEvent>(this);
+                    }
+                }
+                else if (_nightModeActive)
+                {
+                    // Night mode was disabled in config while active
+                    ResetNightMode();
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in night mode monitor.");
+            }
+        }
+    }
+
+    private void ResetNightMode()
+    {
+        _lastActivityTime = DateTime.UtcNow;
+
+        if (_nightModeActive)
+        {
+            _logger.LogInformation("Night mode deactivated.");
+
+            _nightModeActive = false;
+            _bus.Publish<NightModeDeactivatedEvent>(this);
         }
     }
 }

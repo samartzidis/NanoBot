@@ -1,21 +1,30 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace NanoBot.Configuration;
 
 public class AppConfig
 {
+    private const string DefaultOpenAiModel = "gpt-realtime-mini";
+    private const string DefaultPowerOpenAiModel = "gpt-5.4";
+
     public bool ConsoleDebugMode { get; set; }
 
-    [DisplayName("Enable File Logging")]
+    [DisplayName("File Logging")]
     [Description("Enable file logging in the application directory. Defaults to: 'false'.")]
     [DefaultValue(false)]
     public bool FileLoggingEnabled { get; set; }
 
-    // [DisplayName("Enable Night Mode")]
-    // [Description("Enable night mode. In this mode, eyes will stay off when idle. Defaults to: 'false'.")]
-    // [DefaultValue(false)]
-    // public bool NightModeEnabled { get; set; }
+    [DisplayName("Night Mode")]
+    [Description("Enable night mode. In this mode, eyes will automatically turn off when idle for more than the configured timeout. Defaults to: 'false'.")]
+    [DefaultValue(false)]
+    public bool NightModeEnabled { get; set; }
+
+    [DisplayName("Night Mode Idle Timeout Minutes")]
+    [Description("Minutes of inactivity before night mode turns eyes off. Only applies when night mode is enabled. Defaults to: '10'.")]
+    [DefaultValue(10)]
+    [Range(1, 600)]
+    public int NightModeIdleTimeoutMinutes { get; set; } = 10;
 
     [Required]
     [DisplayName("OpenAI API Key")]
@@ -23,9 +32,10 @@ public class AppConfig
     public string OpenAiApiKey { get; set; }
 
     [Required]
-    [DisplayName("OpenAI Model")]
-    [Description("OpenAI model to use. Defaults to: 'gpt-4o-mini-realtime-preview'.")]    
-    public string OpenAiModel { get; set; } = "gpt-4o-mini-realtime-preview";
+    [DisplayName("AI Model")]
+    [Description("OpenAI model to use.")]
+    [DefaultValue(DefaultOpenAiModel)]
+    public string OpenAiModel { get; set; } = DefaultOpenAiModel;
 
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
@@ -49,7 +59,7 @@ public class AppConfig
     [Range(10, 1000)]
     public int MemoryServiceMaxMemories { get; set; } = 100;
 
-    [DisplayName("Playback Volume")]
+    [DisplayName("Startup Playback Volume")]
     [Description("Startup playback volume level (0-10). If unspecified the system will not set the volume level at startup.")]
     [DefaultValue(null)]
     [Range(0, 10)]
@@ -61,14 +71,21 @@ public class AppConfig
     [Range(0, 10000)]
     public int WakeWordSilenceSampleAmplitudeThreshold { get; set; } = 800;
 
-    [DisplayName("Enable Anker PowerConf S330 Driver")]
+    [DisplayName("Anker PowerConf S330 Driver")]
     [Description("Enable device driver for Anker PowerConf S330 speakerphone.")]
     public bool S330Enabled { get; set; }
+
+    [Required]
+    [DisplayName("Power AI Model")]
+    [Description("Chat completion model used by the Power AI plug-in.")]
+    [DefaultValue(DefaultPowerOpenAiModel)]
+    public string PowerOpenAiModel { get; set; } = DefaultPowerOpenAiModel;
 
     public List<AgentConfig> Agents { get; set; } = [ ];
 
     internal readonly string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
-    internal readonly string[] OpenAiModels = [ "gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview"]; // Also see: https://platform.openai.com/docs/pricing
+    internal readonly string[] OpenAiModels = [DefaultOpenAiModel, "gpt-realtime", "gpt-realtime-1.5"]; // Also see: https://platform.openai.com/docs/pricing
+    internal readonly string[] PowerOpenAiModels = [DefaultPowerOpenAiModel, "gpt-5.4-mini", "gpt-5.4-nano" ];
 }
 
 

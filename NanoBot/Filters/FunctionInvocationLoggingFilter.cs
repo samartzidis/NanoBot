@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using NanoBot.Events;
 using NanoBot.Services;
 using Microsoft.Extensions.Logging;

@@ -3,8 +3,6 @@ using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using NanoBot.Services;
 
-#nullable enable
-
 namespace NanoBot.Plugins.Native;
 
 public sealed class MemoryPlugin

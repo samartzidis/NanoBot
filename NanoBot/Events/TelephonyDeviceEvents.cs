@@ -1,4 +1,4 @@
-﻿using NanoBot.Services;
+using NanoBot.Services;
 
 namespace NanoBot.Events;
 

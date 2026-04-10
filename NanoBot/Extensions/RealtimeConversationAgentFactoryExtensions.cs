@@ -89,7 +89,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             logger.LogInformation($"Adding {nameof(CalculatorPlugin)}");
 
             instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(CalculatorPlugin)} if you need assistance in mathematical operations.");
+            instructionsBuilder.AppendLine($"ALWAYS use the {nameof(CalculatorPlugin)} if you need assistance in mathematical operations.");
 
             kernel.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin), serviceProvider: sp);
         }
@@ -100,7 +100,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
 
             instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(DateTimePlugin)} for date and time information.");
+            instructionsBuilder.AppendLine($"ALWAYS use the {nameof(DateTimePlugin)} for date and time information.");
 
             kernel.Plugins.AddFromType<DateTimePlugin>(nameof(DateTimePlugin), serviceProvider: sp);
         }
@@ -111,7 +111,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             logger.LogInformation($"Adding {nameof(GeoIpPlugin)}");
 
             instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(GeoIpPlugin)} for date and time information.");
+            instructionsBuilder.AppendLine($"ALWAYS use the {nameof(GeoIpPlugin)} for date and time information.");
 
             kernel.Plugins.AddFromType<GeoIpPlugin>(nameof(GeoIpPlugin), serviceProvider: sp);
         }
@@ -125,6 +125,35 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(WeatherPlugin)} for weather information.");
 
             kernel.Plugins.AddFromType<WeatherPlugin>(nameof(WeatherPlugin), serviceProvider: sp);
+        }
+
+        // Power AI plugin
+        if (agentConfig.PowerAiPluginEnabled)
+        {
+            var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
+            logger.LogInformation($"Adding {nameof(PowerAiPlugin)} with model '{appConfig.PowerOpenAiModel}'");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine(
+                $"""
+                    ALWAYS use the {nameof(PowerAiPlugin)} for help before answering when the user question. 
+                    Especially if it involves: 
+                        - complex reasoning
+                        - not very trivial math questions 
+                        - sounds like a riddle
+                        - grammar/sentence corrections
+                        - anything requiring high accuracy
+                    Or when: 
+                        - the user asks you to think hard
+                        - the user thinkgs that you are wrong
+                        - the user asks you to use 'Power AI'
+                    """);
+
+            var powerAiPlugin = new PowerAiPlugin(
+                loggerFactory.CreateLogger<PowerAiPlugin>(),
+                appConfig.OpenAiApiKey,
+                appConfig.PowerOpenAiModel);
+            kernel.Plugins.AddFromObject(powerAiPlugin, nameof(PowerAiPlugin));
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace NanoBot.Util;
+namespace NanoBot.Util;
 
 internal class AsyncLock
 {

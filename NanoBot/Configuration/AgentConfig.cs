@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel;
 
 namespace NanoBot.Configuration;
@@ -59,5 +59,9 @@ public class AgentConfig
     [DisplayName("Memory Plug-in")]
     [Description("Provides functions to save, retrieve, search, and manage persistent memories for the agent.")]
     public bool MemoryPluginEnabled { get; set; }
+
+    [DisplayName("Power AI Plug-in")]
+    [Description("Provides access to a powerful chat completion model for complex reasoning, math, grammar corrections, and detailed analysis.")]
+    public bool PowerAiPluginEnabled { get; set; }
     #endregion Plugins
 }

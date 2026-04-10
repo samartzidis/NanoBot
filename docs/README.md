@@ -1,7 +1,7 @@
 # NanoBot
 <img src="logo.png" alt="NanoBot Logo" height="240"/>
 
-**NanoBot** is a free, Raspberry Pi powered AI **real-time** chat robot. It is ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
+**NanoBot** is a free, Raspberry Pi powered **real-time** AI chat robot. It is ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
 Its focus on real-time aspects, allows it to keep a highly responsive live conversational experience with the user. It allows user interruptions (barge-in) while the robot is still speaking and maintaining the correct live conversation state context.
 
@@ -107,27 +107,27 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 
 ## Software Installation and Configuration
 
-1. Create the directory `/home/pi/nanobot` and copy/extract the release build files there.
+1. Create the directory `/home/pi/NanoBot` and copy/extract the release build files there.
 2. Check if NanoBot works when running from the console by running: `./NanoBot`.
-3. Now install NanoBot as a service. Create and edit the file `/etc/systemd/system/nanobot.service` with the following content:
+3. Now install NanoBot as a service. Create and edit the file `/etc/systemd/system/NanoBot.service` with the following content:
     ```
     [Unit]
-    Description=nanobot service
+    Description=NanoBot service
 
     [Service]
     Environment=DOTNET_ROOT=/opt/dotnet8
     Environment=PATH=/opt/dotnet8:/usr/bin:/bin
-    ExecStart=/home/pi/nanobot/NanoBot
-    WorkingDirectory=/home/pi/nanobot/
+    ExecStart=/home/pi/NanoBot/NanoBot
+    WorkingDirectory=/home/pi/NanoBot/
     User=pi
 
     [Install]
     WantedBy=default.target
     ```
-4. Enable and start the `nanobot` service:
+4. Enable and start the `NanoBot` service:
     ```
-    systemctl enable nanobot.service
-    systemctl start nanobot
+    systemctl enable NanoBot.service
+    systemctl start NanoBot
     ```
 
 Optionally, add permissions to user `pi` to open hidraw devices. Only needed if using an external USB speakerphone (such as the *Anker PowerConf S330*) for enabling control of the consumer controls (buttons) and lights. Create and edit the file: `/etc/udev/rules.d/99-hidraw-permissions.rules` and set the content:
@@ -141,9 +141,9 @@ Optionally, add permissions to user `pi` to open hidraw devices. Only needed if 
    sudo udevadm trigger
    ```
 
-### Captive Portal Device Software Installation
+### Captive Portal Device Software Installation (Optional)
 
-You can optionally install Captive Portal Device software so that whenever Nanobot loses network connectivity or needs to connect to a new WiFi network, you can do it remotely using your mobile phone or PC by connecting to Nanobot directly (Nanobot switches to Access Point mode). The following installation instructions are based on Raspberry Pi OS (64-bit) 13 (trixie):
+You can optionally install Captive Portal Device software so that whenever NanoBot loses network connectivity or needs to connect to a new WiFi network, you can do it remotely using your mobile phone or PC by connecting to NanoBot directly (NanoBot switches to Access Point mode). The following installation instructions are based on Raspberry Pi OS (64-bit) 13 (trixie):
 
 1. Setup the [WiFi Connect](https://github.com/balena-os/wifi-connect) utility by typing the following commands:
     ```sh
@@ -158,7 +158,7 @@ You can optionally install Captive Portal Device software so that whenever Nanob
 2. Create the file: `/etc/systemd/system/wifi-connect.service` with the following content:
    ```sh
    [Unit]
-   Description=Nanobot WiFi Connect captive portal
+   Description=NanoBot WiFi Connect captive portal
    After=NetworkManager.service network-online.target
    Wants=network-online.target
 
@@ -174,7 +174,7 @@ You can optionally install Captive Portal Device software so that whenever Nanob
        echo "WiFi already connected; not starting wifi-connect"; \
        exit 0; \
    fi; \
-   exec ./wifi-connect -a 300 -s "Nanobot WiFi Connect" \
+   exec ./wifi-connect -a 300 -s "NanoBot WiFi Connect" \
    '
 
    Restart=on-failure
@@ -188,7 +188,7 @@ You can optionally install Captive Portal Device software so that whenever Nanob
    sudo systemctl enable wifi-connect.service    
    sudo reboot
    ```
-After reboot, and provided that Nanobot is **not already connected** to a WiFi network, a new WiFi network available named `Nanobot WiFi Connect` will become available. You can connect to this network using a mobile phone or a PC to configure the client-mode WiFi network connection of Nanobot. Once Nanobot connects to the specified WiFi network as a client, it will switch to client mode and the `Nanobot WiFi Connect` access point will dissapear.
+After reboot, and provided that NanoBot is **not already connected** to a WiFi network, a new WiFi network available named `NanoBot WiFi Connect` will become available. You can connect to this network using a mobile phone or a PC to configure the client-mode WiFi network connection of NanoBot. Once NanoBot connects to the specified WiFi network as a client, it will switch to client mode and the `NanoBot WiFi Connect` access point will dissapear.
 
 ## License and Acknowledgements
 

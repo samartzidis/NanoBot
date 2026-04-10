@@ -1,4 +1,4 @@
-﻿using NanoBot.Events;
+using NanoBot.Events;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Device.Gpio;
@@ -44,7 +44,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     private const int PwmFrequency = 1000; // 1kHz frequency for smooth LED control
 
     private bool _buttonPressed;
-    private bool _isShutdown, _isListening, _isFunctionInvoking, _isWakeWordDetected, _isError, _isNoiseDetected;
+    private bool _isShutdown, _isListening, _isFunctionInvoking, _isWakeWordDetected, _isError, _isNoiseDetected, _isNightMode;
     private byte? _talkLevel;
 
     public GpioDeviceService(ILogger<GpioDeviceService> logger, IEventBus bus)
@@ -94,6 +94,9 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         _bus.Subscribe<SilenceDetectedEvent>(e => { ResetTransientStates(); _isNoiseDetected = false; UpdateLed(); });
 
         _bus.Subscribe<TalkLevelEvent>(e => { ResetTransientStates(); _talkLevel = e.Level; UpdateLed(); });
+
+        _bus.Subscribe<NightModeActivatedEvent>(e => { _isNightMode = true; UpdateLed(); });
+        _bus.Subscribe<NightModeDeactivatedEvent>(e => { _isNightMode = false; UpdateLed(); });
     }
 
     private void ResetTransientStates()
@@ -119,6 +122,8 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             SetLedColor(GpioDeviceLedColor.Orange);
         else if (_isNoiseDetected)
             SetLedColor(GpioDeviceLedColor.Yellow);
+        else if (_isNightMode)
+            SetLedColor(GpioDeviceLedColor.Off);
         else
             SetLedColor(DefaultLedColour);
     }

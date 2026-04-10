@@ -1,4 +1,4 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
 using NanoBot.Services;
@@ -24,8 +24,7 @@ public class SystemManagerPlugin
 
     [KernelFunction($"{nameof(NotifyConversationStopRequested)}")]
     [Description(
-        @"*IMPORTANT*: Use this tool to ALWAYS notify the system that the user decided to end the conversation.
-        For example if the user said: 'stop', 'OK, stop', 'OK', 'OK, thanks', 'bye', etc.")]
+        "*ALWAYS* call this tool when the user decided to end the conversation by saying any of these (or similar): 'Stop', 'OK, stop', 'OK', 'OK, thanks', 'Bye'.")]
     public async Task NotifyConversationStopRequested(Kernel kernel)
     {
         _logger.LogDebug($"{nameof(NotifyConversationStopRequested)} tool invoked.");

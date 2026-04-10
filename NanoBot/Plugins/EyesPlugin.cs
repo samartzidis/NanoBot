@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using NanoBot.Services;
 using System.ComponentModel;

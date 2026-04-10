@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Schema.Generation;
+using Newtonsoft.Json.Schema.Generation;
 using Newtonsoft.Json.Schema;
 using System.Collections.Concurrent;
 using Newtonsoft.Json;

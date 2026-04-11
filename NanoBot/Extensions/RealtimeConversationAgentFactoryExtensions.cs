@@ -145,7 +145,8 @@ public static class RealtimeConversationAgentFactoryExtensions
             var powerAiPlugin = new PowerAiPlugin(
                 loggerFactory.CreateLogger<PowerAiPlugin>(),
                 appConfig.OpenAiApiKey,
-                appConfig.PowerOpenAiModel);
+                appConfig.PowerOpenAiModel,
+                tools.ToList());
             tools.AddRange(CreateToolsFromObject(powerAiPlugin, nameof(PowerAiPlugin)));
         }
 

@@ -32,10 +32,16 @@ public class AppConfig
     public string OpenAiApiKey { get; set; }
 
     [Required]
-    [DisplayName("AI Model")]
+    [DisplayName("Main AI Model")]
     [Description("OpenAI model to use.")]
     [DefaultValue(DefaultOpenAiModel)]
     public string OpenAiModel { get; set; } = DefaultOpenAiModel;
+
+    [Required]
+    [DisplayName("Power AI Model")]
+    [Description("Model used by the optional Power AI plug-in.")]
+    [DefaultValue(DefaultPowerOpenAiModel)]
+    public string PowerOpenAiModel { get; set; } = DefaultPowerOpenAiModel;
 
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
@@ -73,13 +79,7 @@ public class AppConfig
 
     [DisplayName("Anker PowerConf S330 Driver")]
     [Description("Enable device driver for Anker PowerConf S330 speakerphone.")]
-    public bool S330Enabled { get; set; }
-
-    [Required]
-    [DisplayName("Power AI Model")]
-    [Description("Chat completion model used by the Power AI plug-in.")]
-    [DefaultValue(DefaultPowerOpenAiModel)]
-    public string PowerOpenAiModel { get; set; } = DefaultPowerOpenAiModel;
+    public bool S330Enabled { get; set; }    
 
     public List<AgentConfig> Agents { get; set; } = [ ];
 

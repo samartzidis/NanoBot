@@ -1,7 +1,6 @@
 using System.ClientModel;
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 using OpenAI.Chat;
 
 namespace NanoBot.Plugins.Native;
@@ -26,7 +25,7 @@ public sealed class PowerAiPlugin
         _chatClient = new ChatClient(_model, new ApiKeyCredential(apiKey));
     }
 
-    [KernelFunction, Description("Send a question to a more powerful AI model and return its answer. Formulate the prompt as a self-contained question.")]
+    [Description("Send a question to a more powerful AI model and return its answer. Formulate the prompt as a self-contained question.")]
     public async Task<string> AskAsync(
         [Description("The question or prompt to send to the powerful AI model")] string prompt,
         CancellationToken cancellationToken = default)

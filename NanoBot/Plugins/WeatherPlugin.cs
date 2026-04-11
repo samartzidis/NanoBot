@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 using System.Text.Json;
 
 namespace NanoBot.Plugins.Native;
@@ -18,7 +17,7 @@ public sealed class WeatherPlugin
     }
 
     #region Current Weather Functions
-    [KernelFunction, Description("Get current weather for specific coordinates")]
+    [Description("Get current weather for specific coordinates")]
     public async Task<string> GetCurrentWeatherAsync(
         [Description("Latitude coordinate")] double latitude,
         [Description("Longitude coordinate")] double longitude,
@@ -41,7 +40,7 @@ public sealed class WeatherPlugin
         }
     }
 
-    [KernelFunction, Description("Get current temperature for specific coordinates")]
+    [Description("Get current temperature for specific coordinates")]
     public async Task<string> GetCurrentTemperatureAsync(
         [Description("Latitude coordinate")] double latitude,
         [Description("Longitude coordinate")] double longitude,
@@ -64,7 +63,7 @@ public sealed class WeatherPlugin
         }
     }
 
-    [KernelFunction, Description("Get current wind information for specific coordinates")]
+    [Description("Get current wind information for specific coordinates")]
     public async Task<string> GetCurrentWindAsync(
         [Description("Latitude coordinate")] double latitude,
         [Description("Longitude coordinate")] double longitude,
@@ -89,7 +88,7 @@ public sealed class WeatherPlugin
     #endregion
 
     #region Forecast Functions
-    [KernelFunction, Description("Get hourly temperature forecast for the next 24 hours")]
+    [Description("Get hourly temperature forecast for the next 24 hours")]
     public async Task<string> GetHourlyTemperatureForecastAsync(
         [Description("Latitude coordinate")] double latitude,
         [Description("Longitude coordinate")] double longitude,
@@ -112,7 +111,7 @@ public sealed class WeatherPlugin
         }
     }
 
-    [KernelFunction, Description("Get detailed hourly weather forecast for the next 12 hours")]
+    [Description("Get detailed hourly weather forecast for the next 12 hours")]
     public async Task<string> GetDetailedHourlyForecastAsync(
         [Description("Latitude coordinate")] double latitude,
         [Description("Longitude coordinate")] double longitude,
@@ -135,7 +134,7 @@ public sealed class WeatherPlugin
         }
     }
 
-    [KernelFunction, Description("Get weather summary with current conditions and next few hours")]
+    [Description("Get weather summary with current conditions and next few hours")]
     public async Task<string> GetWeatherSummaryAsync(
         [Description("Latitude coordinate")] double latitude,
         [Description("Longitude coordinate")] double longitude,

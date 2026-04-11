@@ -1,10 +1,13 @@
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.SemanticKernel;
 using NanoBot.Configuration;
 using NanoBot.Plugins.Native;
+using NanoBot.Services;
 using NanoBot.Util;
+using System.ComponentModel;
+using System.Reflection;
 using System.Text;
 
 namespace NanoBot.Extensions;
@@ -16,7 +19,6 @@ public static class RealtimeConversationAgentFactoryExtensions
 
     public static IServiceCollection AddRealtimeConversationAgentFactory(this IServiceCollection services)
     {
-        // Register a base kernel builder configuration
         services.AddSingleton<Func<AgentConfig, RealtimeAgent>>(sp =>
         {
             var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
@@ -24,14 +26,11 @@ public static class RealtimeConversationAgentFactoryExtensions
 
             return (agentConfig) =>
             {                
-                // Combine global prompt with agent prompt
                 var instructionsBuilder = new StringBuilder();
                 instructionsBuilder.AppendLine(appConfig.Instructions);
                 instructionsBuilder.AppendLine(agentConfig.Instructions);
 
-                // Get instance per dependency kernel instance and configure plugins
-                var kernel = sp.GetRequiredService<Kernel>();
-                ConfigurePlugins(agentConfig, kernel, loggerFactory, sp, instructionsBuilder);
+                var tools = ConfigureTools(agentConfig, loggerFactory, sp, instructionsBuilder);
 
                 var options = new RealtimeAgentOptions
                 {
@@ -44,9 +43,10 @@ public static class RealtimeConversationAgentFactoryExtensions
                     ConversationInactivityTimeoutSeconds = appConfig.ConversationInactivityTimeoutSeconds,
                 };
 
-                
-                var agent = new RealtimeAgent(sp.GetRequiredService<ILogger<RealtimeAgent>>(),
-                    kernel,
+                var agent = new RealtimeAgent(
+                    sp.GetRequiredService<ILogger<RealtimeAgent>>(),
+                    tools,
+                    sp.GetRequiredService<IEventBus>(),
                     Options.Create(options));
 
                 return agent;
@@ -56,15 +56,14 @@ public static class RealtimeConversationAgentFactoryExtensions
         return services;
     }
 
-    private static void ConfigurePlugins(AgentConfig agentConfig, Kernel kernel, ILoggerFactory loggerFactory, IServiceProvider sp, StringBuilder instructionsBuilder)
+    private static List<AIFunction> ConfigureTools(AgentConfig agentConfig, ILoggerFactory loggerFactory, IServiceProvider sp, StringBuilder instructionsBuilder)
     {
         var logger = loggerFactory.CreateLogger<Program>();
+        var tools = new List<AIFunction>();
 
-        // SystemManager plugin
         logger.LogInformation($"Adding {nameof(SystemManagerPlugin)}");
-        kernel.Plugins.AddFromType<SystemManagerPlugin>(nameof(SystemManagerPlugin), serviceProvider: sp);
+        tools.AddRange(CreateToolsFromType<SystemManagerPlugin>(nameof(SystemManagerPlugin), sp));
 
-        // Memory plugin
         if (agentConfig.MemoryPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(MemoryPlugin)}");
@@ -73,17 +72,15 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine("ALWAYS Use the MemoryPlugin to retrieve relevant memories when needed to answer user questions BEFORE using any other plugin.");
             instructionsBuilder.AppendLine("ALWAYS ask the user before creating a new MemoryPlugin plugin memory or updating an existing one.NEVER do this before asking first.");
             
-            kernel.Plugins.AddFromType<MemoryPlugin>(nameof(MemoryPlugin), serviceProvider: sp);
+            tools.AddRange(CreateToolsFromType<MemoryPlugin>(nameof(MemoryPlugin), sp));
         }
 
-        // EyesPlugin plugin
         if (PlatformUtil.IsRaspberryPi())
         {
             logger.LogInformation($"Adding {nameof(EyesPlugin)}");
-            kernel.Plugins.AddFromType<EyesPlugin>(nameof(EyesPlugin), serviceProvider: sp);
+            tools.AddRange(CreateToolsFromType<EyesPlugin>(nameof(EyesPlugin), sp));
         }
 
-        // Calculator plugin
         if (agentConfig.CalculatorPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(CalculatorPlugin)}");
@@ -91,10 +88,9 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(CalculatorPlugin)} if you need assistance in mathematical operations.");
 
-            kernel.Plugins.AddFromType<CalculatorPlugin>(nameof(CalculatorPlugin), serviceProvider: sp);
+            tools.AddRange(CreateToolsFromType<CalculatorPlugin>(nameof(CalculatorPlugin), sp));
         }
 
-        // DateTime plugin
         if (agentConfig.DateTimePluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
@@ -102,10 +98,9 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(DateTimePlugin)} for date and time information.");
 
-            kernel.Plugins.AddFromType<DateTimePlugin>(nameof(DateTimePlugin), serviceProvider: sp);
+            tools.AddRange(CreateToolsFromType<DateTimePlugin>(nameof(DateTimePlugin), sp));
         }
 
-        // GeoIP plugin
         if (agentConfig.GeoIpPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(GeoIpPlugin)}");
@@ -113,10 +108,9 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(GeoIpPlugin)} for date and time information.");
 
-            kernel.Plugins.AddFromType<GeoIpPlugin>(nameof(GeoIpPlugin), serviceProvider: sp);
+            tools.AddRange(CreateToolsFromType<GeoIpPlugin>(nameof(GeoIpPlugin), sp));
         }
 
-        // Weather plugin
         if (agentConfig.WeatherPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(WeatherPlugin)}");
@@ -124,10 +118,9 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(WeatherPlugin)} for weather information.");
 
-            kernel.Plugins.AddFromType<WeatherPlugin>(nameof(WeatherPlugin), serviceProvider: sp);
+            tools.AddRange(CreateToolsFromType<WeatherPlugin>(nameof(WeatherPlugin), sp));
         }
 
-        // Power AI plugin
         if (agentConfig.PowerAiPluginEnabled)
         {
             var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
@@ -153,7 +146,27 @@ public static class RealtimeConversationAgentFactoryExtensions
                 loggerFactory.CreateLogger<PowerAiPlugin>(),
                 appConfig.OpenAiApiKey,
                 appConfig.PowerOpenAiModel);
-            kernel.Plugins.AddFromObject(powerAiPlugin, nameof(PowerAiPlugin));
+            tools.AddRange(CreateToolsFromObject(powerAiPlugin, nameof(PowerAiPlugin)));
         }
+
+        return tools;
+    }
+
+    private static List<AIFunction> CreateToolsFromType<T>(string pluginName, IServiceProvider sp) where T : class
+    {
+        var instance = ActivatorUtilities.CreateInstance<T>(sp);
+        return CreateToolsFromObject(instance, pluginName);
+    }
+
+    private static List<AIFunction> CreateToolsFromObject(object target, string pluginName)
+    {
+        return target.GetType()
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(m => m.GetCustomAttribute<DescriptionAttribute>() != null)
+            .Select(m => AIFunctionFactory.Create(m, target, new AIFunctionFactoryOptions
+            {
+                Name = $"{pluginName}-{m.Name}"
+            }))
+            .ToList();
     }
 }

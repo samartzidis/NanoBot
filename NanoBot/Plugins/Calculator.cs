@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 
 namespace NanoBot.Plugins.Native;
 
@@ -14,7 +13,7 @@ public sealed class CalculatorPlugin
     }
 
     #region Basic Operations
-    [KernelFunction, Description("Add two numbers")]
+    [Description("Add two numbers")]
     public async Task<double> AddAsync(
         [Description("First number")] double a,
         [Description("Second number")] double b,
@@ -25,7 +24,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Subtract the second number from the first number")]
+    [Description("Subtract the second number from the first number")]
     public async Task<double> SubtractAsync(
         [Description("First number")] double a,
         [Description("Second number")] double b,
@@ -36,7 +35,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Multiply two numbers")]
+    [Description("Multiply two numbers")]
     public async Task<double> MultiplyAsync(
         [Description("First number")] double a,
         [Description("Second number")] double b,
@@ -47,7 +46,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Divide the first number by the second number")]
+    [Description("Divide the first number by the second number")]
     public async Task<string> DivideAsync(
         [Description("First number")] double a,
         [Description("Second number")] double b,
@@ -66,7 +65,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region List Operations
-    [KernelFunction, Description("Add a list of numbers")]
+    [Description("Add a list of numbers")]
     public async Task<double> AddListAsync(
         [Description("A list of numbers to add")] List<double> numbers,
         CancellationToken cancellationToken = default)
@@ -76,7 +75,7 @@ public sealed class CalculatorPlugin
         return sum;
     }
 
-    [KernelFunction, Description("Multiply a list of numbers")]
+    [Description("Multiply a list of numbers")]
     public async Task<double> MultiplyListAsync(
         [Description("A list of numbers to multiply")] List<double> numbers,
         CancellationToken cancellationToken = default)
@@ -99,7 +98,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Power and Root Functions
-    [KernelFunction, Description("Raise a number to a power")]
+    [Description("Raise a number to a power")]
     public async Task<double> PowerAsync(
         [Description("Base number")] double baseNumber,
         [Description("Exponent")] double exponent,
@@ -110,7 +109,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Calculate the square root of a number")]
+    [Description("Calculate the square root of a number")]
     public async Task<string> SquareRootAsync(
         [Description("Number to find square root of")] double number,
         CancellationToken cancellationToken = default)
@@ -126,7 +125,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate the nth root of a number")]
+    [Description("Calculate the nth root of a number")]
     public async Task<string> NthRootAsync(
         [Description("Number to find root of")] double number,
         [Description("Root degree (e.g., 3 for cube root)")] double n,
@@ -156,7 +155,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Trigonometric Functions
-    [KernelFunction, Description("Calculate sine of an angle in radians")]
+    [Description("Calculate sine of an angle in radians")]
     public async Task<double> SinAsync(
         [Description("Angle in radians")] double angle,
         CancellationToken cancellationToken = default)
@@ -166,7 +165,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Calculate cosine of an angle in radians")]
+    [Description("Calculate cosine of an angle in radians")]
     public async Task<double> CosAsync(
         [Description("Angle in radians")] double angle,
         CancellationToken cancellationToken = default)
@@ -176,7 +175,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Calculate tangent of an angle in radians")]
+    [Description("Calculate tangent of an angle in radians")]
     public async Task<double> TanAsync(
         [Description("Angle in radians")] double angle,
         CancellationToken cancellationToken = default)
@@ -186,7 +185,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Calculate arcsine (inverse sine) of a value, returns angle in radians")]
+    [Description("Calculate arcsine (inverse sine) of a value, returns angle in radians")]
     public async Task<string> AsinAsync(
         [Description("Value between -1 and 1")] double value,
         CancellationToken cancellationToken = default)
@@ -202,7 +201,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate arccosine (inverse cosine) of a value, returns angle in radians")]
+    [Description("Calculate arccosine (inverse cosine) of a value, returns angle in radians")]
     public async Task<string> AcosAsync(
         [Description("Value between -1 and 1")] double value,
         CancellationToken cancellationToken = default)
@@ -218,7 +217,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate arctangent (inverse tangent) of a value, returns angle in radians")]
+    [Description("Calculate arctangent (inverse tangent) of a value, returns angle in radians")]
     public async Task<double> AtanAsync(
         [Description("Value")] double value,
         CancellationToken cancellationToken = default)
@@ -230,7 +229,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Angle Conversion
-    [KernelFunction, Description("Convert degrees to radians")]
+    [Description("Convert degrees to radians")]
     public async Task<double> DegreesToRadiansAsync(
         [Description("Angle in degrees")] double degrees,
         CancellationToken cancellationToken = default)
@@ -240,7 +239,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Convert radians to degrees")]
+    [Description("Convert radians to degrees")]
     public async Task<double> RadiansToDegreesAsync(
         [Description("Angle in radians")] double radians,
         CancellationToken cancellationToken = default)
@@ -252,7 +251,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Logarithmic and Exponential Functions
-    [KernelFunction, Description("Calculate natural logarithm (base e) of a number")]
+    [Description("Calculate natural logarithm (base e) of a number")]
     public async Task<string> LogAsync(
         [Description("Number (must be positive)")] double number,
         CancellationToken cancellationToken = default)
@@ -268,7 +267,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate logarithm base 10 of a number")]
+    [Description("Calculate logarithm base 10 of a number")]
     public async Task<string> Log10Async(
         [Description("Number (must be positive)")] double number,
         CancellationToken cancellationToken = default)
@@ -284,7 +283,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate logarithm with custom base")]
+    [Description("Calculate logarithm with custom base")]
     public async Task<string> LogBaseAsync(
         [Description("Number (must be positive)")] double number,
         [Description("Base (must be positive and not equal to 1)")] double baseValue,
@@ -307,7 +306,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate e raised to the power of x")]
+    [Description("Calculate e raised to the power of x")]
     public async Task<double> ExpAsync(
         [Description("Exponent")] double x,
         CancellationToken cancellationToken = default)
@@ -319,7 +318,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Additional Mathematical Functions
-    [KernelFunction, Description("Calculate absolute value of a number")]
+    [Description("Calculate absolute value of a number")]
     public async Task<double> AbsAsync(
         [Description("Number")] double number,
         CancellationToken cancellationToken = default)
@@ -329,7 +328,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Round a number to the nearest integer")]
+    [Description("Round a number to the nearest integer")]
     public async Task<double> RoundAsync(
         [Description("Number to round")] double number,
         CancellationToken cancellationToken = default)
@@ -339,7 +338,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Round a number to specified decimal places")]
+    [Description("Round a number to specified decimal places")]
     public async Task<double> RoundToDecimalPlacesAsync(
         [Description("Number to round")] double number,
         [Description("Number of decimal places")] int decimalPlaces,
@@ -350,7 +349,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Get the largest integer less than or equal to the number (floor)")]
+    [Description("Get the largest integer less than or equal to the number (floor)")]
     public async Task<double> FloorAsync(
         [Description("Number")] double number,
         CancellationToken cancellationToken = default)
@@ -360,7 +359,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Get the smallest integer greater than or equal to the number (ceiling)")]
+    [Description("Get the smallest integer greater than or equal to the number (ceiling)")]
     public async Task<double> CeilingAsync(
         [Description("Number")] double number,
         CancellationToken cancellationToken = default)
@@ -370,7 +369,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
-    [KernelFunction, Description("Calculate factorial of a non-negative integer")]
+    [Description("Calculate factorial of a non-negative integer")]
     public async Task<string> FactorialAsync(
         [Description("Non-negative integer")] int n,
         CancellationToken cancellationToken = default)
@@ -397,7 +396,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
-    [KernelFunction, Description("Calculate the remainder when dividing two numbers")]
+    [Description("Calculate the remainder when dividing two numbers")]
     public async Task<double> ModuloAsync(
         [Description("Dividend")] double dividend,
         [Description("Divisor")] double divisor,
@@ -416,14 +415,14 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Constants
-    [KernelFunction, Description("Get the value of Pi (π)")]
+    [Description("Get the value of Pi (π)")]
     public async Task<double> GetPiAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("GetPiAsync: π = {Pi}", Math.PI);
         return Math.PI;
     }
 
-    [KernelFunction, Description("Get the value of Euler's number (e)")]
+    [Description("Get the value of Euler's number (e)")]
     public async Task<double> GetEAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("GetEAsync: e = {E}", Math.E);

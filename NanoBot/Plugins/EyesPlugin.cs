@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 using NanoBot.Services;
 using System.ComponentModel;
 
@@ -16,45 +15,40 @@ namespace NanoBot.Plugins.Native
             _logger = logger;
         }
 
-        [KernelFunction($"{nameof(TurnOn)}")]
         [Description("Turn on the eyes (and sets the eye colour to normal). Example: the user says: 'eyes on'.")]
-        public async Task TurnOn(Kernel kernel)
+        public async Task TurnOn()
         {
             _logger.LogDebug($"{nameof(TurnOn)} tool invoked.");
 
             _gpioDeviceService.DefaultLedColour = GpioDeviceLedColor.White;
         }
 
-        [KernelFunction($"{nameof(TurnOff)}")]
         [Description("Turn off the eyes.. Example: the user says: 'eyes off'.")]
-        public async Task TurnOff(Kernel kernel)
+        public async Task TurnOff()
         {
             _logger.LogDebug($"{nameof(TurnOff)} tool invoked.");
 
             _gpioDeviceService.DefaultLedColour = GpioDeviceLedColor.Off;
         }
 
-        [KernelFunction($"{nameof(SetEyeColour)}")]
         [Description("Set the eyes colour to the specified colour.. Example: the user says: 'eyes blue' or 'eyes white', etc.")]
-        public async Task SetEyeColour(Kernel kernel, GpioDeviceLedColor colour)
+        public async Task SetEyeColour(GpioDeviceLedColor colour)
         {
             _logger.LogDebug($"{nameof(SetEyeColour)} tool invoked.");
 
             _gpioDeviceService.DefaultLedColour = colour;
         }
 
-        [KernelFunction($"{nameof(GetEyeColour)}")]
         [Description("Get the current eyes colour.")]
-        public async Task<GpioDeviceLedColor> GetEyeColour(Kernel kernel)
+        public async Task<GpioDeviceLedColor> GetEyeColour()
         {
             _logger.LogDebug($"{nameof(GetEyeColour)} tool invoked.");
 
             return _gpioDeviceService.DefaultLedColour;
         }
 
-        [KernelFunction($"{nameof(GetAvailableEyesColours)}")]
         [Description("Get the available eye colours.")]
-        public async Task<List<string>> GetAvailableEyesColours(Kernel kernel)
+        public async Task<List<string>> GetAvailableEyesColours()
         {
             _logger.LogDebug($"{nameof(GetAvailableEyesColours)} tool invoked.");
 

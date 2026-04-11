@@ -55,14 +55,10 @@ public class DynamicEmbeddingService : IDynamicEmbeddingService
                 return false;
             }
 
-            // Try to create a new embedding generator using the service collection approach
-            var services = new ServiceCollection();
-            services.AddOpenAIEmbeddingGenerator(
-                modelId: "text-embedding-3-small",
+            var embeddingClient = new OpenAI.Embeddings.EmbeddingClient(
+                model: "text-embedding-3-small",
                 apiKey: config.OpenAiApiKey);
-            
-            var serviceProvider = services.BuildServiceProvider();
-            _embeddingGenerator = serviceProvider.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
+            _embeddingGenerator = embeddingClient.AsIEmbeddingGenerator();
 
             _logger.LogInformation("OpenAI embedding service initialized successfully");
             _isInitialized = true;

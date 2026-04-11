@@ -1,7 +1,9 @@
 using Azure.AI.OpenAI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.SemanticKernel;
+using NanoBot.Events;
+using NanoBot.Services;
 using OpenAI.Realtime;
 using Pv;
 using System.ClientModel;
@@ -49,14 +51,15 @@ public sealed class RealtimeAgent : IDisposable
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
 
-    private readonly Kernel _kernel;
+    private readonly IReadOnlyList<AIFunction> _tools;
     private readonly ILogger _logger;
+    private readonly IEventBus _bus;
     private readonly RealtimeAgentOptions _options;
     private readonly object _speakerLock = new();
     private readonly Dictionary<string, StringBuilder> _functionArgumentBuildersById = new();
 
     private RealtimeClient _realtimeClient;
-    private RealtimeSession _session;
+    private RealtimeSessionClient _session;
     private bool _disposed;
 
     // Receive task runs for the lifetime of the session (not per RunAsync call)
@@ -78,10 +81,11 @@ public sealed class RealtimeAgent : IDisposable
     private string _currentStreamingItemId;
     private int _audioBytesSentToSpeaker;
 
-    public RealtimeAgent(ILogger<RealtimeAgent> logger, Kernel kernel, IOptions<RealtimeAgentOptions> options)
+    public RealtimeAgent(ILogger<RealtimeAgent> logger, IReadOnlyList<AIFunction> tools, IEventBus bus, IOptions<RealtimeAgentOptions> options)
     {
         _logger = logger;
-        _kernel = kernel;
+        _tools = tools;
+        _bus = bus;
         _options = options.Value;
     }
 
@@ -187,19 +191,14 @@ public sealed class RealtimeAgent : IDisposable
             }
         }
 
-        if (_session is IAsyncDisposable asyncDisposable)
+        try
         {
-            try
-            {
-                await asyncDisposable.DisposeAsync();
-            }
-            catch
-            {
-                // Ignore errors during cleanup
-            }
+            _session?.Dispose();
         }
-        else if (_session is IDisposable disposable)
-            disposable.Dispose();
+        catch
+        {
+            // Ignore errors during cleanup
+        }
 
         _sessionCts?.Dispose();
         _session = null;
@@ -222,9 +221,7 @@ public sealed class RealtimeAgent : IDisposable
 
         // Don't wait for receive task in sync dispose - just cancel and move on
 
-        // Dispose the session
-        if (_session is IDisposable disposable)
-            disposable.Dispose();
+        _session?.Dispose();
 
         _sessionCts?.Dispose();
 
@@ -237,60 +234,70 @@ public sealed class RealtimeAgent : IDisposable
     /// Receive task that runs for the lifetime of the session.
     /// Uses the session-level cancellation token, not the per-RunAsync token.
     /// </summary>
-    private async Task RunReceiveTaskAsync(RealtimeSession session, CancellationToken sessionToken)
+    private async Task RunReceiveTaskAsync(RealtimeSessionClient session, CancellationToken sessionToken)
     {
         var outputAudioBuffer = new List<byte>();
         const int SpeakerChunkSize = 16384;
 
         try
         {
-            await foreach (RealtimeUpdate update in session.ReceiveUpdatesAsync(sessionToken))
+            await foreach (RealtimeServerUpdate update in session.ReceiveUpdatesAsync(sessionToken))
             {
                 if (sessionToken.IsCancellationRequested) break;
 
                 // Session started
-                if (update is ConversationSessionStartedUpdate sessionStartedUpdate)
-                    _logger.LogDebug($"[Session started: {sessionStartedUpdate.SessionId}]");
+                if (update is RealtimeServerUpdateSessionCreated sessionCreatedUpdate)
+                    _logger.LogDebug($"[Session started: {sessionCreatedUpdate.EventId}]");
 
-                // Model started generating response
-                if (update is OutputStreamingStartedUpdate streamingStartedUpdate)
+                // Model started generating a response output item
+                if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
                 {
                     _waitingForResponse = false;
                     _modelIsSpeaking = true;
                     _responseActive = true;
                     _stateUpdateAction?.Invoke(StateUpdate.SpeakingStarted);
                     _bargeInTriggered = false;
-                    
+
+                    var itemId = GetItemId(outputItemAdded.Item);
+                    string functionName = (outputItemAdded.Item as RealtimeFunctionCallItem)?.FunctionName;
+
                     lock (_outputAudioLock)
                     {
                         outputAudioBuffer.Clear();
-                        _currentStreamingItemId = streamingStartedUpdate.ItemId;
+                        _currentStreamingItemId = itemId;
                         _audioBytesSentToSpeaker = 0;
                     }
 
-                    _logger.LogDebug($"[OutputStreamingStarted: FunctionName={streamingStartedUpdate.FunctionName ?? "null"}, ItemId={streamingStartedUpdate.ItemId ?? "null"}]");
+                    _logger.LogDebug($"[OutputItemAdded: FunctionName={functionName ?? "null"}, ItemId={itemId ?? "null"}]");
 
-                    if (!string.IsNullOrEmpty(streamingStartedUpdate.FunctionName))
-                        _logger.LogDebug($"[Calling: {streamingStartedUpdate.FunctionName}] ");
+                    if (!string.IsNullOrEmpty(functionName))
+                        _logger.LogDebug($"[Calling: {functionName}] ");
                 }
 
-                // Streaming delta (audio, text, function args)
-                if (update is OutputDeltaUpdate deltaUpdate)
+                // Audio transcript delta
+                if (update is RealtimeServerUpdateResponseOutputAudioTranscriptDelta transcriptDelta)
                 {
-                    if (!string.IsNullOrEmpty(deltaUpdate.AudioTranscript))
-                        _logger.LogDebug(deltaUpdate.AudioTranscript);
+                    if (!string.IsNullOrEmpty(transcriptDelta.Delta))
+                        _logger.LogDebug(transcriptDelta.Delta);
+                }
 
-                    if (!string.IsNullOrEmpty(deltaUpdate.Text))
-                        _logger.LogDebug($"[TextDelta: {deltaUpdate.Text}]");
+                // Text delta
+                if (update is RealtimeServerUpdateResponseOutputTextDelta textDelta)
+                {
+                    if (!string.IsNullOrEmpty(textDelta.Delta))
+                        _logger.LogDebug($"[TextDelta: {textDelta.Delta}]");
+                }
 
-                    // Handle audio bytes (use lock to synchronize with barge-in)
-                    if (deltaUpdate.AudioBytes is not null)
+                // Audio bytes delta (use lock to synchronize with barge-in)
+                if (update is RealtimeServerUpdateResponseOutputAudioDelta audioDelta)
+                {
+                    if (audioDelta.Delta is not null)
                     {
                         lock (_outputAudioLock)
                         {
                             if (!_bargeInTriggered)
                             {
-                                var audioBytes = deltaUpdate.AudioBytes.ToArray();
+                                var audioBytes = audioDelta.Delta.ToArray();
                                 outputAudioBuffer.AddRange(audioBytes);
 
                                 while (outputAudioBuffer.Count >= SpeakerChunkSize)
@@ -304,76 +311,80 @@ public sealed class RealtimeAgent : IDisposable
                             }
                         }
                     }
+                }
 
-                    // Collect function arguments
-                    if (!string.IsNullOrWhiteSpace(deltaUpdate.FunctionArguments))
+                // Function call arguments delta
+                if (update is RealtimeServerUpdateResponseFunctionCallArgumentsDelta funcArgsDelta)
+                {
+                    var argsText = funcArgsDelta.Delta?.ToString();
+                    if (!string.IsNullOrWhiteSpace(argsText))
                     {
-                        if (!_functionArgumentBuildersById.TryGetValue(deltaUpdate.ItemId, out var builder))
+                        if (!_functionArgumentBuildersById.TryGetValue(funcArgsDelta.ItemId, out var builder))
                         {
-                            _functionArgumentBuildersById[deltaUpdate.ItemId] = builder = new StringBuilder();
+                            _functionArgumentBuildersById[funcArgsDelta.ItemId] = builder = new StringBuilder();
                         }
-                        builder.Append(deltaUpdate.FunctionArguments);
+                        builder.Append(argsText);
 
-                        // Log additional delta update properties for function calls
-                        _logger.LogDebug($"[FunctionArgsDelta: ItemId={deltaUpdate.ItemId}, FunctionCallId={deltaUpdate.FunctionCallId ?? "null"}, Args={deltaUpdate.FunctionArguments}]");
+                        _logger.LogDebug($"[FunctionArgsDelta: ItemId={funcArgsDelta.ItemId}, CallId={funcArgsDelta.CallId ?? "null"}, Args={argsText}]");
                     }
                 }
 
-                // Item finished streaming
-                if (update is OutputStreamingFinishedUpdate streamingFinishedUpdate)
+                // Output item finished
+                if (update is RealtimeServerUpdateResponseOutputItemDone outputItemDone)
                 {
-                    _logger.LogDebug($"[OutputStreamingFinished: FunctionCallId={streamingFinishedUpdate.FunctionCallId ?? "null"}, FunctionName={streamingFinishedUpdate.FunctionName ?? "null"}, ItemId={streamingFinishedUpdate.ItemId ?? "null"}]");
-                    
-                    if (streamingFinishedUpdate.FunctionCallId is not null)
+                    var funcCallItem = outputItemDone.Item as RealtimeFunctionCallItem;
+                    var itemId = funcCallItem?.Id ?? (outputItemDone.Item as RealtimeMessageItem)?.Id;
+                    var functionCallId = funcCallItem?.CallId;
+                    var functionName = funcCallItem?.FunctionName;
+
+                    _logger.LogDebug($"[OutputItemDone: FunctionCallId={functionCallId ?? "null"}, FunctionName={functionName ?? "null"}, ItemId={itemId ?? "null"}]");
+
+                    if (functionCallId is not null)
                     {
-                        if (_kernel == null)
+                        if (_tools == null || _tools.Count == 0)
                         {
                             throw new InvalidOperationException(
-                                $"Function '{streamingFinishedUpdate.FunctionName}' was called but kernel is null. " +
-                                "A kernel must be provided when tools are configured in the session.");
+                                $"Function '{functionName}' was called but no tools are registered.");
                         }
 
-                        _logger.LogDebug($"[Executing function: {streamingFinishedUpdate.FunctionName}]");
+                        _logger.LogDebug($"[Executing function: {functionName}]");
 
-                        RealtimeItem functionOutputItem;
+                        RealtimeFunctionCallOutputItem functionOutputItem;
                         try
                         {
-                            functionOutputItem = await KernelToolInvoker.InvokeFunctionAsync(
-                                streamingFinishedUpdate.FunctionName,
-                                streamingFinishedUpdate.FunctionCallId,
-                                streamingFinishedUpdate.ItemId,
+                            functionOutputItem = await ToolInvoker.InvokeFunctionAsync(
+                                functionName,
+                                functionCallId,
+                                funcCallItem.Id,
                                 _functionArgumentBuildersById,
-                                _kernel,
+                                _tools,
+                                _logger,
+                                _bus,
                                 sessionToken);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, $"[Function '{streamingFinishedUpdate.FunctionName}' failed: {ex.Message}]");
-                            
-                            // Return error to model so it can respond appropriately
-                            functionOutputItem = RealtimeItem.CreateFunctionCallOutput(
-                                callId: streamingFinishedUpdate.FunctionCallId,
-                                output: $"Error: {ex.Message}");
+                            _logger.LogError(ex, $"[Function '{functionName}' failed: {ex.Message}]");
+
+                            functionOutputItem = RealtimeItem.CreateFunctionCallOutputItem(
+                                callId: functionCallId,
+                                functionOutput: $"Error: {ex.Message}");
                         }
 
                         await session.AddItemAsync(functionOutputItem, sessionToken);
                     }
-                    else if (streamingFinishedUpdate.MessageContentParts?.Count > 0)
-                    {
-                        
-                    }
                 }
 
                 // Input audio transcription completed (only if whisper transcription is enabled)
-                if (update is InputAudioTranscriptionFinishedUpdate transcriptionUpdate)
+                if (update is RealtimeServerUpdateConversationItemInputAudioTranscriptionCompleted transcriptionUpdate)
                     _logger.LogDebug($"[You said: {transcriptionUpdate.Transcript}]");
 
                 // Response finished
-                if (update is ResponseFinishedUpdate responseFinishedUpdate)
+                if (update is RealtimeServerUpdateResponseDone responseDone)
                 {
                     _waitingForResponse = false;
                     _responseActive = false;
-                    
+
                     // Write any remaining buffered audio
                     lock (_outputAudioLock)
                     {
@@ -392,15 +403,21 @@ public sealed class RealtimeAgent : IDisposable
                     _modelIsSpeaking = false;
                     _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
 
-                    // Log created items for debugging
-                    _logger.LogDebug($"[ResponseFinished: {responseFinishedUpdate.CreatedItems.Count} items created]");
-                    
-                    foreach (var item in responseFinishedUpdate.CreatedItems)
+                    var outputItems = responseDone.Response?.OutputItems ?? [];
+
+                    _logger.LogDebug($"[ResponseDone: {outputItems.Count} items created]");
+
+                    foreach (var item in outputItems)
                     {
-                        _logger.LogDebug($"  - Item: FunctionName={item.FunctionName ?? "null"}, FunctionCallId={item.FunctionCallId ?? "null"}, MessageRole={item.MessageRole}");
+                        if (item is RealtimeFunctionCallItem fc)
+                            _logger.LogDebug($"  - FunctionCall: {fc.FunctionName}, CallId={fc.CallId}");
+                        else if (item is RealtimeMessageItem msg)
+                            _logger.LogDebug($"  - Message: Id={msg.Id}");
+                        else
+                            _logger.LogDebug($"  - Item: {item.GetType().Name}");
                     }
 
-                    if (responseFinishedUpdate.CreatedItems.Any(item => item.FunctionName?.Length > 0))
+                    if (outputItems.OfType<RealtimeFunctionCallItem>().Any())
                     {
                         _logger.LogDebug("[Function calls detected - triggering response...]");
                         _waitingForResponse = true;
@@ -415,8 +432,8 @@ public sealed class RealtimeAgent : IDisposable
                 }
 
                 // Handle errors
-                if (update is RealtimeErrorUpdate errorUpdate)
-                    _logger.LogError($"[Error: {errorUpdate.Message}]");
+                if (update is RealtimeServerUpdateError errorUpdate)
+                    _logger.LogError($"[Error: {errorUpdate.Error?.Message}]");
             }
         }
         catch (OperationCanceledException)
@@ -471,7 +488,7 @@ public sealed class RealtimeAgent : IDisposable
     /// Neither cancellation nor timeout closes the session.
     /// </summary>
     private async Task<RealtimeAgentRunResult> AudioCaptureLoopAsync(
-        RealtimeSession session,
+        RealtimeSessionClient session,
         PvRecorder recorder,
         Speaker speaker,
         SileroVadDetector vadDetector,
@@ -680,6 +697,14 @@ public sealed class RealtimeAgent : IDisposable
         return RealtimeAgentRunResult.Cancelled;
     }
 
+    private static string GetItemId(RealtimeItem item) => item switch
+    {
+        RealtimeFunctionCallItem fc => fc.Id,
+        RealtimeFunctionCallOutputItem fco => fco.Id,
+        RealtimeMessageItem msg => msg.Id,
+        _ => null
+    };
+
     private RealtimeClient GetRealtimeConversationClient()
     {
         var apiKey = _options.OpenAiApiKey;
@@ -704,28 +729,36 @@ public sealed class RealtimeAgent : IDisposable
     /// <summary>
     /// Configures a conversation session with standard options (voice, audio format, instructions, tools).
     /// </summary>
-    private async Task ConfigureSessionAsync(RealtimeSession session, CancellationToken cancellationToken)
+    private async Task ConfigureSessionAsync(RealtimeSessionClient session, CancellationToken cancellationToken)
     {
-        var sessionOptions = new ConversationSessionOptions()
+        var sessionOptions = new RealtimeConversationSessionOptions()
         {
-            Voice = _options.Voice,
-            InputAudioFormat = RealtimeAudioFormat.Pcm16,
-            OutputAudioFormat = RealtimeAudioFormat.Pcm16,
             Instructions = _options.Instructions,
-            TurnDetectionOptions = TurnDetectionOptions.CreateDisabledTurnDetectionOptions(), // Disable server-side VAD - we handle it locally
-            Temperature = _options.Temperature
+            AudioOptions = new RealtimeConversationSessionAudioOptions
+            {
+                InputAudioOptions = new RealtimeConversationSessionInputAudioOptions
+                {
+                    AudioFormat = new RealtimePcmAudioFormat(),
+                    TurnDetection = null // Disable server-side VAD - we handle it locally
+                },
+                OutputAudioOptions = new RealtimeConversationSessionOutputAudioOptions
+                {
+                    AudioFormat = new RealtimePcmAudioFormat(),
+                    Voice = _options.Voice is not null ? new RealtimeVoice(_options.Voice) : null
+                }
+            }
         };
 
-        if (_kernel != null)
+        if (_tools != null && _tools.Count > 0)
         {
-            foreach (var tool in KernelToolInvoker.ConvertKernelFunctions(_kernel))
+            foreach (var tool in ToolInvoker.ConvertToRealtimeTools(_tools))
             {
-                _logger.LogDebug($"[Adding tool: {tool.Name}: {tool.Description}]");
+                _logger.LogDebug($"[Adding tool: {tool.FunctionName}: {tool.FunctionDescription}]");
                 sessionOptions.Tools.Add(tool);
             }
 
             if (sessionOptions.Tools.Count > 0)
-                sessionOptions.ToolChoice = ConversationToolChoice.CreateAutoToolChoice();
+                sessionOptions.ToolChoice = RealtimeDefaultToolChoice.Auto;
         }
 
         await session.ConfigureConversationSessionAsync(sessionOptions, cancellationToken);

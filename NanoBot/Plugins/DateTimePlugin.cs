@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 
 namespace NanoBot.Plugins.Native;
 
@@ -14,7 +13,7 @@ public sealed class DateTimePlugin
     }
 
     #region Current Time Functions
-    [KernelFunction, Description("Get the current date and time")]
+    [Description("Get the current date and time")]
     public async Task<string> GetCurrentDateTimeAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.Now;
@@ -23,7 +22,7 @@ public sealed class DateTimePlugin
         return result;
     }
 
-    [KernelFunction, Description("Get the current date")]
+    [Description("Get the current date")]
     public async Task<string> GetCurrentDateAsync(CancellationToken cancellationToken = default)
     {
         var today = DateTime.Today;
@@ -32,7 +31,7 @@ public sealed class DateTimePlugin
         return result;
     }
 
-    [KernelFunction, Description("Get the current time")]
+    [Description("Get the current time")]
     public async Task<string> GetCurrentTimeAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.Now;
@@ -41,7 +40,7 @@ public sealed class DateTimePlugin
         return result;
     }
 
-    [KernelFunction, Description("Get the current UTC date and time")]
+    [Description("Get the current UTC date and time")]
     public async Task<string> GetCurrentUtcDateTimeAsync(CancellationToken cancellationToken = default)
     {
         var utcNow = DateTime.UtcNow;
@@ -52,7 +51,7 @@ public sealed class DateTimePlugin
     #endregion
     
     #region Date Calculation Functions
-    [KernelFunction, Description("Add days to a date")]
+    [Description("Add days to a date")]
     public async Task<string> AddDaysAsync(
         [Description("Date string")] string dateString,
         [Description("Number of days to add (can be negative)")] int days,
@@ -79,7 +78,7 @@ public sealed class DateTimePlugin
         }
     }
 
-    [KernelFunction, Description("Add hours to a date")]
+    [Description("Add hours to a date")]
     public async Task<string> AddHoursAsync(
         [Description("Date string")] string dateString,
         [Description("Number of hours to add (can be negative)")] int hours,
@@ -106,7 +105,7 @@ public sealed class DateTimePlugin
         }
     }
 
-    [KernelFunction, Description("Add minutes to a date")]
+    [Description("Add minutes to a date")]
     public async Task<string> AddMinutesAsync(
         [Description("Date string")] string dateString,
         [Description("Number of minutes to add (can be negative)")] int minutes,
@@ -133,7 +132,7 @@ public sealed class DateTimePlugin
         }
     }
 
-    [KernelFunction, Description("Calculate the difference between two dates in days")]
+    [Description("Calculate the difference between two dates in days")]
     public async Task<string> GetDaysDifferenceAsync(
         [Description("First date string")] string date1String,
         [Description("Second date string")] string date2String,
@@ -166,7 +165,7 @@ public sealed class DateTimePlugin
     #endregion
 
     #region Date Information Functions
-    [KernelFunction, Description("Get the day of the week for a date")]
+    [Description("Get the day of the week for a date")]
     public async Task<string> GetDayOfWeekAsync(
         [Description("Date string")] string dateString,
         CancellationToken cancellationToken = default)
@@ -192,7 +191,7 @@ public sealed class DateTimePlugin
         }
     }
 
-    [KernelFunction, Description("Check if a year is a leap year")]
+    [Description("Check if a year is a leap year")]
     public async Task<string> IsLeapYearAsync(
         [Description("Year to check")] int year,
         CancellationToken cancellationToken = default)
@@ -211,7 +210,7 @@ public sealed class DateTimePlugin
         }
     }
 
-    [KernelFunction, Description("Get the number of days in a specific month")]
+    [Description("Get the number of days in a specific month")]
     public async Task<string> GetDaysInMonthAsync(
         [Description("Year")] int year,
         [Description("Month (1-12)")] int month,
@@ -238,7 +237,7 @@ public sealed class DateTimePlugin
     #endregion
 
     #region Time Zone Functions
-    [KernelFunction, Description("Convert a date from one time zone to another")]
+    [Description("Convert a date from one time zone to another")]
     public async Task<string> ConvertTimeZoneAsync(
         [Description("Date and time string")] string dateTimeString,
         [Description("Source time zone (e.g., 'UTC', 'Eastern Standard Time')")] string sourceTimeZone,

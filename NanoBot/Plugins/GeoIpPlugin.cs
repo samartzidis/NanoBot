@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 using System.Text.Json;
 
 namespace NanoBot.Plugins.Native;
@@ -29,7 +28,7 @@ public sealed class GeoIpPlugin
     }
 
     #region Current Location Functions
-    [KernelFunction, Description("Get current location details")]
+    [Description("Get current location details")]
     public async Task<string> GetCurrentLocationAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -53,7 +52,7 @@ public sealed class GeoIpPlugin
         }
     }
 
-    [KernelFunction, Description("Get detailed current location information")]
+    [Description("Get detailed current location information")]
     public async Task<string> GetDetailedCurrentLocationAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -79,7 +78,7 @@ public sealed class GeoIpPlugin
         }
     }
 
-    [KernelFunction, Description("Get current country")]
+    [Description("Get current country")]
     public async Task<string> GetCurrentCountryAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -97,7 +96,7 @@ public sealed class GeoIpPlugin
         }
     }
 
-    [KernelFunction, Description("Get current coordinates (latitude and longitude)")]
+    [Description("Get current coordinates (latitude and longitude)")]
     public async Task<string> GetCurrentCoordinatesAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -117,7 +116,7 @@ public sealed class GeoIpPlugin
         }
     }
 
-    [KernelFunction, Description("Get current ISP (Internet Service Provider)")]
+    [Description("Get current ISP (Internet Service Provider)")]
     public async Task<string> GetCurrentIspAsync(CancellationToken cancellationToken = default)
     {
         try

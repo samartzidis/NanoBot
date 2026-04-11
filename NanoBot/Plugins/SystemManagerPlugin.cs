@@ -1,4 +1,3 @@
-using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
 using NanoBot.Services;
@@ -22,19 +21,17 @@ public class SystemManagerPlugin
         _alsaControllerService = alsaControllerService;
     }
 
-    [KernelFunction($"{nameof(NotifyConversationStopRequested)}")]
     [Description(
         "*ALWAYS* call this tool when the user decided to end the conversation by saying any of these (or similar): 'Stop', 'OK, stop', 'OK', 'OK, thanks', 'Bye'.")]
-    public async Task NotifyConversationStopRequested(Kernel kernel)
+    public async Task NotifyConversationStopRequested()
     {
         _logger.LogDebug($"{nameof(NotifyConversationStopRequested)} tool invoked.");
 
         await _systemService.NotifyConversationEnd();
     }
 
-    [KernelFunction($"{nameof(TurnOff)}")]
     [Description("Turns off the system. Only call this tool when you are clearly asked to turn yourself (the system) off.")]
-    public async Task TurnOff(Kernel kernel)
+    public async Task TurnOff()
     {
         _logger.LogDebug($"{nameof(TurnOff)} tool invoked.");
 
@@ -42,9 +39,8 @@ public class SystemManagerPlugin
             ShellExecute("sudo", "shutdown now");
     }
 
-    [KernelFunction($"{nameof(Restart)}")]
     [Description("Restarts the system. Only call this tool when you are clearly asked to restart yourself (the system).")]
-    public async Task Restart(Kernel kernel)
+    public async Task Restart()
     {
         _logger.LogDebug($"{nameof(Restart)} tool invoked.");
 
@@ -52,28 +48,24 @@ public class SystemManagerPlugin
             ShellExecute("sudo", "reboot");
     }
 
-    [KernelFunction($"{nameof(VolumeUp)}")]
     [Description("Increases the playback volume by 1 level (range 0-10). Example: user says 'volume up'.")]
-    public async Task VolumeUp(Kernel kernel)
+    public async Task VolumeUp()
     {
         _logger.LogDebug($"{nameof(VolumeUp)} tool invoked.");
 
         _alsaControllerService.VolumeUp();
     }
 
-    [KernelFunction($"{nameof(VolumeDown)}")]
     [Description("Decreases the playback volume by 1 level (range 0-10). Example: user says 'volume down'.")]
-    public async Task VolumeDown(Kernel kernel)
+    public async Task VolumeDown()
     {
         _logger.LogDebug($"{nameof(VolumeDown)} tool invoked.");
 
         _alsaControllerService.VolumeDown();
     }
 
-    [KernelFunction($"{nameof(SetVolume)}")]
     [Description("Sets the playback volume to a specific level. Volume must be between 1 and 10. Example: user says 'volume 5' etc.")]
     public async Task SetVolume(
-        Kernel kernel,
         [Description("The volume level to set (1-10).")] int volume)
     {
         _logger.LogDebug($"{nameof(SetVolume)} tool invoked with volume: {volume}");
@@ -87,9 +79,8 @@ public class SystemManagerPlugin
         _alsaControllerService.SetPlaybackVolume(volume);
     }
     
-    [KernelFunction($"{nameof(GetPlaybackVolume)}")]
     [Description("Gets the current playback volume level (0-10). Example: user says 'current volume', 'current volume level', 'volume level', etc.")]
-    public async Task<int> GetPlaybackVolume(Kernel kernel)
+    public async Task<int> GetPlaybackVolume()
     {
         _logger.LogDebug($"{nameof(GetPlaybackVolume)} tool invoked.");
         

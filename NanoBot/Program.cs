@@ -6,11 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi;
-using Microsoft.SemanticKernel;
 using NanoBot.Configuration;
 using NanoBot.Events;
 using NanoBot.Extensions;
-using NanoBot.Filters;
 using NanoBot.Services;
 using NanoBot.Util;
 using Serilog;
@@ -109,10 +107,6 @@ public class Program
                     });
                 });
 
-                var kernelBuilder = services.AddKernel();
-                kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, FunctionInvocationLoggingFilter>();
-
-                // Register a base kernel builder configuration
                 services.AddRealtimeConversationAgentFactory();
             })
             .ConfigureWebHostDefaults(webBuilder =>

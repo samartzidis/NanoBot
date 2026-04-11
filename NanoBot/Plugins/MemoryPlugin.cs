@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using NanoBot.Services;
 
@@ -16,7 +15,7 @@ public sealed class MemoryPlugin
         _memoryService = memoryService;
     }
 
-    [KernelFunction, Description("Save a memory with a specific key and content. Use this to remember important information about the user, their preferences, or any facts they want you to remember.")]
+    [Description("Save a memory with a specific key and content. Use this to remember important information about the user, their preferences, or any facts they want you to remember.")]
     public async Task<string> SaveMemoryAsync(
         [Description("A unique key/name for this memory (e.g., 'user_name', 'favorite_color', 'work_schedule')")] string key,
         [Description("The content/information to remember")] string content,
@@ -28,7 +27,7 @@ public sealed class MemoryPlugin
         return result;
     }
 
-    [KernelFunction, Description("Retrieve a specific memory by its key. Use this to recall information you previously saved.")]
+    [Description("Retrieve a specific memory by its key. Use this to recall information you previously saved.")]
     public async Task<string> GetMemoryAsync(
         [Description("The key/name of the memory to retrieve")] string key,
         CancellationToken cancellationToken = default)
@@ -44,7 +43,7 @@ public sealed class MemoryPlugin
         return content;
     }
 
-    [KernelFunction, Description("Get memories that are semantically relevant to the current user prompt. This uses OpenAI embeddings to understand context and find the most relevant memories based on semantic similarity, even if they don't contain exact keywords.")]
+    [Description("Get memories that are semantically relevant to the current user prompt. This uses OpenAI embeddings to understand context and find the most relevant memories based on semantic similarity, even if they don't contain exact keywords.")]
     public async Task<string> GetRelevantMemoriesAsync(
         [Description("The current user prompt or question to find relevant memories for")] string userPrompt,
         [Description("Maximum number of relevant memories to return (default: 5)")] int maxResults = 5,
@@ -68,7 +67,7 @@ public sealed class MemoryPlugin
         return result;
     }
 
-    [KernelFunction, Description("Search for memories using semantic similarity. Use this to find relevant memories when you're not sure of the exact key.")]
+    [Description("Search for memories using semantic similarity. Use this to find relevant memories when you're not sure of the exact key.")]
     public async Task<string> SearchMemoriesAsync(
         [Description("Search query to find relevant memories")] string query,
         [Description("Maximum number of results to return (default: 10)")] int maxResults = 10,
@@ -92,7 +91,7 @@ public sealed class MemoryPlugin
         return result;
     }
 
-    [KernelFunction, Description("Get all saved memories. Use this to see everything you have remembered.")]
+    [Description("Get all saved memories. Use this to see everything you have remembered.")]
     public async Task<string> GetAllMemoriesAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("GetAllMemoriesAsync: Retrieving all memories");
@@ -114,7 +113,7 @@ public sealed class MemoryPlugin
         return result;
     }
 
-    [KernelFunction, Description("Update an existing memory with new content. Use this to modify information you previously saved.")]
+    [Description("Update an existing memory with new content. Use this to modify information you previously saved.")]
     public async Task<string> UpdateMemoryAsync(
         [Description("The key/name of the memory to update")] string key,
         [Description("The new content to replace the existing memory")] string content,
@@ -134,7 +133,7 @@ public sealed class MemoryPlugin
         }
     }
 
-    [KernelFunction, Description("Delete a specific memory by its key. Use this to remove information you no longer need to remember.")]
+    [Description("Delete a specific memory by its key. Use this to remove information you no longer need to remember.")]
     public async Task<string> DeleteMemoryAsync(
         [Description("The key/name of the memory to delete")] string key,
         CancellationToken cancellationToken = default)
@@ -153,7 +152,7 @@ public sealed class MemoryPlugin
         }
     }
 
-    [KernelFunction, Description("Clear all saved memories. Use this with caution as it will permanently delete all remembered information.")]
+    [Description("Clear all saved memories. Use this with caution as it will permanently delete all remembered information.")]
     public async Task<string> ClearAllMemoriesAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("ClearAllMemoriesAsync: Clearing all memories");
@@ -162,7 +161,7 @@ public sealed class MemoryPlugin
         return "All memories have been cleared successfully";
     }
 
-    [KernelFunction, Description("Get memory statistics including total count and most accessed memories.")]
+    [Description("Get memory statistics including total count and most accessed memories.")]
     public async Task<string> GetMemoryStatsAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("GetMemoryStatsAsync: Retrieving memory statistics");

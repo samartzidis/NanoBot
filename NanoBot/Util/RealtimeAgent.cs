@@ -19,6 +19,7 @@ public sealed class RealtimeAgentOptions
     public string OpenAiApiKey { get; set; }
     public string OpenAiEndpoint { get; set; }
     public float? Temperature { get; set; }
+    public float SpeechSpeed { get; set; } = 1.0f;
     public int? ConversationInactivityTimeoutSeconds { get; set; }    
 }
 
@@ -592,17 +593,17 @@ public sealed class RealtimeAgent : IDisposable
                             {
                                 _logger.LogDebug($"[Cancel response failed: {ex.Message}]");
                             }
-                        }
 
-                        if (truncateItemId is not null)
-                        {
-                            try
+                            if (truncateItemId is not null)
                             {
-                                await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning($"[Truncate failed: {ex.Message}]");
+                                try
+                                {
+                                    await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning($"[Truncate failed: {ex.Message}]");
+                                }
                             }
                         }
 
@@ -760,7 +761,8 @@ public sealed class RealtimeAgent : IDisposable
                 OutputAudioOptions = new RealtimeConversationSessionOutputAudioOptions
                 {
                     AudioFormat = new RealtimePcmAudioFormat(),
-                    Voice = _options.Voice is not null ? new RealtimeVoice(_options.Voice) : null
+                    Voice = _options.Voice is not null ? new RealtimeVoice(_options.Voice) : null,
+                    Speed = _options.SpeechSpeed
                 }
             }
         };

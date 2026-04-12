@@ -17,6 +17,7 @@ const agentsUiSchema = {
               { "type": "Control", "scope": "#/properties/WakeWordThreshold" },              
               { "type": "Control", "scope": "#/properties/WakeWordTriggerLevel" },
               { "type": "Control", "scope": "#/properties/SpeechSynthesisVoiceName" },
+              { "type": "Control", "scope": "#/properties/SpeechSpeed" },
              
               { "type": "Control", "scope": "#/properties/CalculatorPluginEnabled" },
               { "type": "Control", "scope": "#/properties/GeoIpPluginEnabled" },

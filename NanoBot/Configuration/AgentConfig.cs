@@ -39,6 +39,11 @@ public class AgentConfig
     [Description($"Speech synthesis voice name. E.g. 'marin'.")]
     public string SpeechSynthesisVoiceName { get; set; } = "marin";
 
+    [Description("Speech speed multiplier (0.25 - 1.5). Lower values slow down speech, higher values speed it up. Defaults to: '1.0'.")]
+    [Range(0.25, 1.5)]
+    [DefaultValue(1.0f)]
+    public float SpeechSpeed { get; set; } = 1.0f;
+
     #region Plugins
     [DisplayName("Calculator Plug-in")]
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]

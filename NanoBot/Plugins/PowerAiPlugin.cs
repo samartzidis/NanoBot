@@ -6,7 +6,7 @@ using OpenAI.Chat;
 
 namespace NanoBot.Plugins.Native;
 
-public sealed class PowerAiPlugin
+public sealed class PowerAIPlugin
 {
     private const int MaxIterations = 10;
 
@@ -24,7 +24,7 @@ public sealed class PowerAiPlugin
     private readonly IReadOnlyList<Microsoft.Extensions.AI.AIFunction> _tools;
     private readonly ChatCompletionOptions _chatOptions;
 
-    public PowerAiPlugin(ILogger<PowerAiPlugin> logger, string apiKey, string model, IReadOnlyList<Microsoft.Extensions.AI.AIFunction> tools)
+    public PowerAIPlugin(ILogger<PowerAIPlugin> logger, string apiKey, string model, IReadOnlyList<Microsoft.Extensions.AI.AIFunction> tools)
     {
         _logger = logger;
         _model = model;

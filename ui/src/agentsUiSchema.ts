@@ -23,7 +23,7 @@ const agentsUiSchema = {
               { "type": "Control", "scope": "#/properties/GeoIpPluginEnabled" },
               { "type": "Control", "scope": "#/properties/WeatherPluginEnabled" },              
               { "type": "Control", "scope": "#/properties/MemoryPluginEnabled" },
-              { "type": "Control", "scope": "#/properties/PowerAiPluginEnabled" },
+              { "type": "Control", "scope": "#/properties/PowerAIPluginEnabled" },
             ]
           }
         }

@@ -62,6 +62,6 @@ public class AgentConfig
 
     [DisplayName("Power AI Plug-in")]
     [Description("Provides access to a powerful chat completion model for complex reasoning, math, grammar corrections, and detailed analysis.")]
-    public bool PowerAiPluginEnabled { get; set; }
+    public bool PowerAIPluginEnabled { get; set; }
     #endregion Plugins
 }

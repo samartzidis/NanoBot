@@ -47,6 +47,10 @@ public class AppConfig
     [Description("Global system instructions for all agents.")]
     public string Instructions { get; set; }
 
+    [DisplayName("Power AI Plug-in Instructions")]
+    [Description("Instructions appended to the main model when the Power AI plug-in is enabled. Guides when and how to delegate to the powerful model.")]
+    public string PowerAIPluginInstructions { get; set; }
+
     [DisplayName("Session Timeout Minutes")]
     [Description("Session timeout in minutes. When the session is idle for this number of minutes, it will be automatically closed. Defaults to: '30'.")]
     [DefaultValue(30)]

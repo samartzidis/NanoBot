@@ -121,33 +121,23 @@ public static class RealtimeConversationAgentFactoryExtensions
             tools.AddRange(CreateToolsFromType<WeatherPlugin>(nameof(WeatherPlugin), sp));
         }
 
-        if (agentConfig.PowerAiPluginEnabled)
+        if (agentConfig.PowerAIPluginEnabled)
         {
             var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
-            logger.LogInformation($"Adding {nameof(PowerAiPlugin)} with model '{appConfig.PowerOpenAiModel}'");
+            logger.LogInformation($"Adding {nameof(PowerAIPlugin)} with model '{appConfig.PowerOpenAiModel}'");
 
-            instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine(
-                $"""
-                    ALWAYS use the {nameof(PowerAiPlugin)} for help before answering when the user question. 
-                    Especially if it involves: 
-                        - complex reasoning
-                        - not very trivial math questions 
-                        - sounds like a riddle
-                        - grammar/sentence corrections
-                        - anything requiring high accuracy
-                    Or when: 
-                        - the user asks you to think hard
-                        - the user thinkgs that you are wrong
-                        - the user asks you to use 'Power AI'
-                    """);
+            if (!string.IsNullOrWhiteSpace(appConfig.PowerAIPluginInstructions))
+            {
+                instructionsBuilder.AppendLine();
+                instructionsBuilder.AppendLine(appConfig.PowerAIPluginInstructions);
+            }
 
-            var powerAiPlugin = new PowerAiPlugin(
-                loggerFactory.CreateLogger<PowerAiPlugin>(),
+            var powerAiPlugin = new PowerAIPlugin(
+                loggerFactory.CreateLogger<PowerAIPlugin>(),
                 appConfig.OpenAiApiKey,
                 appConfig.PowerOpenAiModel,
                 tools.ToList());
-            tools.AddRange(CreateToolsFromObject(powerAiPlugin, nameof(PowerAiPlugin)));
+            tools.AddRange(CreateToolsFromObject(powerAiPlugin, nameof(PowerAIPlugin)));
         }
 
         return tools;

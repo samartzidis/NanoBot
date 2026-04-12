@@ -12,6 +12,7 @@ public sealed class CalculatorPlugin
         _logger = logger;
     }
 
+    /*
     #region Basic Operations
     [Description("Add two numbers")]
     public async Task<double> AddAsync(
@@ -63,7 +64,8 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
     #endregion
-
+    */
+    
     #region List Operations
     [Description("Add a list of numbers")]
     public async Task<double> AddListAsync(
@@ -95,7 +97,7 @@ public sealed class CalculatorPlugin
         _logger.LogInformation("MultiplyListAsync: [{Numbers}] = {Product}", string.Join(", ", numbers), result);
         return result;
     }
-    #endregion
+    #endregion    
 
     #region Power and Root Functions
     [Description("Raise a number to a power")]
@@ -228,6 +230,7 @@ public sealed class CalculatorPlugin
     }
     #endregion
 
+    /*
     #region Angle Conversion
     [Description("Convert degrees to radians")]
     public async Task<double> DegreesToRadiansAsync(
@@ -249,6 +252,7 @@ public sealed class CalculatorPlugin
         return result;
     }
     #endregion
+    */
 
     #region Logarithmic and Exponential Functions
     [Description("Calculate natural logarithm (base e) of a number")]
@@ -318,6 +322,7 @@ public sealed class CalculatorPlugin
     #endregion
 
     #region Additional Mathematical Functions
+    /*
     [Description("Calculate absolute value of a number")]
     public async Task<double> AbsAsync(
         [Description("Number")] double number,
@@ -337,6 +342,7 @@ public sealed class CalculatorPlugin
         _logger.LogInformation("RoundAsync: round({Number}) = {Result}", number, result);
         return result;
     }
+    */
 
     [Description("Round a number to specified decimal places")]
     public async Task<double> RoundToDecimalPlacesAsync(
@@ -349,6 +355,7 @@ public sealed class CalculatorPlugin
         return result;
     }
 
+    /*
     [Description("Get the largest integer less than or equal to the number (floor)")]
     public async Task<double> FloorAsync(
         [Description("Number")] double number,
@@ -368,6 +375,7 @@ public sealed class CalculatorPlugin
         _logger.LogInformation("CeilingAsync: ceiling({Number}) = {Result}", number, result);
         return result;
     }
+    */
 
     [Description("Calculate factorial of a non-negative integer")]
     public async Task<string> FactorialAsync(
@@ -396,6 +404,7 @@ public sealed class CalculatorPlugin
         return result.ToString();
     }
 
+    /*
     [Description("Calculate the remainder when dividing two numbers")]
     public async Task<double> ModuloAsync(
         [Description("Dividend")] double dividend,
@@ -412,8 +421,10 @@ public sealed class CalculatorPlugin
         _logger.LogInformation("ModuloAsync: {Dividend} mod {Divisor} = {Result}", dividend, divisor, result);
         return result;
     }
+    */
     #endregion
 
+    /*
     #region Constants
     [Description("Get the value of Pi (π)")]
     public async Task<double> GetPiAsync(CancellationToken cancellationToken = default)
@@ -429,4 +440,5 @@ public sealed class CalculatorPlugin
         return Math.E;
     }
     #endregion
+    */
 }

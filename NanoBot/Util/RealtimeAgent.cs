@@ -76,6 +76,11 @@ public sealed class RealtimeAgent : IDisposable
     private volatile bool _bargeInTriggered;
     private volatile bool _responseActive;
     
+    // Long-lived audio devices (created once, reused across RunAsync calls)
+    private PvRecorder _recorder;
+    private Speaker _speaker;
+    private SileroVadDetector _vadDetector;
+
     // Barge-in tracking for truncation
     private readonly object _outputAudioLock = new();
     private string _currentStreamingItemId;
@@ -105,6 +110,14 @@ public sealed class RealtimeAgent : IDisposable
         // Get the Realtime client
         _realtimeClient ??= GetRealtimeConversationClient();
 
+        // Lazily create audio devices (reused across RunAsync calls)
+        _recorder ??= PvRecorder.Create(frameLength: FrameLength, deviceIndex: -1);
+        if (_speaker is null)
+            _speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16, meterAction: meterAction);
+        else
+            _speaker.MeterAction = meterAction;
+        _vadDetector ??= new SileroVadDetector(VadSampleRate);
+
         // Start a new conversation session
         if (_session is null)
         {
@@ -122,17 +135,13 @@ public sealed class RealtimeAgent : IDisposable
             _logger.LogDebug("Session configured.");
         }
 
-        using var recorder = PvRecorder.Create(frameLength: FrameLength, deviceIndex: -1);
-        using var speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16, meterAction: meterAction);
-        using var vadDetector = new SileroVadDetector(VadSampleRate);
-        
         // Set current speaker for receive task to use
         lock (_speakerLock)
         {
-            _currentSpeaker = speaker;
+            _currentSpeaker = _speaker;
         }
 
-        _logger.LogDebug($"Using microphone: {recorder.SelectedDevice}");
+        _logger.LogDebug($"Using microphone: {_recorder.SelectedDevice}");
 
         // Check if the receive task completed unexpectedly (WebSocket closed)
         // If so, the session is dead and we need to reconnect
@@ -160,7 +169,7 @@ public sealed class RealtimeAgent : IDisposable
         stateUpdateAction?.Invoke(StateUpdate.Ready);
 
         // Start the conversation loop (audio capture)
-        var result = await AudioCaptureLoopAsync(_session, recorder, speaker, vadDetector, cancellationToken);
+        var result = await AudioCaptureLoopAsync(_session, _recorder, _speaker, _vadDetector, cancellationToken);
 
         // Clear speaker reference when exiting
         lock (_speakerLock)
@@ -225,9 +234,17 @@ public sealed class RealtimeAgent : IDisposable
 
         _sessionCts?.Dispose();
 
+        // Dispose long-lived audio devices
+        _vadDetector?.Dispose();
+        _speaker?.Dispose();
+        _recorder?.Dispose();
+
         _session = null;
         _sessionCts = null;
         _receiveTask = null;
+        _vadDetector = null;
+        _speaker = null;
+        _recorder = null;
     }
 
     /// <summary>
@@ -739,7 +756,6 @@ public sealed class RealtimeAgent : IDisposable
                 InputAudioOptions = new RealtimeConversationSessionInputAudioOptions
                 {
                     AudioFormat = new RealtimePcmAudioFormat(),
-                    TurnDetection = null // Disable server-side VAD - we handle it locally
                 },
                 OutputAudioOptions = new RealtimeConversationSessionOutputAudioOptions
                 {
@@ -748,6 +764,12 @@ public sealed class RealtimeAgent : IDisposable
                 }
             }
         };
+
+        // Disable server-side VAD so only our local Silero VAD controls turn detection.
+        // Setting TurnDetection = null does NOT work - the serializer omits the field entirely,
+        // causing the server to use its default (VAD enabled). DisableTurnDetection() uses the
+        // SDK's JsonPatch to explicitly send "turn_detection": null in the JSON payload.
+        sessionOptions.AudioOptions.InputAudioOptions.DisableTurnDetection();
 
         if (_tools != null && _tools.Count > 0)
         {

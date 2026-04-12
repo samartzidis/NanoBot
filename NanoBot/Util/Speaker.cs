@@ -28,7 +28,7 @@ public class Speaker : IDisposable
 
     private LevelMeterAnalyzer _levelMeterAnalyzer;
     private Timer _meterTimer;
-    private readonly Action<byte> _meterAction;
+    private Action<byte> _meterAction;
     private const int MeterUpdateIntervalMs = 100; // Update 10 times per second
 
     // PCM normalization divisors: convert signed integer samples to -1.0 to 1.0 float range
@@ -80,6 +80,15 @@ public class Speaker : IDisposable
         _engine = new MiniAudioEngine(preferredBackends);
 
         _meterAction = meterAction;
+    }
+
+    /// <summary>
+    /// Gets or sets the meter action callback. Can be updated between Start/Stop cycles.
+    /// </summary>
+    public Action<byte> MeterAction
+    {
+        get => _meterAction;
+        set => _meterAction = value;
     }
 
     /// <summary>

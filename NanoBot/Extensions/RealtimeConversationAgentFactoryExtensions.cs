@@ -91,16 +91,6 @@ public static class RealtimeConversationAgentFactoryExtensions
             tools.AddRange(CreateToolsFromType<CalculatorPlugin>(nameof(CalculatorPlugin), sp));
         }
 
-        if (agentConfig.DateTimePluginEnabled)
-        {
-            logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
-
-            instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine($"ALWAYS use the {nameof(DateTimePlugin)} for date and time information.");
-
-            tools.AddRange(CreateToolsFromType<DateTimePlugin>(nameof(DateTimePlugin), sp));
-        }
-
         if (agentConfig.GeoIpPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(GeoIpPlugin)}");

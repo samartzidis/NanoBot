@@ -44,10 +44,6 @@ public class AgentConfig
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]
     public bool CalculatorPluginEnabled { get; set; }
 
-    [DisplayName("DateTime Plug-in")]
-    [Description("Provides functions for date and time operations, formatting, and calculations.")]
-    public bool DateTimePluginEnabled { get; set; }
-
     [DisplayName("GeoIP Plug-in")]
     [Description("Provides functions to retrieve current location details based on IP address.")]
     public bool GeoIpPluginEnabled { get; set; }

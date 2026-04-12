@@ -10,7 +10,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>1701;1702;1998;CS1591;SKEXP0050;SKEXP0101;SKEXP0101;SKEXP0110;SKEXP0001;OPENAI001;OPENAI002;SKEXP0010;SKEXP0020</NoWarn>
+    <NoWarn>1701;1702;1998;CS1591;SKEXP0050;SKEXP0001;OPENAI001;OPENAI002;SKEXP0010;SKEXP0020</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,10 +29,6 @@
     <PackageReference Include="DataAnnotationsValidator.NETCore" Version="1.0.3" />
     <PackageReference Include="PvRecorder" Version="1.2.13" />    
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.70.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.70.0" />
-    <PackageReference Include="Microsoft.SemanticKernel.Agents.OpenAI" Version="1.70.0-preview" />
-    <PackageReference Include="Microsoft.SemanticKernel.Plugins.Core" Version="1.70.0-preview" />
-    <PackageReference Include="Microsoft.SemanticKernel.Yaml" Version="1.70.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.70.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />   
     <PackageReference Include="System.Device.Gpio" Version="4.1.0" />

@@ -1,13 +1,13 @@
 # NanoBot
 <img src="logo.png" alt="NanoBot Logo" height="240"/>
 
-**NanoBot** is a free, Raspberry Pi powered **real-time** AI chat robot. It is ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
+**NanoBot** is a Raspberry Pi powered **real-time** AI chat robot ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
-Its focus on real-time aspects, allows it to keep a highly responsive live conversational experience with the user. It allows user interruptions (barge-in) while the robot is still speaking and maintaining the correct live conversation state context.
+It has strong "real-time" interactive capabilities. It maintains a highly responsive live conversational experience with the user. It can be interrupted (barge-in) while speaking and still maintain the correct live conversation state context.
 
-It is optimised to run efficiently on the little CPU and RAM resources of the `Raspberry Pi Zero 2 W`, but can also run on desktop (Windows and Linux) for testing and evaluation. It requires a 64-bit ARM CPU so it will not run on the less capable Pi Zero 1, Pi 1 and Pi 2 devices.
+It is optimised to run efficiently on the little CPU and RAM resources of the `Raspberry Pi Zero 2 W`, but can also run on desktop (Windows and Linux) for testing and development. Note that it requires a 64-bit ARM CPU so it will not run on the less capable Pi Zero 1, Pi 1 and Pi 2 devices.
 
-Its basic core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token. It uses the custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
+Its core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token. It uses the custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
 
 <a href="image-0.png"><img src="image-0.png" height="320" /></a> <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> 
 
@@ -21,19 +21,34 @@ https://github.com/user-attachments/assets/f00467bd-f123-4fde-8da9-e328a8ddb24d
 
 ## Features
 
+### Local Wake-Word Engine
+
 It is activated by configurable wake words or the *talk/hangup* button on its head. 
 
 The wake-word AI engine **runs 100% locally** on the CPU (without sending anything over the Internet, for privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot. 
 
+### Local VAD Engine
+
+It uses the fully local enterprise-grade [Silero](https://github.com/snakers4/silero-vad) Voice Activity Detection (VAD) engine before sending voice data to OpenAI. This achieves better privacy and more efficient token usage.
+
+### Dual AI Models
+
+It uses a "realtime" OpenAI model for efficiant user interaction and regular user tasks while it also employes a selectively activated more powerful OpenAI model for assisting in demanding tasks (via the optional PowerAI plugin).
+
+### Self-Controlled RGB-led Eyes
+
 It self-controls its 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface, based on its status and current interaction with the user.
 
-NanoBot has tool capabilities such as: 
-- A RAG memory tool for persistent semantic memory.
-- Knowing about the current date and time.
-- Live weather and GeoIP-based location awareness.
-- A scientific calculator tool (for math operations).
-- Controls its eyes colour and responds to various user commands such as: "turn off", "restart", "volume up/down", "volume 8" (ranging from 0-10), etc.
-- A simple Web configuration page for configuring it remotely from a mobile phone etc.
+### Other Features
+
+Optional plugin-based capabilities such as: 
+- Persistent memory (RAG memory plugin).
+- Live weather and GeoIP-based location awareness plugin.
+- A scientific calculator plugin (for math operations).
+
+Controls its eyes colour and responds to various user commands such as: "turn off", "restart", "volume up/down", "volume 8" (ranging from 0-10), etc.
+
+Offers a Web configuration page for configuring it remotely from a mobile phone etc.
 
 ## Operation
 

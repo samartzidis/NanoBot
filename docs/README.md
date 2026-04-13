@@ -7,7 +7,7 @@ Its focus on real-time aspects, allows it to keep a highly responsive live conve
 
 It is optimised to run efficiently on the little CPU and RAM resources of the `Raspberry Pi Zero 2 W`, but can also run on desktop (Windows and Linux) for testing and evaluation. It requires a 64-bit ARM CPU so it will not run on the less capable Pi Zero 1, Pi 1 and Pi 2 devices.
 
-Its basic core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token. It uses the [Semantic Kernel](https://learn.microsoft.com/en-us/semantic-kernel/overview/) engine with custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
+Its basic core AI capability is provided by the [OpenAI Platform](https://platform.openai.com/) so it requires an OpenAI user account and an associated API key token. It uses the custom plug-ins to enhance its AI capabilities and also the [ONNX](https://onnxruntime.ai/) engine with local AI inference models for fully offline wake-word detection and fully offline voice detection (VAD).
 
 <a href="image-0.png"><img src="image-0.png" height="320" /></a> <a href="image-8.png"><img src="image-8.png" height="320" title="Model" /></a> 
 

@@ -25,15 +25,15 @@ https://github.com/user-attachments/assets/f00467bd-f123-4fde-8da9-e328a8ddb24d
 
 It is activated by configurable wake words or the *talk/hangup* button on its head. 
 
-The wake-word AI engine **runs 100% locally** on the CPU (without sending anything over the Internet, for privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot. 
+The wake-word AI engine runs locally on the CPU (for privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot. 
 
 ### Local VAD Engine
 
-It uses the fully local enterprise-grade [Silero](https://github.com/snakers4/silero-vad) Voice Activity Detection (VAD) engine before sending voice data to OpenAI. This achieves better privacy and more efficient token usage.
+It also uses the local enterprise-grade [Silero](https://github.com/snakers4/silero-vad) Voice Activity Detection (VAD) engine before sending any voice data to OpenAI. This further enhances privacy and token efficiency.
 
-### Dual AI Models
+### Dual AI Model Feature
 
-It uses a "realtime" OpenAI model for efficiant user interaction and regular user tasks while it also employes a selectively activated more powerful OpenAI model for assisting in demanding tasks (via the optional PowerAI plugin).
+It uses a realtime-class model for allowing highly responsive user interaction, while it also employs a - selectively self-activated - powerful flagship model (e.g. GPT-5.4) for assisting in demanding tasks (via the optional PowerAI plugin).
 
 ### Self-Controlled RGB-led Eyes
 

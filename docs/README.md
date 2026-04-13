@@ -23,8 +23,6 @@ https://github.com/user-attachments/assets/f00467bd-f123-4fde-8da9-e328a8ddb24d
 
 ### 100% Local Wake-Word Engine
 
-It is activated by configurable wake words or the *talk/hangup* button on its head. 
-
 The wake-word AI engine runs locally on the CPU (for privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot. 
 
 ### 100% Local Enterprise-Grade VAD Engine
@@ -51,6 +49,8 @@ Controls its eyes colour and responds to various user commands such as: "turn of
 Offers a Web configuration page for configuring it remotely from a mobile phone etc.
 
 ## Operation
+
+It is activated by user configurable wake words or by pressing the *talk/hangup* button on its head. 
 
 #### Eye Colours Legend
 

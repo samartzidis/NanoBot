@@ -1,7 +1,7 @@
 # NanoBot
 <img src="logo.png" alt="NanoBot Logo" height="240"/>
 
-**NanoBot** is a Raspberry Pi powered **real-time** AI chat robot ideal for **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
+**NanoBot** is a Raspberry Pi powered **real-time** AI chat robot ideal for children and **teaching assistance**. It can answer or help clarify challenging questions on a wide range of subjects and serve as a live encyclopedia. 
 
 It has strong "real-time" interactive capabilities. It maintains a highly responsive live conversational experience with the user. It can be interrupted (barge-in) while speaking and still maintain the correct live conversation state context.
 

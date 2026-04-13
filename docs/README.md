@@ -33,7 +33,7 @@ It uses the local enterprise-grade [Silero](https://github.com/snakers4/silero-v
 
 It uses a realtime-class model for allowing highly responsive user interaction, while it also employs a - selectively self-activated - powerful flagship model (e.g. GPT-5.4) for assisting in demanding tasks (via the optional PowerAI plugin).
 
-### Self-Controlled RGB-led Eyes
+### Self-Controlled RGB-LED Eyes
 
 It self-controls its 2 RGB LEDs for changing eye colours via the Raspberry Pi *GPIO* interface, based on its status and current interaction with the user.
 

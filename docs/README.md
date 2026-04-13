@@ -21,11 +21,11 @@ https://github.com/user-attachments/assets/f00467bd-f123-4fde-8da9-e328a8ddb24d
 
 ## Features
 
-### 100% Local Wake-Word Engine
+### Fully Local Wake-Word Engine
 
 The wake-word AI engine runs locally on the CPU (for privacy). It includes a set of preconfigured, selectable wake-words (alexa, hey_jarvis, hey_marvin, hey_mycroft) as part of the [NanoWakeWord](https://github.com/samartzidis/NanoWakeWord) engine that was especially developed for NanoBot. 
 
-### 100% Local Enterprise-Grade VAD Engine
+### Fully Local Enterprise-Grade VAD Engine
 
 It uses the local enterprise-grade [Silero](https://github.com/snakers4/silero-vad) Voice Activity Detection (VAD) engine before sending any potential user voice data to OpenAI. This further enhances privacy and also token efficiency.
 

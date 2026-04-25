@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -10,7 +10,9 @@ import {
   Alert,
   CircularProgress,
   Chip,
-  Paper
+  Paper,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -21,8 +23,6 @@ import {
 } from '@mui/icons-material';
 import { apiBaseUrl } from '../config';
 
-// Simplified - just store raw log lines as strings
-
 interface LogsResponse {
   fileName: string | null;
   lines: string[];
@@ -32,6 +32,41 @@ interface LogsResponse {
   newPosition: number;
 }
 
+const SEVERITIES = ['Verbose', 'Debug', 'Information', 'Warning', 'Error', 'Fatal'] as const;
+type Severity = typeof SEVERITIES[number] | 'Other';
+
+const SEVERITY_COLORS: Record<Severity, string> = {
+  Verbose: '#6c757d',
+  Debug: '#0d6efd',
+  Information: '#198754',
+  Warning: '#b8860b',
+  Error: '#dc3545',
+  Fatal: '#6f1d1b',
+  Other: '#000000'
+};
+
+interface LogEntry {
+  severity: Severity;
+  lines: string[];
+}
+
+const SEVERITY_REGEX = /\[(Verbose|Debug|Information|Warning|Error|Fatal)\]/;
+
+function parseLogEntries(lines: string[]): LogEntry[] {
+  const entries: LogEntry[] = [];
+  for (const line of lines) {
+    const match = line.match(SEVERITY_REGEX);
+    if (match) {
+      entries.push({ severity: match[1] as Severity, lines: [line] });
+    } else if (entries.length > 0) {
+      entries[entries.length - 1].lines.push(line);
+    } else {
+      entries.push({ severity: 'Other', lines: [line] });
+    }
+  }
+  return entries;
+}
+
 const LogsConfig: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [isPolling, setIsPolling] = useState(false);
@@ -39,13 +74,38 @@ const LogsConfig: React.FC = () => {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [enabledSeverities, setEnabledSeverities] = useState<Set<Severity>>(
+    () => new Set<Severity>([...SEVERITIES, 'Other'])
+  );
   
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const lastPositionRef = useRef<number>(0);
   const lastFileNameRef = useRef<string | null>(null);
 
-  // No parsing needed - just use raw lines
+  const entries = useMemo(() => parseLogEntries(logs), [logs]);
+
+  const severityCounts = useMemo(() => {
+    const counts: Record<Severity, number> = {
+      Verbose: 0, Debug: 0, Information: 0, Warning: 0, Error: 0, Fatal: 0, Other: 0
+    };
+    for (const entry of entries) counts[entry.severity]++;
+    return counts;
+  }, [entries]);
+
+  const filteredEntries = useMemo(
+    () => entries.filter(e => enabledSeverities.has(e.severity)),
+    [entries, enabledSeverities]
+  );
+
+  const toggleSeverity = (severity: Severity) => {
+    setEnabledSeverities(prev => {
+      const next = new Set(prev);
+      if (next.has(severity)) next.delete(severity);
+      else next.add(severity);
+      return next;
+    });
+  };
 
   const fetchLogs = async (lastPosition: number = 0): Promise<LogsResponse | null> => {
     try {
@@ -147,12 +207,12 @@ const LogsConfig: React.FC = () => {
   };
 
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll to bottom when new logs arrive (after filtering)
   useEffect(() => {
     if (autoScroll) {
       scrollToBottom();
     }
-  }, [logs, autoScroll]);
+  }, [filteredEntries, autoScroll]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -237,6 +297,48 @@ const LogsConfig: React.FC = () => {
               />
             )}
           </Stack>
+
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+              Severity:
+            </Typography>
+            {([...SEVERITIES, 'Other'] as Severity[]).map((sev) => (
+              <FormControlLabel
+                key={sev}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={enabledSeverities.has(sev)}
+                    onChange={() => toggleSeverity(sev)}
+                    sx={{
+                      color: SEVERITY_COLORS[sev],
+                      '&.Mui-checked': { color: SEVERITY_COLORS[sev] },
+                      py: 0.25
+                    }}
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ color: SEVERITY_COLORS[sev] }}>
+                    {sev} ({severityCounts[sev]})
+                  </Typography>
+                }
+                sx={{ mr: 0, ml: 0 }}
+              />
+            ))}
+            <Box sx={{ flexGrow: 1 }} />
+            <Button
+              size="small"
+              onClick={() => setEnabledSeverities(new Set<Severity>([...SEVERITIES, 'Other']))}
+            >
+              All
+            </Button>
+            <Button
+              size="small"
+              onClick={() => setEnabledSeverities(new Set<Severity>())}
+            >
+              None
+            </Button>
+          </Stack>
         </CardContent>
       </Card>
 
@@ -245,7 +347,8 @@ const LogsConfig: React.FC = () => {
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">
-              Logs ({logs.length})
+              Logs ({filteredEntries.length}
+              {filteredEntries.length !== entries.length ? ` of ${entries.length}` : ''})
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               <Button
@@ -294,24 +397,25 @@ const LogsConfig: React.FC = () => {
                 color: '#000000',
                 fontFamily: 'monospace',
                 fontSize: '0.875rem',
-                lineHeight: 1.4
+                lineHeight: 1.2,
+                p: 1
               }}
             >
-              {logs.map((log, index) => (
-                <Box key={index} sx={{ p: 1 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ 
-                      wordBreak: 'break-word',
-                      whiteSpace: 'pre-wrap',
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      lineHeight: 1.4,
-                      color: '#000000'
-                    }}
-                  >
-                    {log}
-                  </Typography>
+              {filteredEntries.map((entry, entryIdx) => (
+                <Box
+                  key={entryIdx}
+                  sx={{
+                    px: 1,
+                    py: 0,
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace',
+                    fontSize: '0.875rem',
+                    lineHeight: 1.2,
+                    color: SEVERITY_COLORS[entry.severity]
+                  }}
+                >
+                  {entry.lines.join('\n')}
                 </Box>
               ))}
               <div ref={logsEndRef} />

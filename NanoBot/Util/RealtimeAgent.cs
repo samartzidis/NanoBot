@@ -68,15 +68,24 @@ public sealed class RealtimeAgent : IDisposable
     // Session CTS is independent - only cancelled on dispose, not on RunAsync cancellation
     private CancellationTokenSource _sessionCts;
 
-    // Shared state between receive task and audio loop
+    // Shared state between receive task and audio loop. _currentSpeaker is where receive-side
+    // audio is written to; null during audio-device transitions and outside of RunAsync.
     private Speaker _currentSpeaker;
+
+    // True between the start of RunAsync's audio-capture loop and the finally that tears it down.
+    // Used by FaultSession to distinguish a real user-visible failure (true => publish
+    // SystemErrorEvent for red eyes) from a background session ending while we're idle waiting
+    // for the next wake word (false => suppress the event so the eyes don't get stuck red).
+    // Set/cleared inside _speakerLock to keep its publication ordered with _currentSpeaker.
+    private volatile bool _runActive;
     private volatile bool _modelIsSpeaking;
-    private volatile bool _waitingForResponse;
-    private DateTime _responseRequestedAtUtc;
-    private volatile Action<StateUpdate> _stateUpdateAction;
+    private volatile bool _waitingForResponse;        
     private volatile bool _bargeInTriggered;
     private volatile bool _responseActive;
     
+    private volatile Action<StateUpdate> _stateUpdateAction;
+    private DateTime _responseRequestedAtUtc;
+
     // Long-lived audio devices (created once, reused across RunAsync calls)
     private PvRecorder _recorder;
     private Speaker _speaker;
@@ -136,10 +145,12 @@ public sealed class RealtimeAgent : IDisposable
             _logger.LogDebug("Session configured.");
         }
 
-        // Set current speaker for receive task to use
+        // Set current speaker for receive task to use, and mark the run as active so
+        // FaultSession knows a user-facing call is in progress.
         lock (_speakerLock)
         {
             _currentSpeaker = _speaker;
+            _runActive = true;
         }
 
         _logger.LogDebug($"Using microphone: {_recorder.SelectedDevice}");
@@ -184,12 +195,24 @@ public sealed class RealtimeAgent : IDisposable
             lock (_speakerLock)
             {
                 _currentSpeaker = null;
+                _runActive = false;
             }
 
-            // Defensively observe any receive-task fault to avoid leaving an unobserved task
-            // exception when the audio loop itself threw (and we never reached the await below).
+            // Observe and log any receive-task fault. This serves two purposes:
+            //   1. Prevents an unobserved task exception leak when the audio loop itself threw
+            //      (in which case we never reach the `await _receiveTask` below).
+            //   2. Surfaces the receive-side root cause - the receive task is usually the FIRST
+            //      to see a server-side WebSocket close, while the audio loop only sees the
+            //      second-order symptom (e.g. WebSocketException with State='Aborted'). Without
+            //      this log we'd lose visibility into the original I/O failure.
             if (_receiveTask is { IsCompleted: true, IsFaulted: true })
-                _ = _receiveTask.Exception;
+            {
+                var receiveError = _receiveTask.Exception?.GetBaseException();
+                if (receiveError is not null)
+                    _logger.LogWarning($"[Receive task faulted: {receiveError.GetType().Name}: {receiveError.Message}]");
+                else
+                    _ = _receiveTask.Exception; // belt-and-braces: still mark observed
+            }
         }
 
         // If the receive task faulted (Realtime API error or unexpected stream end), rethrow its
@@ -470,9 +493,10 @@ public sealed class RealtimeAgent : IDisposable
                     }
                 }
 
-                // Handle errors - surface to the user (red eyes), stop the session, and throw so
-                // that this task faults. RunAsync observes the fault and rethrows, letting
-                // SystemService dispose + recreate the agent.
+                // Explicit Realtime API error (quota exceeded, auth failure, malformed request,
+                // etc.). This is always a real, user-visible failure - surface to the user (red
+                // eyes via FaultSession) and throw so this task faults. RunAsync observes the
+                // fault and rethrows, letting SystemService dispose + recreate the agent.
                 if (update is RealtimeServerUpdateError errorUpdate)
                 {
                     var msg = errorUpdate.Error?.Message ?? "Unknown Realtime API error";
@@ -482,11 +506,14 @@ public sealed class RealtimeAgent : IDisposable
                 }
             }
 
-            // The receive stream ended without us cancelling and without an explicit error update
-            // (e.g. the server closed the WebSocket on a fatal condition). Treat as a session
-            // error so it surfaces instead of silently leaving the session dead.
+            // The receive stream ended cleanly without us cancelling and without an explicit
+            // error update. Common causes: server-side max session duration reached, idle
+            // timeout, or backend rotation. Treat as a session end so the existing reconnect
+            // path engages on the next RunAsync. FaultSession decides whether the user actually
+            // sees red eyes - only when a RunAsync is currently active (mid-conversation).
             if (!sessionToken.IsCancellationRequested)
             {
+                _logger.LogWarning("[Receive stream ended without explicit error update - treating as session end.]");
                 FaultSession();
                 throw new InvalidOperationException("Realtime session ended unexpectedly.");
             }
@@ -495,24 +522,58 @@ public sealed class RealtimeAgent : IDisposable
         {
             // Normal cancellation (Dispose / FaultSession after we already published the event).
         }
-        // No general catch (Exception) - any other receive-side exception faults the task and
-        // is observed by RunAsync. Wake up the audio loop first via FaultSession.
+        // No general catch (Exception) - any other receive-side exception (e.g. WebSocketException
+        // when the server abruptly closes the connection) faults the task. RunAsync's finally
+        // observes and logs the fault; the audio loop's next operation will typically also fail
+        // with State='Aborted' which is what reaches SystemService for the user-facing recovery.
     }
 
     /// <summary>
     /// Side-effect helper invoked when the realtime session is determined to be dead from the
-    /// receive task's side. Publishes <see cref="SystemErrorEvent"/> for immediate user feedback
-    /// and cancels the session CTS to wake up the linked audio capture loop.
+    /// receive task's side.
+    ///
+    /// Behaviour depends on <see cref="_runActive"/>:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b>Active conversation</b> (<c>_runActive == true</c>): publish
+    /// <see cref="SystemErrorEvent"/> for immediate user feedback (red eyes), and cancel the
+    /// session CTS so the linked audio capture loop unblocks and unwinds. RunAsync then observes
+    /// the receive task fault and rethrows, which triggers SystemService to dispose + recreate
+    /// the agent.
+    /// </description></item>
+    /// <item><description>
+    /// <b>Idle</b> (<c>_runActive == false</c>, e.g. the session was being kept alive in the
+    /// background while waiting for the next wake word): do NOT publish SystemErrorEvent - this
+    /// is not a user-visible failure. If we did publish it, the eyes would stay red until the
+    /// next wake word activation since SystemService only republishes <c>SystemOkEvent</c> at
+    /// the top of each main-loop iteration. Still cancel the session CTS so any in-flight
+    /// reads/writes give up promptly. The receive task will fault, the next RunAsync invocation
+    /// observes <c>_receiveTask.IsCompleted</c> and silently reconnects via
+    /// <c>ResetSessionAsync</c>.
+    /// </description></item>
+    /// </list>
+    ///
+    /// The actual error message is propagated through the receive task's Task.Exception, not
+    /// through shared state.
     /// </summary>
     private void FaultSession()
     {
-        try
+        if (_runActive)
         {
-            _bus.Publish<SystemErrorEvent>(this);
+            try
+            {
+                _bus.Publish<SystemErrorEvent>(this);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"[FaultSession publish failed: {ex.Message}]");
+            }
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogDebug($"[FaultSession publish failed: {ex.Message}]");
+            // Background session end while idle - suppress the user-visible event but keep a
+            // breadcrumb so the log narrates what happened.
+            _logger.LogDebug("[FaultSession: no active RunAsync - suppressing SystemErrorEvent (background session end). Will reconnect on next wake word.]");
         }
 
         try

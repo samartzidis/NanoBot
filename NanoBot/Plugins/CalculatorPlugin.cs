@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using Microsoft.Extensions.Logging;
 
-namespace NanoBot.Plugins.Native;
+namespace NanoBot.Plugins;
 
 public sealed class CalculatorPlugin
 {

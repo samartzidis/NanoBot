@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi;
 using NanoBot.Configuration;
 using NanoBot.Events;
-using NanoBot.Extensions;
 using NanoBot.Services;
 using NanoBot.Util;
 using Serilog;
@@ -103,7 +102,7 @@ public class Program
                     });
                 });
 
-                services.AddRealtimeConversationAgentFactory();
+                services.AddSingleton<IRealtimeAgentFactory, RealtimeAgentFactory>();
             })
             .ConfigureWebHostDefaults(webBuilder =>
             {

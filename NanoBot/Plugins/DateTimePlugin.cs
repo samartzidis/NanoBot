@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 
-namespace NanoBot.Plugins.Native;
+namespace NanoBot.Plugins;
 
 public sealed class DateTimePlugin
 {

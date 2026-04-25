@@ -707,17 +707,6 @@ public sealed class RealtimeAgent : IDisposable
 
                         ClearSpeakerSafe(); // Clear buffered audio immediately
 
-                        //try
-                        //{
-                        //    await session.CancelResponseAsync(cancellationToken);
-
-                        //    await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
-                        //}
-                        //catch (Exception ex)
-                        //{
-                        //    _logger.LogDebug($"[Cancel/truncate failed: {ex.Message}]");
-                        //}
-
                         if (_responseActive)
                         {
                             try

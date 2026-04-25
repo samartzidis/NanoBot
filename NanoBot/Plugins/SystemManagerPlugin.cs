@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using NanoBot.Services;
 using NanoBot.Util;
 
-namespace NanoBot.Plugins.Native;
+namespace NanoBot.Plugins;
 
 public class SystemManagerPlugin
 {

@@ -22,7 +22,7 @@ public class SystemService : BackgroundService, ISystemService
     private readonly IHostApplicationLifetime _applicationLifetime;
     private CancellationTokenSource _hangupCancellationTokenSource;
     private readonly object _hangupCancellationTokenLock = new();
-    private readonly Func<AgentConfig, RealtimeAgent> _realtimeAgentFactory;
+    private readonly IRealtimeAgentFactory _realtimeAgentFactory;
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
     
@@ -37,7 +37,7 @@ public class SystemService : BackgroundService, ISystemService
         IEventBus bus,
         IAlsaControllerService alsaControllerService,
         IHostApplicationLifetime applicationLifetime,
-        Func<AgentConfig, RealtimeAgent> realtimeAgentFactory)
+        IRealtimeAgentFactory realtimeAgentFactory)
     {
         _logger = logger;
         _appConfigMonitor = appConfigMonitor;
@@ -107,7 +107,7 @@ public class SystemService : BackgroundService, ISystemService
         // Create new agent if needed
         if (_realtimeAgent == null)
         {
-            _realtimeAgent = _realtimeAgentFactory(agentConfig);
+            _realtimeAgent = _realtimeAgentFactory.Create(agentConfig);
             _realtimeAgentCreatedAt = DateTime.UtcNow;
             _logger.LogDebug($"Created new realtime agent at {_realtimeAgentCreatedAt.Value.ToString("O")}");
         }

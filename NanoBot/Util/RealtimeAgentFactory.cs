@@ -3,67 +3,69 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NanoBot.Configuration;
-using NanoBot.Plugins.Native;
+using NanoBot.Plugins;
 using NanoBot.Services;
-using NanoBot.Util;
 using System.ComponentModel;
 using System.Reflection;
 using System.Text;
 
-namespace NanoBot.Extensions;
+namespace NanoBot.Util;
 
-public static class RealtimeConversationAgentFactoryExtensions
+public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
 {
-    public const string DefaultOpenAiModel = "gpt-4o-mini-realtime-preview";
-    public const string DefaultSpeechSynthesisVoiceName = "marin";
+    private readonly IOptionsMonitor<AppConfig> _appConfigMonitor;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IEventBus _bus;
 
-    public static IServiceCollection AddRealtimeConversationAgentFactory(this IServiceCollection services)
+    public RealtimeAgentFactory(
+        IOptionsMonitor<AppConfig> appConfigMonitor,
+        ILoggerFactory loggerFactory,
+        IServiceProvider serviceProvider,
+        IEventBus bus)
     {
-        services.AddSingleton<Func<AgentConfig, RealtimeAgent>>(sp =>
-        {
-            var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
-            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-
-            return (agentConfig) =>
-            {                
-                var instructionsBuilder = new StringBuilder();
-                instructionsBuilder.AppendLine(appConfig.Instructions);
-                instructionsBuilder.AppendLine(agentConfig.Instructions);
-
-                var tools = ConfigureTools(agentConfig, loggerFactory, sp, instructionsBuilder);
-
-                var options = new RealtimeAgentOptions
-                {
-                    Model = !string.IsNullOrEmpty(appConfig.OpenAiModel) ? appConfig.OpenAiModel : DefaultOpenAiModel,
-                    Voice = !string.IsNullOrEmpty(agentConfig.SpeechSynthesisVoiceName) ? agentConfig.SpeechSynthesisVoiceName : DefaultSpeechSynthesisVoiceName,
-                    Instructions = instructionsBuilder.ToString(),
-                    OpenAiApiKey = appConfig.OpenAiApiKey,
-                    OpenAiEndpoint = null,
-                    Temperature = agentConfig.Temperature,
-                    SpeechSpeed = agentConfig.SpeechSpeed,
-                    ConversationInactivityTimeoutSeconds = appConfig.ConversationInactivityTimeoutSeconds,
-                };
-
-                var agent = new RealtimeAgent(
-                    sp.GetRequiredService<ILogger<RealtimeAgent>>(),
-                    tools,
-                    sp.GetRequiredService<IEventBus>(),
-                    Options.Create(options));
-
-                return agent;
-            };
-        });
-
-        return services;
+        _appConfigMonitor = appConfigMonitor;
+        _loggerFactory = loggerFactory;
+        _serviceProvider = serviceProvider;
+        _bus = bus;
     }
 
-    private static List<AIFunction> ConfigureTools(AgentConfig agentConfig, ILoggerFactory loggerFactory, IServiceProvider sp, StringBuilder instructionsBuilder)
+    public RealtimeAgent Create(AgentConfig agentConfig)
     {
-        var logger = loggerFactory.CreateLogger<Program>();
+        var appConfig = _appConfigMonitor.CurrentValue;
+
+        var instructionsBuilder = new StringBuilder();
+        instructionsBuilder.AppendLine(appConfig.Instructions);
+        instructionsBuilder.AppendLine(agentConfig.Instructions);
+
+        var tools = ConfigureTools(agentConfig, appConfig, instructionsBuilder);
+
+        var options = new RealtimeAgentOptions
+        {
+            Model = appConfig.OpenAiModel,
+            Voice = agentConfig.SpeechSynthesisVoiceName,
+            Instructions = instructionsBuilder.ToString(),
+            OpenAiApiKey = appConfig.OpenAiApiKey,
+            OpenAiEndpoint = null,
+            Temperature = agentConfig.Temperature,
+            SpeechSpeed = agentConfig.SpeechSpeed,
+            ConversationInactivityTimeoutSeconds = appConfig.ConversationInactivityTimeoutSeconds,
+        };
+
+        return new RealtimeAgent(
+            _loggerFactory.CreateLogger<RealtimeAgent>(),
+            tools,
+            _bus,
+            Options.Create(options));
+    }
+
+    private List<AIFunction> ConfigureTools(AgentConfig agentConfig, AppConfig appConfig, StringBuilder instructionsBuilder)
+    {
+        var logger = _loggerFactory.CreateLogger<Program>();
         var tools = new List<AIFunction>();
 
         logger.LogInformation($"Adding {nameof(SystemManagerPlugin)}");
-        tools.AddRange(CreateToolsFromType<SystemManagerPlugin>(nameof(SystemManagerPlugin), sp));
+        tools.AddRange(CreateToolsFromType<SystemManagerPlugin>(nameof(SystemManagerPlugin)));
 
         if (agentConfig.MemoryPluginEnabled)
         {
@@ -72,14 +74,14 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine("ALWAYS Use the MemoryPlugin to retrieve relevant memories when needed to answer user questions BEFORE using any other plugin.");
             instructionsBuilder.AppendLine("ALWAYS ask the user before creating a new MemoryPlugin plugin memory or updating an existing one.NEVER do this before asking first.");
-            
-            tools.AddRange(CreateToolsFromType<MemoryPlugin>(nameof(MemoryPlugin), sp));
+
+            tools.AddRange(CreateToolsFromType<MemoryPlugin>(nameof(MemoryPlugin)));
         }
 
         if (PlatformUtil.IsRaspberryPi())
         {
             logger.LogInformation($"Adding {nameof(EyesPlugin)}");
-            tools.AddRange(CreateToolsFromType<EyesPlugin>(nameof(EyesPlugin), sp));
+            tools.AddRange(CreateToolsFromType<EyesPlugin>(nameof(EyesPlugin)));
         }
 
         if (agentConfig.CalculatorPluginEnabled)
@@ -89,7 +91,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(CalculatorPlugin)} if you need assistance in mathematical operations.");
 
-            tools.AddRange(CreateToolsFromType<CalculatorPlugin>(nameof(CalculatorPlugin), sp));
+            tools.AddRange(CreateToolsFromType<CalculatorPlugin>(nameof(CalculatorPlugin)));
         }
 
         if (agentConfig.GeoIpPluginEnabled)
@@ -99,7 +101,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(GeoIpPlugin)} for date and time information.");
 
-            tools.AddRange(CreateToolsFromType<GeoIpPlugin>(nameof(GeoIpPlugin), sp));
+            tools.AddRange(CreateToolsFromType<GeoIpPlugin>(nameof(GeoIpPlugin)));
         }
 
         if (agentConfig.DateTimePluginEnabled)
@@ -109,7 +111,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(DateTimePlugin)} when the user asks for the current date or time. Defaults to the system's local time zone.");
 
-            tools.AddRange(CreateToolsFromType<DateTimePlugin>(nameof(DateTimePlugin), sp));
+            tools.AddRange(CreateToolsFromType<DateTimePlugin>(nameof(DateTimePlugin)));
         }
 
         if (agentConfig.WeatherPluginEnabled)
@@ -119,12 +121,11 @@ public static class RealtimeConversationAgentFactoryExtensions
             instructionsBuilder.AppendLine();
             instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(WeatherPlugin)} for weather information.");
 
-            tools.AddRange(CreateToolsFromType<WeatherPlugin>(nameof(WeatherPlugin), sp));
+            tools.AddRange(CreateToolsFromType<WeatherPlugin>(nameof(WeatherPlugin)));
         }
 
         if (agentConfig.PowerAIPluginEnabled)
         {
-            var appConfig = sp.GetRequiredService<IOptions<AppConfig>>().Value;
             logger.LogInformation($"Adding {nameof(PowerAIPlugin)} with model '{appConfig.PowerOpenAiModel}'");
 
             if (!string.IsNullOrWhiteSpace(appConfig.PowerAIPluginInstructions))
@@ -134,7 +135,7 @@ public static class RealtimeConversationAgentFactoryExtensions
             }
 
             var powerAiPlugin = new PowerAIPlugin(
-                loggerFactory.CreateLogger<PowerAIPlugin>(),
+                _loggerFactory.CreateLogger<PowerAIPlugin>(),
                 appConfig.OpenAiApiKey,
                 appConfig.PowerOpenAiModel,
                 tools.ToList());
@@ -144,9 +145,9 @@ public static class RealtimeConversationAgentFactoryExtensions
         return tools;
     }
 
-    private static List<AIFunction> CreateToolsFromType<T>(string pluginName, IServiceProvider sp) where T : class
+    private List<AIFunction> CreateToolsFromType<T>(string pluginName) where T : class
     {
-        var instance = ActivatorUtilities.CreateInstance<T>(sp);
+        var instance = ActivatorUtilities.CreateInstance<T>(_serviceProvider);
         return CreateToolsFromObject(instance, pluginName);
     }
 

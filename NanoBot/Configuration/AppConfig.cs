@@ -84,7 +84,7 @@ public class AppConfig
 
     internal readonly string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
     internal readonly string[] OpenAiModels = [DefaultOpenAiModel, "gpt-realtime", "gpt-realtime-1.5"]; // Also see: https://platform.openai.com/docs/pricing
-    internal readonly string[] PowerOpenAiModels = [DefaultPowerOpenAiModel, "gpt-5.4-mini", "gpt-5.4-nano" ];
+    internal readonly string[] PowerOpenAiModels = ["gpt-5.5", DefaultPowerOpenAiModel, "gpt-5.4-mini", "gpt-5.4-nano" ];
 }
 
 

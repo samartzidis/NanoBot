@@ -2,7 +2,7 @@ using System.ComponentModel;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace NanoBot.Plugins.Native;
+namespace NanoBot.Plugins;
 
 
 public sealed class WeatherPlugin

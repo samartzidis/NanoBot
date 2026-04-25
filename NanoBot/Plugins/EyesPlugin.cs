@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using NanoBot.Services;
 using System.ComponentModel;
 
-namespace NanoBot.Plugins.Native
+namespace NanoBot.Plugins
 {
     public class EyesPlugin
     {

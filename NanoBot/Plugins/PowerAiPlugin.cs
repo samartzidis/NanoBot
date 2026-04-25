@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using OpenAI.Chat;
 
-namespace NanoBot.Plugins.Native;
+namespace NanoBot.Plugins;
 
 public sealed class PowerAIPlugin
 {

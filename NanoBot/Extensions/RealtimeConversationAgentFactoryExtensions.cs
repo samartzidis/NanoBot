@@ -102,6 +102,16 @@ public static class RealtimeConversationAgentFactoryExtensions
             tools.AddRange(CreateToolsFromType<GeoIpPlugin>(nameof(GeoIpPlugin), sp));
         }
 
+        if (agentConfig.DateTimePluginEnabled)
+        {
+            logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
+
+            instructionsBuilder.AppendLine();
+            instructionsBuilder.AppendLine($"ALWAYS use the {nameof(DateTimePlugin)} when the user asks for the current date or time. Defaults to the system's local time zone.");
+
+            tools.AddRange(CreateToolsFromType<DateTimePlugin>(nameof(DateTimePlugin), sp));
+        }
+
         if (agentConfig.WeatherPluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(WeatherPlugin)}");

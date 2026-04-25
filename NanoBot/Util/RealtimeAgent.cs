@@ -642,6 +642,12 @@ public sealed class RealtimeAgent : IDisposable
         bool wasModelSpeaking = false;
         var lastActivityUtc = DateTime.UtcNow;
 
+        // Rolling history of the last VAD speech probabilities, purely for diagnostic logging
+        // when barge-in fires. Lets us tell apart a marginal trigger (e.g. 0.04, 0.06, 0.51,
+        // 0.52) from a strong one (e.g. 0.92, 0.95, 0.96) without enabling per-frame trace.
+        const int VadProbHistorySize = 10;
+        var recentSpeechProbs = new Queue<float>(VadProbHistorySize);
+
         recorder.Start();
         speaker.Start();
 
@@ -667,6 +673,11 @@ public sealed class RealtimeAgent : IDisposable
                 if (isSpeech)
                     lastActivityUtc = DateTime.UtcNow;
 
+                // Record into rolling history (for diagnostic logging at barge-in trigger).
+                if (recentSpeechProbs.Count == VadProbHistorySize)
+                    recentSpeechProbs.Dequeue();
+                recentSpeechProbs.Enqueue(speechProb);
+
                 // Reset inactivity timer when model finishes speaking
                 if (wasModelSpeaking && !_modelIsSpeaking)
                     lastActivityUtc = DateTime.UtcNow;
@@ -690,7 +701,9 @@ public sealed class RealtimeAgent : IDisposable
                             audioEndMs = (int)((_audioBytesSentToSpeaker / 48000.0) * 1000);
                         }
                         
-                        _logger.LogWarning($"[Barge-in detected - interrupting model at {audioEndMs}ms, ItemId={truncateItemId}]");
+                        var speechProbStr = speechProb.ToString("0.00");
+                        var probHistory = string.Join(", ", recentSpeechProbs.Select(p => p.ToString("0.00")));
+                        _logger.LogWarning($"[Barge-in detected - interrupting model at {audioEndMs}ms, ItemId={truncateItemId}, speechProb={speechProbStr}, recentProbs=[{probHistory}]]");
 
                         ClearSpeakerSafe(); // Clear buffered audio immediately
 

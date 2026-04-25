@@ -20,6 +20,7 @@ const agentsUiSchema = {
               { "type": "Control", "scope": "#/properties/SpeechSpeed" },
              
               { "type": "Control", "scope": "#/properties/CalculatorPluginEnabled" },
+              { "type": "Control", "scope": "#/properties/DateTimePluginEnabled" },
               { "type": "Control", "scope": "#/properties/GeoIpPluginEnabled" },
               { "type": "Control", "scope": "#/properties/WeatherPluginEnabled" },              
               { "type": "Control", "scope": "#/properties/MemoryPluginEnabled" },

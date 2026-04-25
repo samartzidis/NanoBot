@@ -47,6 +47,16 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     private bool _isShutdown, _isListening, _isFunctionInvoking, _isWakeWordDetected, _isError, _isNoiseDetected, _isNightMode;
     private byte? _talkLevel;
 
+    // Track the last LED state actually applied so we can short-circuit redundant updates.
+    // The TalkLevelEvent published by Speaker fires ~10x per second while audio is in the
+    // playback buffer; without this, every tick re-asserts (and re-logs) whichever higher-
+    // priority colour UpdateLed picks (Blue during function-invoking, Red during error, etc.).
+    // Exactly one of these will be non-null at any time, matching how UpdateLed sets the LED:
+    // _lastAppliedColor when an enum colour was applied, _lastAppliedRgb when a raw byte
+    // triple was applied (the talk-level brightness modulation path).
+    private GpioDeviceLedColor? _lastAppliedColor;
+    private (byte r, byte g, bool b)? _lastAppliedRgb;
+
     public GpioDeviceService(ILogger<GpioDeviceService> logger, IEventBus bus)
     {
         _logger = logger;
@@ -108,24 +118,48 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
     private void UpdateLed()
     {
+        // First decide what the LED *should* show, then short-circuit if it's already showing
+        // exactly that. This avoids redundant log spam and PWM/GPIO writes when an event fires
+        // that doesn't actually change the visible state (e.g. TalkLevelEvent ticks while a
+        // higher-priority state like Blue/Red owns the LED).
+        GpioDeviceLedColor? desiredColor = null;
+        (byte r, byte g, bool b)? desiredRgb = null;
+
         if (_isShutdown)
-            SetLedColor(GpioDeviceLedColor.Off);
+            desiredColor = GpioDeviceLedColor.Off;
         else if (_isError)
-            SetLedColor(GpioDeviceLedColor.Red);
+            desiredColor = GpioDeviceLedColor.Red;
         else if (_isFunctionInvoking)
-            SetLedColor(GpioDeviceLedColor.Blue);
-        else if (_talkLevel.HasValue)        
-            SetLedColor(0, _talkLevel.Value, false, false);  // Disable SetLedColor logging for talk level      
+            desiredColor = GpioDeviceLedColor.Blue;
+        else if (_talkLevel.HasValue)
+            desiredRgb = (0, _talkLevel.Value, false);
         else if (_isListening)
-            SetLedColor(GpioDeviceLedColor.LightGreen);
+            desiredColor = GpioDeviceLedColor.LightGreen;
         else if (_isWakeWordDetected)
-            SetLedColor(GpioDeviceLedColor.Orange);
+            desiredColor = GpioDeviceLedColor.Orange;
         else if (_isNoiseDetected)
-            SetLedColor(GpioDeviceLedColor.Yellow);
+            desiredColor = GpioDeviceLedColor.Yellow;
         else if (_isNightMode)
-            SetLedColor(GpioDeviceLedColor.Off);
+            desiredColor = GpioDeviceLedColor.Off;
         else
-            SetLedColor(DefaultLedColour);
+            desiredColor = DefaultLedColour;
+
+        if (desiredColor.HasValue)
+        {
+            if (desiredColor == _lastAppliedColor)
+                return;
+            _lastAppliedColor = desiredColor;
+            _lastAppliedRgb = null;
+            SetLedColor(desiredColor.Value);
+        }
+        else if (desiredRgb.HasValue)
+        {
+            if (desiredRgb == _lastAppliedRgb)
+                return;
+            _lastAppliedRgb = desiredRgb;
+            _lastAppliedColor = null;
+            SetLedColor(desiredRgb.Value.r, desiredRgb.Value.g, desiredRgb.Value.b, log: false);
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)

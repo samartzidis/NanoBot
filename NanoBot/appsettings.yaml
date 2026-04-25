@@ -17,7 +17,7 @@ Instructions: |
 PowerAIPluginInstructions: |
     Use the PowerAIPlugin for help before answering a user question, especially if:    
       - it involves complex reasoning
-      - is not very trivial math questions
+      - it is a complex maths question
       - it sounds like a riddle
       - it asks about grammar/sentence corrections
       - is about anything requiring high accuracy

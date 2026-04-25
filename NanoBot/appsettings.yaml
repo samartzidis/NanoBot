@@ -10,8 +10,6 @@ Kestrel:
     Http:
       Url: http://*:8080
 
-FileLoggingEnabled: false
-
 Instructions: |
     You are a voice-only chat assistant.  
     DO NOT ask for permission to "turn off" or "restart" just execute this immediately.    

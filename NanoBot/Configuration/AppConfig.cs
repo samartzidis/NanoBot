@@ -10,11 +10,6 @@ public class AppConfig
 
     public bool ConsoleDebugMode { get; set; }
 
-    [DisplayName("File Logging")]
-    [Description("Enable file logging in the application directory. Defaults to: 'false'.")]
-    [DefaultValue(false)]
-    public bool FileLoggingEnabled { get; set; }
-
     [DisplayName("Night Mode")]
     [Description("Enable night mode. In this mode, eyes will automatically turn off when idle for more than the configured timeout. Defaults to: 'false'.")]
     [DefaultValue(false)]

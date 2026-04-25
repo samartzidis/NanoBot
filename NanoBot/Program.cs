@@ -29,18 +29,14 @@ public class Program
             {
                 configuration
                     .ReadFrom.Configuration(context.Configuration)
-                    .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.ffffff} [{Level}] [{SourceContext}] {Message}{NewLine:l}{Exception:l}");
-
-                if (context.Configuration.Get<AppConfig>().FileLoggingEnabled)
-                {
-                    configuration.WriteTo.File(
+                    .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.ffffff} [{Level}] [{SourceContext}] {Message}{NewLine:l}{Exception:l}")
+                    .WriteTo.File(
                         path: "log.txt",
                         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.ffffff} [{Level}] {Message}{NewLine:l}{Exception:l}",
                         fileSizeLimitBytes: 1 * 1024 * 1024, // 1MB
                         rollOnFileSizeLimit: true,
                         retainedFileCountLimit: 3,
                         shared: true);
-                }
 
                 configuration.Enrich.FromLogContext();
             })

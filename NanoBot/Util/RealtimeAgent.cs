@@ -169,14 +169,35 @@ public sealed class RealtimeAgent : IDisposable
         _waitingForResponse = false;
         stateUpdateAction?.Invoke(StateUpdate.Ready);
 
-        // Start the conversation loop (audio capture)
-        var result = await AudioCaptureLoopAsync(_session, _recorder, _speaker, _vadDetector, cancellationToken);
-
-        // Clear speaker reference when exiting
-        lock (_speakerLock)
+        // Start the conversation loop (audio capture). Link with the session CTS so that a
+        // receive-side error (which calls FaultSession -> cancels _sessionCts) immediately tears
+        // down audio capture instead of leaving it stuck waiting for a response that will never
+        // come.
+        RealtimeAgentRunResult result;
+        try
         {
-            _currentSpeaker = null;
+            using var loopCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _sessionCts!.Token);
+            result = await AudioCaptureLoopAsync(_session, _recorder, _speaker, _vadDetector, loopCts.Token);
         }
+        finally
+        {
+            lock (_speakerLock)
+            {
+                _currentSpeaker = null;
+            }
+
+            // Defensively observe any receive-task fault to avoid leaving an unobserved task
+            // exception when the audio loop itself threw (and we never reached the await below).
+            if (_receiveTask is { IsCompleted: true, IsFaulted: true })
+                _ = _receiveTask.Exception;
+        }
+
+        // If the receive task faulted (Realtime API error or unexpected stream end), rethrow its
+        // exception so SystemService.ExecuteAsync's catch block disposes and recreates the agent
+        // (and keeps the red-eye indication for the recovery delay). await unwraps the
+        // AggregateException to the original exception.
+        if (_receiveTask is { IsCompleted: true, IsFaulted: true })
+            await _receiveTask;
 
         return result;
     }
@@ -449,18 +470,58 @@ public sealed class RealtimeAgent : IDisposable
                     }
                 }
 
-                // Handle errors
+                // Handle errors - surface to the user (red eyes), stop the session, and throw so
+                // that this task faults. RunAsync observes the fault and rethrows, letting
+                // SystemService dispose + recreate the agent.
                 if (update is RealtimeServerUpdateError errorUpdate)
-                    _logger.LogError($"[Error: {errorUpdate.Error?.Message}]");
+                {
+                    var msg = errorUpdate.Error?.Message ?? "Unknown Realtime API error";
+                    _logger.LogError($"[Realtime API error: {msg}]");
+                    FaultSession();
+                    throw new InvalidOperationException($"Realtime session error: {msg}");
+                }
+            }
+
+            // The receive stream ended without us cancelling and without an explicit error update
+            // (e.g. the server closed the WebSocket on a fatal condition). Treat as a session
+            // error so it surfaces instead of silently leaving the session dead.
+            if (!sessionToken.IsCancellationRequested)
+            {
+                FaultSession();
+                throw new InvalidOperationException("Realtime session ended unexpectedly.");
             }
         }
         catch (OperationCanceledException)
         {
-            // Expected when session is cancelled (dispose)
+            // Normal cancellation (Dispose / FaultSession after we already published the event).
+        }
+        // No general catch (Exception) - any other receive-side exception faults the task and
+        // is observed by RunAsync. Wake up the audio loop first via FaultSession.
+    }
+
+    /// <summary>
+    /// Side-effect helper invoked when the realtime session is determined to be dead from the
+    /// receive task's side. Publishes <see cref="SystemErrorEvent"/> for immediate user feedback
+    /// and cancels the session CTS to wake up the linked audio capture loop.
+    /// </summary>
+    private void FaultSession()
+    {
+        try
+        {
+            _bus.Publish<SystemErrorEvent>(this);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug($"[Receive task error: {ex.Message}]");
+            _logger.LogDebug($"[FaultSession publish failed: {ex.Message}]");
+        }
+
+        try
+        {
+            _sessionCts?.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"[FaultSession cancel failed: {ex.Message}]");
         }
     }
 

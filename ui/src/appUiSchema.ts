@@ -14,7 +14,6 @@ const appUiSchema = {
                 { type: "Control", scope: "#/properties/PlaybackVolume" },
                 { type: "Control", scope: "#/properties/WakeWordSilenceSampleAmplitudeThreshold" },
                 { type: "Control", scope: "#/properties/S330Enabled" },
-                { type: "Control", scope: "#/properties/FileLoggingEnabled" },
                 { type: "Control", scope: "#/properties/NightModeEnabled" },
                 { type: "Control", scope: "#/properties/NightModeIdleTimeoutMinutes" },                
             ]

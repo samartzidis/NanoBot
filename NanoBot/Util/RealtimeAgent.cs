@@ -52,6 +52,12 @@ public sealed class RealtimeAgent : IDisposable
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
 
+    // Well-known Realtime API error code (RealtimeError.Code). Benign race: we sent
+    // response.cancel for a barge-in but the server already finished the response naturally
+    // before our cancel arrived. Logged as a warning and ignored instead of faulting the session.
+    // See https://community.openai.com/t/how-to-properly-cancel-response-on-websockets/1370880
+    private const string ErrCodeResponseCancelNotActive = "response_cancel_not_active";
+
     private readonly IReadOnlyList<AIFunction> _tools;
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
@@ -305,14 +311,19 @@ public sealed class RealtimeAgent : IDisposable
         {
             await foreach (RealtimeServerUpdate update in session.ReceiveUpdatesAsync(sessionToken))
             {
-                if (sessionToken.IsCancellationRequested) break;
+                if (sessionToken.IsCancellationRequested)
+                    break;
+
+                // Each update is exactly one runtime type, so the branches below are mutually
+                // exclusive - chained as else-if so we stop at the first match per iteration.
 
                 // Session started
                 if (update is RealtimeServerUpdateSessionCreated sessionCreatedUpdate)
+                {
                     _logger.LogDebug($"[Session started: {sessionCreatedUpdate.EventId}]");
-
+                }
                 // Model started generating a response output item
-                if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
+                else if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
                 {
                     _waitingForResponse = false;
                     _modelIsSpeaking = true;
@@ -335,23 +346,20 @@ public sealed class RealtimeAgent : IDisposable
                     if (!string.IsNullOrEmpty(functionName))
                         _logger.LogDebug($"[Calling: {functionName}] ");
                 }
-
                 // Audio transcript delta
-                if (update is RealtimeServerUpdateResponseOutputAudioTranscriptDelta transcriptDelta)
+                else if (update is RealtimeServerUpdateResponseOutputAudioTranscriptDelta transcriptDelta)
                 {
                     if (!string.IsNullOrEmpty(transcriptDelta.Delta))
                         _logger.LogDebug(transcriptDelta.Delta);
                 }
-
                 // Text delta
-                if (update is RealtimeServerUpdateResponseOutputTextDelta textDelta)
+                else if (update is RealtimeServerUpdateResponseOutputTextDelta textDelta)
                 {
                     if (!string.IsNullOrEmpty(textDelta.Delta))
                         _logger.LogDebug($"[TextDelta: {textDelta.Delta}]");
                 }
-
                 // Audio bytes delta (use lock to synchronize with barge-in)
-                if (update is RealtimeServerUpdateResponseOutputAudioDelta audioDelta)
+                else if (update is RealtimeServerUpdateResponseOutputAudioDelta audioDelta)
                 {
                     if (audioDelta.Delta is not null)
                     {
@@ -374,9 +382,8 @@ public sealed class RealtimeAgent : IDisposable
                         }
                     }
                 }
-
                 // Function call arguments delta
-                if (update is RealtimeServerUpdateResponseFunctionCallArgumentsDelta funcArgsDelta)
+                else if (update is RealtimeServerUpdateResponseFunctionCallArgumentsDelta funcArgsDelta)
                 {
                     var argsText = funcArgsDelta.Delta?.ToString();
                     if (!string.IsNullOrWhiteSpace(argsText))
@@ -390,9 +397,8 @@ public sealed class RealtimeAgent : IDisposable
                         _logger.LogDebug($"[FunctionArgsDelta: ItemId={funcArgsDelta.ItemId}, CallId={funcArgsDelta.CallId ?? "null"}, Args={argsText}]");
                     }
                 }
-
                 // Output item finished
-                if (update is RealtimeServerUpdateResponseOutputItemDone outputItemDone)
+                else if (update is RealtimeServerUpdateResponseOutputItemDone outputItemDone)
                 {
                     var funcCallItem = outputItemDone.Item as RealtimeFunctionCallItem;
                     var itemId = funcCallItem?.Id ?? (outputItemDone.Item as RealtimeMessageItem)?.Id;
@@ -436,13 +442,13 @@ public sealed class RealtimeAgent : IDisposable
                         await session.AddItemAsync(functionOutputItem, sessionToken);
                     }
                 }
-
                 // Input audio transcription completed (only if whisper transcription is enabled)
-                if (update is RealtimeServerUpdateConversationItemInputAudioTranscriptionCompleted transcriptionUpdate)
+                else if (update is RealtimeServerUpdateConversationItemInputAudioTranscriptionCompleted transcriptionUpdate)
+                {
                     _logger.LogDebug($"[You said: {transcriptionUpdate.Transcript}]");
-
+                }
                 // Response finished
-                if (update is RealtimeServerUpdateResponseDone responseDone)
+                else if (update is RealtimeServerUpdateResponseDone responseDone)
                 {
                     _waitingForResponse = false;
                     _responseActive = false;
@@ -492,17 +498,33 @@ public sealed class RealtimeAgent : IDisposable
                         _logger.LogDebug("[Ready for your next question...]");
                     }
                 }
-
-                // Explicit Realtime API error (quota exceeded, auth failure, malformed request,
-                // etc.). This is always a real, user-visible failure - surface to the user (red
-                // eyes via FaultSession) and throw so this task faults. RunAsync observes the
-                // fault and rethrows, letting SystemService dispose + recreate the agent.
-                if (update is RealtimeServerUpdateError errorUpdate)
+                // Explicit Realtime API error event from the server. Per the SDK's own guidance
+                // ("Most errors are recoverable and the session will stay open") we don't treat
+                // every error as fatal: known-benign codes are logged and ignored, everything
+                // else is surfaced as a real, user-visible failure (red eyes via FaultSession)
+                // and rethrown so RunAsync can dispose + recreate the agent.
+                else if (update is RealtimeServerUpdateError errorUpdate)
                 {
-                    var msg = errorUpdate.Error?.Message ?? "Unknown Realtime API error";
-                    _logger.LogError($"[Realtime API error: {msg}]");
-                    FaultSession();
-                    throw new InvalidOperationException($"Realtime session error: {msg}");
+                    var err = errorUpdate.Error;
+                    var code = err?.Code;
+                    var kind = err?.Kind;
+                    var msg = err?.Message ?? "Unknown Realtime API error";
+
+                    if (code == ErrCodeResponseCancelNotActive)
+                    {
+                        _logger.LogWarning(
+                            "[Realtime API benign error - ignored: code={Code} kind={Kind} message={Message}]",
+                            code, kind, msg);
+                    }
+                    else
+                    {
+                        _logger.LogError(
+                            "[Realtime API error: code={Code} kind={Kind} message={Message}]",
+                            code, kind, msg);
+                        FaultSession();
+                        throw new InvalidOperationException(
+                            $"Realtime session error (code={code ?? "<none>"}): {msg}");
+                    }
                 }
             }
 

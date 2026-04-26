@@ -52,7 +52,7 @@ public class WakeWordService : IWakeWordService
     {
         var wakeWordRuntimeConfig = new WakeWordRuntimeConfig
         {
-            DebugAction = (model, probability, detected) => { _logger.LogDebug($"{model} {probability:F5} - {detected}", model, probability, detected); },
+            DebugAction = (model, probability, detected) => { _logger.LogTrace($"{model} {probability:F5} - {detected}", model, probability, detected); },
             WakeWords = GetWakeWordConfig()
         };
         var wakeWordRuntime = new WakeWordRuntime(wakeWordRuntimeConfig);

@@ -39,6 +39,12 @@ public class Program
 
                 configuration.Enrich.FromLogContext();
             })
+            .ConfigureLogging(logging =>
+            {
+                // MEL filters before Serilog; lift the floor so Trace reaches Serilog,
+                // which then applies its own MinimumLevel/Override rules from appsettings.yaml.
+                logging.SetMinimumLevel(LogLevel.Trace);
+            })
             .ConfigureHostConfiguration(configurationBuilder =>
             {
                 configurationBuilder.AddYamlFile("appsettings.yaml", optional: false, reloadOnChange: true);

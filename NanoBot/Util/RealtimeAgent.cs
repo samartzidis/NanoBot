@@ -46,7 +46,7 @@ public sealed class RealtimeAgent : IDisposable
     private const int SampleRate = 24000; // Realtime API uses 24kHz
     private const int VadSampleRate = 16000; // Silero VAD uses 16kHz
     private const int FrameLength = 512; // Frame size for VAD (matches 16kHz requirement)
-    private const float VadThreshold = 0.5f;
+    private const float VadThreshold = 0.7f; // Threshold for VAD to detect speech
     private const int MinSpeechFrames = 3; // Minimum consecutive speech frames to start recording
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording

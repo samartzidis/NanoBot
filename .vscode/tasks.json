@@ -42,6 +42,23 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "run",
+            "dependsOn": ["build"],
+            "type": "shell",
+            "command": "Start-Process",
+            "args": [
+                "pwsh",
+                "-ArgumentList", "'-NoExit', '-Command', 'dotnet run --project ''${workspaceFolder}/NanoBot/NanoBot.csproj'''",
+                "-WorkingDirectory", "'${workspaceFolder}/NanoBot/bin/Debug/net8.0'"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "build-ui",
             "command": "npm",
             "type": "process",

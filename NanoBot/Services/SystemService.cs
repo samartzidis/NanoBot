@@ -209,21 +209,11 @@ public class SystemService : BackgroundService, ISystemService
                     
                     _logger.LogDebug("Operation cancelled (hangup), continuing main loop.");
                 }
-                catch (System.Net.WebSockets.WebSocketException wse)
-                {
-                    _logger.LogWarning(wse, "[Session WebSocket closed - agent will reconnect on next activation.]");
-
-                    _realtimeAgent?.Dispose();
-                    _realtimeAgent = null;
-                    _realtimeAgentCreatedAt = null;
-
-                    await Task.Delay(5000, cancellationToken);
-                }
-                catch (Exception m)
+                catch (Exception ex)
                 {
                     _bus.Publish<SystemErrorEvent>(this);
 
-                    _logger.LogError(m, m.Message);
+                    _logger.LogError(ex, ex.Message);
 
                     _realtimeAgent?.Dispose();
                     _realtimeAgent = null;

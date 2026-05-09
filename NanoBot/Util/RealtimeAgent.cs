@@ -545,10 +545,12 @@ public sealed class RealtimeAgent : IDisposable
         {
             // Normal cancellation (Dispose / FaultSession after we already published the event).
         }
-        // No general catch (Exception) - any other receive-side exception (e.g. WebSocketException
-        // when the server abruptly closes the connection) faults the task. RunAsync's finally
-        // observes and logs the fault; the audio loop's next operation will typically also fail
-        // with State='Aborted' which is what reaches SystemService for the user-facing recovery.
+        catch (System.Net.WebSockets.WebSocketException ex)
+        {
+            _logger.LogWarning($"[Receive task: WebSocket closed by remote: {ex.Message}]");
+            FaultSession(); // cancels _sessionCts → audio loop gets OperationCanceledException via loopCts
+            throw;
+        }
     }
 
     /// <summary>

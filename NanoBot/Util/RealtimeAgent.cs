@@ -90,7 +90,7 @@ public sealed class RealtimeAgent : IDisposable
     private volatile bool _responseActive;
     
     private volatile Action<StateUpdate> _stateUpdateAction;
-    private DateTime _responseRequestedAtUtc;
+    private long _responseRequestedAtUtcTicks;
 
     // Long-lived audio devices (created once, reused across RunAsync calls)
     private PvRecorder _recorder;
@@ -264,6 +264,7 @@ public sealed class RealtimeAgent : IDisposable
         _session = null;
         _sessionCts = null;
         _receiveTask = null;
+        _functionArgumentBuildersById.Clear();
     }
 
     /// <summary>
@@ -326,8 +327,8 @@ public sealed class RealtimeAgent : IDisposable
                 else if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
                 {
                     _waitingForResponse = false;
-                    _modelIsSpeaking = true;
                     _responseActive = true;
+                    _modelIsSpeaking = true;
                     _stateUpdateAction?.Invoke(StateUpdate.SpeakingStarted);
                     _bargeInTriggered = false;
 
@@ -490,7 +491,7 @@ public sealed class RealtimeAgent : IDisposable
                         _logger.LogDebug("[Function calls detected - triggering response...]");
                         _waitingForResponse = true;
                         _responseActive = true;
-                        _responseRequestedAtUtc = DateTime.UtcNow;
+                        Interlocked.Exchange(ref _responseRequestedAtUtcTicks, DateTime.UtcNow.Ticks); // Set the response requested time
                         await session.StartResponseAsync(sessionToken);
                     }
                     else
@@ -757,11 +758,14 @@ public sealed class RealtimeAgent : IDisposable
                         _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
                         isRecording = true;
                         audioBuffer.Clear();
+                        preBuffer.Clear();
                         vadDetector.Reset();
                         speechFrameCount = 0;
                         silenceFrameCount = 0;
                     }
                 }
+                else if (_modelIsSpeaking)
+                    speechFrameCount = 0;
 
                 // Maintain pre-buffer when not recording
                 if (!isRecording)
@@ -813,7 +817,7 @@ public sealed class RealtimeAgent : IDisposable
                             await session.StartResponseAsync(cancellationToken);
                             _waitingForResponse = true;
                             _responseActive = true;
-                            _responseRequestedAtUtc = DateTime.UtcNow;
+                            Interlocked.Exchange(ref _responseRequestedAtUtcTicks, DateTime.UtcNow.Ticks); // Set the response requested time
 
                             isRecording = false;
                             audioBuffer.Clear();
@@ -825,7 +829,7 @@ public sealed class RealtimeAgent : IDisposable
                 }
 
                 // Safety: if we've been waiting for a model response for too long, give up
-                if (_waitingForResponse && (DateTime.UtcNow - _responseRequestedAtUtc).TotalSeconds > 30)
+                if (_waitingForResponse && (DateTime.UtcNow.Ticks - Interlocked.Read(ref _responseRequestedAtUtcTicks)) > TimeSpan.TicksPerSecond * 30)
                 {
                     _logger.LogWarning("[Response wait timeout - model did not respond within 30s]");
                     _waitingForResponse = false;

@@ -104,6 +104,8 @@ public sealed class PowerAIPlugin
 
         if (options.Tools.Count > 0)
             options.ToolChoice = ChatToolChoice.CreateAutoChoice();
+        
+        options.ReasoningEffortLevel = ChatReasoningEffortLevel.None;
 
         return options;
     }

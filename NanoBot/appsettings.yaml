@@ -15,7 +15,7 @@ Instructions: |
     DO NOT ask for permission to "turn off" or "restart" just execute this immediately.    
 
 PowerAIPluginInstructions: |
-    Use the PowerAIPlugin for help before answering a user question, especially if:    
+    Use the PowerAIPlugin for help before answering a user question, especially if:
       - it involves complex reasoning
       - it is a complex maths question
       - it sounds like a riddle
@@ -25,4 +25,9 @@ PowerAIPluginInstructions: |
       - the user asks you to think hard
       - the user thinks that you are wrong
       - the user asks you to use 'Power AI'
+    The PowerAIPlugin has no tools of its own and cannot look anything up - it only reasons
+    over what you tell it. Before calling it, gather any relevant facts yourself with your
+    other tools (e.g. date/time, weather, location) and include them in the question you send.
+    Treat its answer as an expert opinion to weigh into your response, not as a source of truth
+    for facts it could not have verified itself.
 

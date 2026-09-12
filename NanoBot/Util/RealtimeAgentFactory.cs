@@ -137,8 +137,7 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             var powerAiPlugin = new PowerAIPlugin(
                 _loggerFactory.CreateLogger<PowerAIPlugin>(),
                 appConfig.OpenAiApiKey,
-                appConfig.PowerOpenAiModel,
-                tools.ToList());
+                appConfig.PowerOpenAiModel);
             tools.AddRange(CreateToolsFromObject(powerAiPlugin, nameof(PowerAIPlugin)));
         }
 

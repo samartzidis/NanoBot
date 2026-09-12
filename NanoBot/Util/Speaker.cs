@@ -1,7 +1,6 @@
+using NanoBot.Services;
 using SoundFlow.Abstracts;
-using SoundFlow.Abstracts.Devices;
 using SoundFlow.Backends.MiniAudio;
-using SoundFlow.Backends.MiniAudio.Devices;
 using SoundFlow.Backends.MiniAudio.Enums;
 using SoundFlow.Components;
 using SoundFlow.Enums;
@@ -11,17 +10,20 @@ using SoundFlow.Visualization;
 
 namespace NanoBot.Util;
 
+/// <summary>
+/// Streams mono PCM audio onto a shared <see cref="AudioOutputEngine"/>'s mixer, converting
+/// samples to float and optionally reporting a peak level via <see cref="MeterAction"/>.
+/// Multiple Speakers can attach to the same AudioOutputEngine and mix together in hardware.
+/// </summary>
 public class Speaker : IDisposable
 {
     private readonly int _sampleRate;
     private readonly int _bitsPerSample;
     private readonly int _bufferSizeSecs;
-    private readonly int _deviceIndex;
     private bool _isStarted;
     private bool _disposed;
     private readonly object _bufferLock = new();
-    private AudioEngine _engine;
-    private AudioPlaybackDevice _playbackDevice;
+    private readonly AudioOutputEngine _sharedEngine;
     private QueueDataProvider _dataProvider;
     private SoundPlayer _soundPlayer;
     private readonly AudioFormat _audioFormat;
@@ -37,48 +39,29 @@ public class Speaker : IDisposable
     private const float Pcm32BitMaxValue = 2147483648.0f; // 2^31 (32-bit signed max + 1)
 
     /// <summary>
-    /// Initializes a new instance of Speaker.
+    /// Initializes a new instance of Speaker. Renders onto <paramref name="sharedEngine"/>'s
+    /// device, mixing with any other Speaker attached to the same engine.
     /// </summary>
-    /// <param name="sampleRate">Sample rate in Hz</param>
+    /// <param name="sharedEngine">The shared <see cref="AudioOutputEngine"/> to render onto.</param>
     /// <param name="bitsPerSample">Bits per sample (typically 16 or 24)</param>
     /// <param name="bufferSizeSecs">Size of internal PCM buffer in seconds</param>
-    /// <param name="deviceIndex">Index of output audio device (-1 for default)</param>
-    /// <param name="preferredBackends">Optional array of preferred audio backends to use (e.g., PvSpeaker.LinuxAlsaOnly on Linux to avoid probing warnings)</param>    
     /// <param name="meterAction">Action to call when the audio peak level meter changes</param>
     public Speaker(
-        int sampleRate,
+        AudioOutputEngine sharedEngine,
         int bitsPerSample,
         int bufferSizeSecs = 60,
-        int deviceIndex = -1,
-        MiniAudioBackend[] preferredBackends = null,
         Action<byte> meterAction = null)
     {
         if (bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32)
             throw new ArgumentOutOfRangeException(nameof(bitsPerSample), bitsPerSample, "Bits per sample must be 16, 24, or 32.");
 
-        if (sampleRate < 8000 || sampleRate > 192000)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate), sampleRate, "Sample rate must be between 8000 and 192000 Hz.");
-
-        _sampleRate = sampleRate;
+        _sharedEngine = sharedEngine ?? throw new ArgumentNullException(nameof(sharedEngine));
+        _sampleRate = AudioOutputEngine.Format.SampleRate;
         _bitsPerSample = bitsPerSample;
         _bufferSizeSecs = bufferSizeSecs;
-        _deviceIndex = deviceIndex;
         _isStarted = false;
         _disposed = false;
-
-        // Create audio format based on sample rate and bits per sample
-        // Use F32 format since we convert PCM bytes to float samples
-        _audioFormat = new AudioFormat
-        {
-            Format = SampleFormat.F32,
-            Channels = 1, // Mono as per Speaker requirements
-            Layout = ChannelLayout.Mono,
-            SampleRate = sampleRate
-        };
-
-        // Initialize SoundFlow engine with preferred backends (if specified)
-        _engine = new MiniAudioEngine(preferredBackends);
-
+        _audioFormat = AudioOutputEngine.Format;
         _meterAction = meterAction;
     }
 
@@ -214,49 +197,12 @@ public class Speaker : IDisposable
     /// </summary>
     public void Start()
     {
-        if (_isStarted || _disposed || _engine == null)
+        if (_isStarted || _disposed)
             return;
 
         try
         {
-            _engine.UpdateAudioDevicesInfo();
-            var devices = _engine.PlaybackDevices;
-
-            DeviceInfo deviceInfo;
-            if (_deviceIndex >= 0 && _deviceIndex < devices.Length)
-            {
-                deviceInfo = devices[_deviceIndex];
-            }
-            else if (devices.Length > 0)
-            {
-                // Find default device or use first available
-                var defaultDeviceArray = devices.Where(d => d.IsDefault).ToArray();
-                deviceInfo = defaultDeviceArray.Length > 0 ? defaultDeviceArray[0] : devices[0];
-            }
-            else
-            {
-                throw new InvalidOperationException("No playback devices available");
-            }
-
-            // Create device configuration with low-latency settings for responsive metering
-            // Small period size = lower latency but higher CPU usage
-            const uint lowLatencyPeriodFrames = 512; // ~10ms at 48kHz
-            var deviceConfig = new MiniAudioDeviceConfig
-            {
-                PeriodSizeInFrames = lowLatencyPeriodFrames,
-                Periods = 2, // Double buffering
-                Playback = new DeviceSubConfig
-                {
-                    ShareMode = ShareMode.Shared
-                },
-                Wasapi = new WasapiSettings
-                {
-                    Usage = WasapiUsage.ProAudio
-                }
-            };
-
-            // Initialize playback device
-            _playbackDevice = _engine.InitializePlaybackDevice(deviceInfo, _audioFormat, deviceConfig);
+            var mixer = _sharedEngine.MasterMixer;
 
             // Create queue-based data provider for streaming PCM data
             // QueueDataProvider is designed for dynamic streaming scenarios
@@ -264,21 +210,18 @@ public class Speaker : IDisposable
             _dataProvider = new QueueDataProvider(_audioFormat, maxSamples: bufferSizeSamples, QueueFullBehavior.Block);
 
             // Create sound player
-            _soundPlayer = new SoundPlayer(_engine, _audioFormat, _dataProvider);
+            _soundPlayer = new SoundPlayer(_sharedEngine.Engine, _audioFormat, _dataProvider);
 
-            // Add player to mixer
-            _playbackDevice.MasterMixer.AddComponent(_soundPlayer);
+            // Add player to the shared device's mixer
+            mixer.AddComponent(_soundPlayer);
 
-            // Add level meter analyzer to MasterMixer (not SoundPlayer) if callback is registered
-            // Adding to MasterMixer ensures we analyze the final output in sync with actual playback
+            // Add level meter analyzer to the mixer (not SoundPlayer) if callback is registered.
+            // Adding to the mixer ensures we analyze the final output in sync with actual playback.
             if (_meterAction != null)
             {
                 _levelMeterAnalyzer = new LevelMeterAnalyzer(_audioFormat);
-                _playbackDevice.MasterMixer.AddAnalyzer(_levelMeterAnalyzer);
+                mixer.AddAnalyzer(_levelMeterAnalyzer);
             }
-
-            // Start the device
-            _playbackDevice.Start();
 
             // Start meter timer if callback is registered
             if (_meterAction != null && _levelMeterAnalyzer != null)
@@ -426,12 +369,14 @@ public class Speaker : IDisposable
                 _soundPlayer.Stop();
             }
 
+            var mixer = _sharedEngine.MasterMixer;
+
             // Remove level meter analyzer if present
-            if (_playbackDevice != null && _levelMeterAnalyzer != null)
+            if (_levelMeterAnalyzer != null)
             {
                 try
                 {
-                    _playbackDevice.MasterMixer.RemoveAnalyzer(_levelMeterAnalyzer);
+                    mixer.RemoveAnalyzer(_levelMeterAnalyzer);
                 }
                 catch
                 {
@@ -440,24 +385,11 @@ public class Speaker : IDisposable
             }
 
             // Remove from mixer
-            if (_playbackDevice != null && _soundPlayer != null)
+            if (_soundPlayer != null)
             {
                 try
                 {
-                    _playbackDevice.MasterMixer.RemoveComponent(_soundPlayer);
-                }
-                catch
-                {
-                    // Ignore errors during cleanup
-                }
-            }
-
-            // Stop playback device
-            if (_playbackDevice != null)
-            {
-                try
-                {
-                    _playbackDevice.Stop();
+                    mixer.RemoveComponent(_soundPlayer);
                 }
                 catch
                 {
@@ -468,7 +400,7 @@ public class Speaker : IDisposable
     }
 
     /// <summary>
-    /// Disposes resources.
+    /// Disposes resources. The shared device is owned externally and is not affected.
     /// </summary>
     public void Dispose()
     {
@@ -487,11 +419,7 @@ public class Speaker : IDisposable
             _soundPlayer?.Dispose();
             _levelMeterAnalyzer = null; // LevelMeterAnalyzer doesn't implement IDisposable
             _dataProvider?.Dispose();
-            _playbackDevice?.Dispose();
         }
-
-        _engine?.Dispose();
-        _engine = null;
 
         _disposed = true;
     }

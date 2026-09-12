@@ -108,6 +108,7 @@ public class Program
                     });
                 });
 
+                services.AddSingleton<AudioOutputEngine>();
                 services.AddSingleton<IRealtimeAgentFactory, RealtimeAgentFactory>();
             })
             .ConfigureWebHostDefaults(webBuilder =>

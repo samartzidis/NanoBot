@@ -42,8 +42,8 @@ public enum StateUpdate
 /// </summary>
 public sealed class RealtimeAgent : IDisposable
 {
-    // Audio configuration - must match Realtime API requirements
-    private const int SampleRate = 24000; // Realtime API uses 24kHz
+    // Audio configuration - must match Realtime API requirements.
+    // Output sample rate (24kHz) is fixed by AudioOutputEngine.Format, which Speaker renders into.
     private const int VadSampleRate = 16000; // Silero VAD uses 16kHz
     private const int FrameLength = 512; // Frame size for VAD (matches 16kHz requirement)
     private const float VadThreshold = 0.7f; // Threshold for VAD to detect speech
@@ -62,6 +62,7 @@ public sealed class RealtimeAgent : IDisposable
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
     private readonly RealtimeAgentOptions _options;
+    private readonly AudioOutputEngine _audioOutputEngine;
     private readonly object _speakerLock = new();
     private readonly Dictionary<string, StringBuilder> _functionArgumentBuildersById = new();
 
@@ -102,12 +103,13 @@ public sealed class RealtimeAgent : IDisposable
     private string _currentStreamingItemId;
     private int _audioBytesSentToSpeaker;
 
-    public RealtimeAgent(ILogger<RealtimeAgent> logger, IReadOnlyList<AIFunction> tools, IEventBus bus, IOptions<RealtimeAgentOptions> options)
+    public RealtimeAgent(ILogger<RealtimeAgent> logger, IReadOnlyList<AIFunction> tools, IEventBus bus, IOptions<RealtimeAgentOptions> options, AudioOutputEngine audioOutputEngine)
     {
         _logger = logger;
         _tools = tools;
         _bus = bus;
         _options = options.Value;
+        _audioOutputEngine = audioOutputEngine;
     }
 
 
@@ -129,7 +131,7 @@ public sealed class RealtimeAgent : IDisposable
         // Lazily create audio devices (reused across RunAsync calls)
         _recorder ??= PvRecorder.Create(frameLength: FrameLength, deviceIndex: -1);
         if (_speaker is null)
-            _speaker = new Speaker(sampleRate: SampleRate, bitsPerSample: 16, meterAction: meterAction);
+            _speaker = new Speaker(_audioOutputEngine, bitsPerSample: 16, meterAction: meterAction);
         else
             _speaker.MeterAction = meterAction;
         _vadDetector ??= new SileroVadDetector(VadSampleRate);

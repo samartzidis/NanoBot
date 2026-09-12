@@ -17,17 +17,20 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
     private readonly ILoggerFactory _loggerFactory;
     private readonly IServiceProvider _serviceProvider;
     private readonly IEventBus _bus;
+    private readonly AudioOutputEngine _audioOutputEngine;
 
     public RealtimeAgentFactory(
         IOptionsMonitor<AppConfig> appConfigMonitor,
         ILoggerFactory loggerFactory,
         IServiceProvider serviceProvider,
-        IEventBus bus)
+        IEventBus bus,
+        AudioOutputEngine audioOutputEngine)
     {
         _appConfigMonitor = appConfigMonitor;
         _loggerFactory = loggerFactory;
         _serviceProvider = serviceProvider;
         _bus = bus;
+        _audioOutputEngine = audioOutputEngine;
     }
 
     public RealtimeAgent Create(AgentConfig agentConfig)
@@ -56,7 +59,8 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             _loggerFactory.CreateLogger<RealtimeAgent>(),
             tools,
             _bus,
-            Options.Create(options));
+            Options.Create(options),
+            _audioOutputEngine);
     }
 
     private List<AIFunction> ConfigureTools(AgentConfig agentConfig, AppConfig appConfig, StringBuilder instructionsBuilder)

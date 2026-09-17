@@ -58,6 +58,17 @@ public sealed class RealtimeAgent : IDisposable
     // See https://community.openai.com/t/how-to-properly-cancel-response-on-websockets/1370880
     private const string ErrCodeResponseCancelNotActive = "response_cancel_not_active";
 
+    // Benign race, other half of the one above: our barge-in also sends conversation.item.truncate
+    // with an audioEndMs snapshot taken from local playback state. If the response finished
+    // naturally around the same time (see ErrCodeResponseCancelNotActive), the item's audio is
+    // already final by the time the server processes our truncate, and the server rejects it with
+    // "invalid_value" because the requested truncation point is now longer than the (already
+    // complete and unchangeable) item content. There's nothing left to truncate at that point, so
+    // it's ignored the same way. "invalid_value" alone is too generic to blanket-ignore, so this
+    // also checks the message text.
+    private const string ErrCodeInvalidValue = "invalid_value";
+    private const string ErrMessageAudioContentAlreadyShorter = "already shorter";
+
     private readonly IReadOnlyList<AIFunction> _tools;
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
@@ -513,7 +524,10 @@ public sealed class RealtimeAgent : IDisposable
                     var kind = err?.Kind;
                     var msg = err?.Message ?? "Unknown Realtime API error";
 
-                    if (code == ErrCodeResponseCancelNotActive)
+                    bool isBenignTruncateRace = code == ErrCodeInvalidValue
+                        && msg.Contains(ErrMessageAudioContentAlreadyShorter, StringComparison.OrdinalIgnoreCase);
+
+                    if (code == ErrCodeResponseCancelNotActive || isBenignTruncateRace)
                     {
                         _logger.LogWarning(
                             "[Realtime API benign error - ignored: code={Code} kind={Kind} message={Message}]",

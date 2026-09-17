@@ -10,6 +10,7 @@ namespace NanoBot.Services;
 public interface ISystemService : IHostedService
 {
     Task NotifyConversationEnd();
+    void DisposeRealtimeAgent();
 }
 
 public class SystemService : BackgroundService, ISystemService
@@ -23,6 +24,7 @@ public class SystemService : BackgroundService, ISystemService
     private CancellationTokenSource _hangupCancellationTokenSource;
     private readonly object _hangupCancellationTokenLock = new();
     private readonly IRealtimeAgentFactory _realtimeAgentFactory;
+    private readonly ILocalTtsService _localTtsService;
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
     
@@ -37,7 +39,8 @@ public class SystemService : BackgroundService, ISystemService
         IEventBus bus,
         IAlsaControllerService alsaControllerService,
         IHostApplicationLifetime applicationLifetime,
-        IRealtimeAgentFactory realtimeAgentFactory)
+        IRealtimeAgentFactory realtimeAgentFactory,
+        ILocalTtsService localTtsService)
     {
         _logger = logger;
         _appConfigMonitor = appConfigMonitor;
@@ -46,6 +49,7 @@ public class SystemService : BackgroundService, ISystemService
         _alsaControllerService = alsaControllerService;
         _applicationLifetime = applicationLifetime;
         _realtimeAgentFactory = realtimeAgentFactory;
+        _localTtsService = localTtsService;
 
         WireUpEventHandlers();
     }    
@@ -68,13 +72,11 @@ public class SystemService : BackgroundService, ISystemService
             _alsaControllerService.VolumeDown();
         });
 
-        _bus.Subscribe<ConfigChangedEvent>(e => {
+        _bus.Subscribe<ConfigChangedEvent>(async e => {
             _logger.LogDebug($"Received {e.GetType().Name}");
             
             // Rebuild RealtimeAgent
-            _realtimeAgent?.Dispose();
-            _realtimeAgent = null;
-            _realtimeAgentCreatedAt = null;
+            DisposeRealtimeAgent();
         });
     }
 
@@ -99,9 +101,7 @@ public class SystemService : BackgroundService, ISystemService
             var elapsed = DateTime.UtcNow - _realtimeAgentCreatedAt!.Value;
             _logger.LogInformation($"Session timeout exceeded ({elapsed.TotalMinutes.ToString("F1")} minutes). Disposing and recreating realtime agent.");
             
-            _realtimeAgent?.Dispose();
-            _realtimeAgent = null;
-            _realtimeAgentCreatedAt = null;
+            DisposeRealtimeAgent();
         }
 
         // Create new agent if needed
@@ -140,14 +140,16 @@ public class SystemService : BackgroundService, ISystemService
         }
 
         // Start night mode monitor
-        _ = MonitorNightModeAsync(cancellationToken);
+        _ = MonitorNightModeAsync(cancellationToken);        
 
         return Task.Run(async () =>
         {
+            await _localTtsService.SpeakIpaAsync("aɪɐm ɹˈɛdi"); //I am ready
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
-                {                    
+                {                                        
                     _bus.Publish<SystemOkEvent>(this);
 
                     // Wait for wake word (or hangup button as legitimate wake-up)
@@ -215,9 +217,9 @@ public class SystemService : BackgroundService, ISystemService
 
                     _logger.LogError(ex, ex.Message);
 
-                    _realtimeAgent?.Dispose();
-                    _realtimeAgent = null;
-                    _realtimeAgentCreatedAt = null;
+                    await _localTtsService.SpeakAsync(ex.Message, maxLength: 200);
+
+                    DisposeRealtimeAgent();
 
                     await Task.Delay(5000, cancellationToken);
                 }
@@ -292,6 +294,14 @@ public class SystemService : BackgroundService, ISystemService
     {
         CancelHangupToken();
     }
+
+    public void DisposeRealtimeAgent()
+    {
+        _realtimeAgent?.Dispose();
+        _realtimeAgent = null;
+        _realtimeAgentCreatedAt = null;
+    }
+
     private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)
     {
         lock (_hangupCancellationTokenLock)

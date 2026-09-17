@@ -10,15 +10,18 @@ public class SystemManagerPlugin
     private readonly ILogger _logger;
     private readonly ISystemService _systemService;
     private readonly IAlsaControllerService _alsaControllerService;
+    private readonly ILocalTtsService _localTtsService;
 
     public SystemManagerPlugin(
-        ILogger<SystemManagerPlugin> logger, 
+        ILogger<SystemManagerPlugin> logger,
         ISystemService systemService,
-        IAlsaControllerService alsaControllerService)
+        IAlsaControllerService alsaControllerService,
+        ILocalTtsService localTtsService)
     {
         _logger = logger;
         _systemService = systemService;
         _alsaControllerService = alsaControllerService;
+        _localTtsService = localTtsService;
     }
 
     [Description(
@@ -35,8 +38,14 @@ public class SystemManagerPlugin
     {
         _logger.LogDebug($"{nameof(TurnOff)} tool invoked.");
 
+        await _localTtsService.SpeakIpaAsync("tˈɜːnɪŋ maɪsˈɛlf ˈɒf"); //Turning myself off
+
+        _systemService.DisposeRealtimeAgent();
+
         if (PlatformUtil.IsLinuxPlatform())
+        {
             ShellExecute("sudo", "shutdown now");
+        }
     }
 
     [Description("Restarts the system. Only call this tool when you are clearly asked to restart yourself (the system).")]
@@ -44,8 +53,14 @@ public class SystemManagerPlugin
     {
         _logger.LogDebug($"{nameof(Restart)} tool invoked.");
 
+        await _localTtsService.SpeakIpaAsync("ɹɪstˈɑːtɪŋ"); //Restarting
+
+        _systemService.DisposeRealtimeAgent();
+
         if (PlatformUtil.IsLinuxPlatform())
+        {
             ShellExecute("sudo", "reboot");
+        }
     }
 
     [Description("Increases the playback volume by 1 level (range 0-10). Example: user says 'volume up'.")]

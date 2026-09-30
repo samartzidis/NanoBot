@@ -38,7 +38,7 @@ public sealed class LocalTtsService : ILocalTtsService
         _audioOutputEngine = audioOutputEngine;
 
         var baseDir = AppContext.BaseDirectory;
-        var modelPath = Path.Combine(baseDir, "Resources", "en_GB-alba-medium.int8.onnx");
+        var modelPath = Path.Combine(baseDir, "Resources", "en_GB-jenny_dioco-medium.int8.onnx");
         var configPath = modelPath + ".json";
 
         if (!File.Exists(modelPath))

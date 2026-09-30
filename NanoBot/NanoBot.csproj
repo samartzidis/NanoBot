@@ -53,10 +53,10 @@
     <None Update="Resources\silero_vad.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Resources\en_GB-alba-medium.int8.onnx">
+    <None Update="Resources\en_GB-jenny_dioco-medium.int8.onnx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Resources\en_GB-alba-medium.int8.onnx.json">
+    <None Update="Resources\en_GB-jenny_dioco-medium.int8.onnx.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="wwwroot\jsonforms\index.html">

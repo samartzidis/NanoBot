@@ -6,6 +6,7 @@ const appUiSchema = {
             label: "General",
             elements: [                      
                 { type: "Control", scope: "#/properties/OpenAiApiKey" },
+                { type: "Control", scope: "#/properties/FirecrawlApiKey" },
                 { type: "Control", scope: "#/properties/OpenAiModel" },
                 { type: "Control", scope: "#/properties/PowerOpenAiModel" },
                 { type: "Control", scope: "#/properties/SessionTimeoutMinutes" },

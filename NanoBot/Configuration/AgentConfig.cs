@@ -68,5 +68,9 @@ public class AgentConfig
     [DisplayName("Power AI Plug-in")]
     [Description("Provides access to a powerful chat completion model for complex reasoning, math, grammar corrections, and detailed analysis.")]
     public bool PowerAIPluginEnabled { get; set; }
+
+    [DisplayName("Web Search Plug-in")]
+    [Description("Provides functions to search the web and read web pages (requires a Firecrawl API key).")]
+    public bool WebSearchPluginEnabled { get; set; }
     #endregion Plugins
 }

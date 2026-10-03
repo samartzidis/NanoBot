@@ -25,6 +25,7 @@ const agentsUiSchema = {
               { "type": "Control", "scope": "#/properties/WeatherPluginEnabled" },              
               { "type": "Control", "scope": "#/properties/MemoryPluginEnabled" },
               { "type": "Control", "scope": "#/properties/PowerAIPluginEnabled" },
+              { "type": "Control", "scope": "#/properties/WebSearchPluginEnabled" },
             ]
           }
         }

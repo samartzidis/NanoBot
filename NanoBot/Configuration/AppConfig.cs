@@ -38,6 +38,10 @@ public class AppConfig
     [DefaultValue(DefaultPowerOpenAiModel)]
     public string PowerOpenAiModel { get; set; } = DefaultPowerOpenAiModel;
 
+    [DisplayName("Firecrawl API Key")]
+    [Description("Firecrawl API access key, used by the optional Web Search plug-in.")]
+    public string FirecrawlApiKey { get; set; }
+
     [DisplayName("Global Instructions (modifying this may break correct system functionality)")]
     [Description("Global system instructions for all agents.")]
     public string Instructions { get; set; }

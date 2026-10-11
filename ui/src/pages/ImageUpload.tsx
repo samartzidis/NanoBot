@@ -107,7 +107,7 @@ const ImageUpload: React.FC = () => {
       )}
 
       {busy && <CircularProgress sx={{ alignSelf: 'center' }} />}
-      {sent && <Alert severity="success">Picture sent. Now ask the assistant about it.</Alert>}
+      {sent && <Alert severity="success">Picture sent.</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
     </Stack>
   );

@@ -33,6 +33,9 @@ public class SystemService : BackgroundService, ISystemService
     private const int MaxPendingImages = 3;
     private readonly List<(byte[] Data, string MimeType)> _pendingImages = new();
 
+    // True while the main loop is idle waiting for a wake word; an image upload may then wake the agent.
+    private volatile bool _waitingForWakeWord;
+
     // Night mode tracking
     private DateTime _lastActivityTime = DateTime.UtcNow;
     private bool _nightModeActive = false;
@@ -152,11 +155,22 @@ public class SystemService : BackgroundService, ISystemService
             QueuePendingImage(data, mimeType);
         }
 
-        // Audible acknowledgement; never let a TTS failure fail the upload
+        // Wake the agent into listening mode if it is idle waiting for a wake word. A live
+        // conversation is already listening, so it is left alone.
+        var wakeAgent = _waitingForWakeWord;
+
+        // Audible acknowledgement; never let a TTS failure fail the upload. When waking the
+        // agent, wake only after the announcement so the microphone doesn't pick it up.
         _ = Task.Run(async () =>
         {
-            try { await _localTtsService.SpeakAsync("Picture received", maxLength: 50); }
+            try { await _localTtsService.SpeakIpaAsync("pˈɪktʃə ɹɪsˈiːvd"); } // Picture received
             catch (Exception ex) { _logger.LogWarning($"Could not announce picture: {ex.Message}"); }
+
+            if (wakeAgent && _waitingForWakeWord)
+            {
+                _logger.LogDebug("Image uploaded while idle -> waking agent.");
+                CancelHangupToken();
+            }
         });
     }
 
@@ -304,6 +318,7 @@ public class SystemService : BackgroundService, ISystemService
     {
         // Wait for wake word
         var hangupToken = GetOrCreateHangupToken(cancellationToken);
+        _waitingForWakeWord = true;
         try
         {
             var wakeWord = await _wakeWordService.WaitForWakeWordAsync(hangupToken);
@@ -328,6 +343,10 @@ public class SystemService : BackgroundService, ISystemService
         {
             _logger.LogWarning($"{nameof(_wakeWordService.WaitForWakeWordAsync)} cancelled.");
             return null;
+        }
+        finally
+        {
+            _waitingForWakeWord = false;
         }
     }
     private Task StartKeyboardSpacebarListener(CancellationToken cancellationToken)

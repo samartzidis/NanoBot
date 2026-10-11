@@ -102,6 +102,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     ```
     dtoverlay=vc4-kms-v3d,noaudio
     dtoverlay=pwm-2chan
+    gpu_mem=16
     ```
 4. Also add this line to minimise the GPU memory usage: `gpu_mem=32`
 5. Edit: `/etc/NetworkManager/NetworkManager.conf` and add the lines: 

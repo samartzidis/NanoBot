@@ -11,6 +11,7 @@ public interface ISystemService : IHostedService
 {
     Task NotifyConversationEnd();
     void DisposeRealtimeAgent();
+    Task AddImageAsync(byte[] data, string mimeType);
 }
 
 public class SystemService : BackgroundService, ISystemService
@@ -27,7 +28,11 @@ public class SystemService : BackgroundService, ISystemService
     private readonly ILocalTtsService _localTtsService;
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
-    
+
+    // Images uploaded while no agent exists yet; handed to the next agent that gets created.
+    private const int MaxPendingImages = 3;
+    private readonly List<(byte[] Data, string MimeType)> _pendingImages = new();
+
     // Night mode tracking
     private DateTime _lastActivityTime = DateTime.UtcNow;
     private bool _nightModeActive = false;
@@ -110,10 +115,60 @@ public class SystemService : BackgroundService, ISystemService
             _realtimeAgent = _realtimeAgentFactory.Create(agentConfig);
             _realtimeAgentCreatedAt = DateTime.UtcNow;
             _logger.LogDebug($"Created new realtime agent at {_realtimeAgentCreatedAt.Value.ToString("O")}");
+
+            // Hand over images uploaded while there was no agent
+            (byte[] Data, string MimeType)[] pending;
+            lock (_pendingImages)
+            {
+                pending = _pendingImages.ToArray();
+                _pendingImages.Clear();
+            }
+            foreach (var image in pending)
+                _ = _realtimeAgent.AddImageAsync(image.Data, image.MimeType);
         }
 
         return _realtimeAgent;
-    }        
+    }
+
+    public async Task AddImageAsync(byte[] data, string mimeType)
+    {
+        ResetNightMode();
+
+        var agent = _realtimeAgent;
+        if (agent != null)
+        {
+            try
+            {
+                await agent.AddImageAsync(data, mimeType);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Agent was rebuilt concurrently; keep the image for the next one
+                QueuePendingImage(data, mimeType);
+            }
+        }
+        else
+        {
+            QueuePendingImage(data, mimeType);
+        }
+
+        // Audible acknowledgement; never let a TTS failure fail the upload
+        _ = Task.Run(async () =>
+        {
+            try { await _localTtsService.SpeakAsync("Picture received", maxLength: 50); }
+            catch (Exception ex) { _logger.LogWarning($"Could not announce picture: {ex.Message}"); }
+        });
+    }
+
+    private void QueuePendingImage(byte[] data, string mimeType)
+    {
+        lock (_pendingImages)
+        {
+            _pendingImages.Add((data, mimeType));
+            while (_pendingImages.Count > MaxPendingImages)
+                _pendingImages.RemoveAt(0);
+        }
+    }
 
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
     {
@@ -217,11 +272,29 @@ public class SystemService : BackgroundService, ISystemService
 
                     _logger.LogError(ex, ex.Message);
 
-                    await _localTtsService.SpeakAsync(ex.Message, maxLength: 200);
+                    // Release the failed agent (and its audio devices) before speaking, so the TTS
+                    // output isn't contending with the dead session's speaker/microphone.
+                    _logger.LogDebug("Error recovery: disposing realtime agent.");
+                    try { DisposeRealtimeAgent(); }
+                    catch (Exception disposeEx) { _logger.LogWarning($"Error disposing realtime agent: {disposeEx.Message}"); }
+                    _logger.LogDebug("Error recovery: agent disposed, speaking error.");
 
-                    DisposeRealtimeAgent();
+                    // The error report must never take down the main loop (an exception or hang
+                    // here would leave the eyes red forever with no wake word handling).
+                    try
+                    {
+                        using var speakCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        speakCts.CancelAfter(TimeSpan.FromSeconds(20));
+                        await _localTtsService.SpeakAsync(ex.Message, maxLength: 60, cancellationToken: speakCts.Token);
+                        _logger.LogDebug("Error recovery: error spoken.");
+                    }
+                    catch (Exception speakEx)
+                    {
+                        _logger.LogWarning($"Could not speak error message: {speakEx.Message}");
+                    }
 
-                    await Task.Delay(5000, cancellationToken);
+                    try { await Task.Delay(5000, cancellationToken); }
+                    catch (OperationCanceledException) { break; }
                 }
             }
         }, cancellationToken);

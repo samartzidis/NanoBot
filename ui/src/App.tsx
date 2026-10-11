@@ -6,6 +6,7 @@ import AgentsConfig from './pages/AgentsConfig';
 import SystemConfig from './pages/SystemConfig';
 import MemoryConfig from './pages/MemoryConfig';
 import LogsConfig from './pages/LogsConfig';
+import ImageUpload from './pages/ImageUpload';
 
 const logoBackgroundStyle: React.CSSProperties = {
   position: 'fixed',
@@ -34,7 +35,7 @@ const AppContent: React.FC = () => {
     <>
       <Box sx={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
         <AppBar position="static">
-          <Toolbar>
+          <Toolbar sx={{ flexWrap: 'wrap' }}>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               NanoBot
             </Typography>
@@ -49,6 +50,9 @@ const AppContent: React.FC = () => {
             </Button>            
             <Button color="inherit" component={Link} to="/memory">
               Memory
+            </Button>
+            <Button color="inherit" component={Link} to="/image">
+              Picture
             </Button>
             <Button color="inherit" component={Link} to="/logs">
               Logs
@@ -66,6 +70,7 @@ const AppContent: React.FC = () => {
             <Route path="/system" element={<SystemConfig />} />
             <Route path="/agents" element={<AgentsConfig />} />            
             <Route path="/memory" element={<MemoryConfig />} />
+            <Route path="/image" element={<ImageUpload />} />
             <Route path="/logs" element={<LogsConfig />} />
           </Routes>
         </Container>

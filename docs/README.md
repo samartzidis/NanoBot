@@ -136,6 +136,7 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     ExecStart=/home/pi/NanoBot/NanoBot
     WorkingDirectory=/home/pi/NanoBot/
     User=pi
+    AmbientCapabilities=CAP_NET_BIND_SERVICE
 
     [Install]
     WantedBy=default.target

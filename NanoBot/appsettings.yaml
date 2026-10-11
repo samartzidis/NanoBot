@@ -8,7 +8,7 @@
 Kestrel:
   EndPoints:
     Http:
-      Url: http://*:8080
+      Url: http://*:80
 
 Instructions: |
     You are a voice-only chat assistant.  

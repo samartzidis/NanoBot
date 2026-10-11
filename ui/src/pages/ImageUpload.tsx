@@ -83,7 +83,7 @@ const ImageUpload: React.FC = () => {
     <Stack spacing={2} sx={{ maxWidth: 480, mx: 'auto', alignItems: 'stretch' }}>
       <Typography variant="h5">Send a picture</Typography>
       <Typography variant="body2" color="text.secondary">
-        Take or choose a picture, send it, then wake the assistant and ask about it.
+        Take or choose a picture.
       </Typography>
 
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFileSelected} />

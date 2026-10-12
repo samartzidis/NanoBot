@@ -96,14 +96,14 @@ const ImageUpload: React.FC = () => {
         Choose from library
       </Button>
 
-      {previewUrl && (
-        <Box component="img" src={previewUrl} alt="Preview" sx={{ width: '100%', borderRadius: 1 }} />
-      )}
-
       {image && (
         <Button variant="contained" color="success" size="large" disabled={busy} onClick={send}>
-          Send to assistant
+          Send
         </Button>
+      )}
+
+      {previewUrl && (
+        <Box component="img" src={previewUrl} alt="Preview" sx={{ width: '100%', borderRadius: 1 }} />
       )}
 
       {busy && <CircularProgress sx={{ alignSelf: 'center' }} />}

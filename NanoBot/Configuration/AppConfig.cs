@@ -51,10 +51,10 @@ public class AppConfig
     public string PowerAIPluginInstructions { get; set; }
 
     [DisplayName("Session Timeout Minutes")]
-    [Description("Session timeout in minutes. When the session is idle for this number of minutes, it will be automatically closed. Defaults to: '30'.")]
-    [DefaultValue(30)]
+    [Description("Session timeout in minutes. When the session is idle for this number of minutes, it will be automatically closed. Defaults to: '15'.")]
+    [DefaultValue(15)]
     [Range(1, 60)]
-    public int SessionTimeoutMinutes { get; set; } = 30;
+    public int SessionTimeoutMinutes { get; set; } = 15;
 
     [DisplayName("Conversation Inactivity Timeout Seconds")]
     [Description("Conversation inactivity timeout in seconds. When the conversation is inactive for this number of seconds, it will be automatically go back to Wake Word detection mode. Defaults to: '10'.")]

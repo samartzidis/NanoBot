@@ -78,10 +78,6 @@ public sealed class RealtimeAgent : IDisposable
     private readonly object _speakerLock = new();
     private readonly Dictionary<string, StringBuilder> _functionArgumentBuildersById = new();
 
-    // Images uploaded while there is no live session; delivered at the start of the next RunAsync.
-    private const int MaxPendingImages = 3;
-    private readonly ConcurrentQueue<(byte[] Data, string MimeType)> _pendingImages = new();
-
     private RealtimeClient _realtimeClient;
     private RealtimeSessionClient _session;
     private bool _disposed;
@@ -136,7 +132,8 @@ public sealed class RealtimeAgent : IDisposable
     /// <returns>Why the loop returned.</returns>
     public async Task<RealtimeAgentRunResult> RunAsync(
         Action<StateUpdate> stateUpdateAction = null, 
-        Action<byte> meterAction = null, 
+        Action<byte> meterAction = null,
+        PendingImageQueue pendingImages = null,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -197,11 +194,14 @@ public sealed class RealtimeAgent : IDisposable
         }
 
         // Deliver any images uploaded while there was no live session
-        await FlushPendingImagesAsync(_session, cancellationToken);
+        await FlushPendingImagesAsync(pendingImages, _session, cancellationToken);
 
         // Start the receive task if not already running
         if (_receiveTask is null || _receiveTask.IsCompleted)
             _receiveTask = RunReceiveTaskAsync(_session, _sessionCts!.Token);
+
+        // An upload may have been queued between the flush above and the session becoming live
+        await FlushPendingImagesAsync(pendingImages, _session, cancellationToken);
 
         _stateUpdateAction = stateUpdateAction;
         _waitingForResponse = false;
@@ -254,40 +254,40 @@ public sealed class RealtimeAgent : IDisposable
 
     /// <summary>
     /// Adds a user-supplied image to the conversation context. The image does not trigger a
-    /// response; the user is expected to ask about it in a following voice turn. If there is no
-    /// live session yet (or it is being reconnected) the image is queued and delivered by the next
-    /// <see cref="RunAsync"/>.
+    /// response; the user is expected to ask about it in a following voice turn.
     /// </summary>
-    public async Task AddImageAsync(byte[] data, string mimeType, CancellationToken cancellationToken = default)
+    /// <returns>True if the image was added to the live session; false if there is no live
+    /// session (or the send failed), in which case the caller should queue the image.</returns>
+    public async Task<bool> TryAddImageAsync(byte[] data, string mimeType, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var session = _session;
         var sessionAlive = session is not null && _receiveTask is { IsCompleted: false };
-        if (sessionAlive)
-        {
-            try
-            {
-                await SendImageAsync(session!, data, mimeType, cancellationToken);
-                return;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning($"[Sending image failed, queueing it for the next session: {ex.Message}]");
-            }
-        }
+        if (!sessionAlive)
+            return false;
 
-        _pendingImages.Enqueue((data, mimeType));
-        while (_pendingImages.Count > MaxPendingImages && _pendingImages.TryDequeue(out _)) { }
-        _logger.LogDebug($"[Image queued ({_pendingImages.Count} pending)]");
+        try
+        {
+            await SendImageAsync(session!, data, mimeType, cancellationToken);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning($"[Sending image failed: {ex.Message}]");
+            return false;
+        }
     }
 
-    private async Task FlushPendingImagesAsync(RealtimeSessionClient session, CancellationToken cancellationToken)
+    private async Task FlushPendingImagesAsync(PendingImageQueue pendingImages, RealtimeSessionClient session, CancellationToken cancellationToken)
     {
-        while (_pendingImages.TryPeek(out var image))
+        if (pendingImages is null)
+            return;
+
+        while (pendingImages.TryPeek(out var image))
         {
             await SendImageAsync(session, image.Data, image.MimeType, cancellationToken);
-            _pendingImages.TryDequeue(out _);
+            pendingImages.RemoveFirst();
         }
     }
 

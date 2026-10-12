@@ -29,9 +29,8 @@ public class SystemService : BackgroundService, ISystemService
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
 
-    // Images uploaded while no agent exists yet; handed to the next agent that gets created.
-    private const int MaxPendingImages = 3;
-    private readonly List<(byte[] Data, string MimeType)> _pendingImages = new();
+    // Images uploaded while no live session can take them; the agent drains this once its session is up.
+    private readonly PendingImageQueue _pendingImages = new();
 
     // True while the main loop is idle waiting for a wake word; an image upload may then wake the agent.
     private volatile bool _waitingForWakeWord;
@@ -118,16 +117,6 @@ public class SystemService : BackgroundService, ISystemService
             _realtimeAgent = _realtimeAgentFactory.Create(agentConfig);
             _realtimeAgentCreatedAt = DateTime.UtcNow;
             _logger.LogDebug($"Created new realtime agent at {_realtimeAgentCreatedAt.Value.ToString("O")}");
-
-            // Hand over images uploaded while there was no agent
-            (byte[] Data, string MimeType)[] pending;
-            lock (_pendingImages)
-            {
-                pending = _pendingImages.ToArray();
-                _pendingImages.Clear();
-            }
-            foreach (var image in pending)
-                _ = _realtimeAgent.AddImageAsync(image.Data, image.MimeType);
         }
 
         return _realtimeAgent;
@@ -137,22 +126,22 @@ public class SystemService : BackgroundService, ISystemService
     {
         ResetNightMode();
 
-        var agent = _realtimeAgent;
-        if (agent != null)
+        // Send straight into a live session; otherwise queue it for the agent to deliver once
+        // its session is up (the wake-up below starts one if the agent is idle).
+        var sent = false;
+        try
         {
-            try
-            {
-                await agent.AddImageAsync(data, mimeType);
-            }
-            catch (ObjectDisposedException)
-            {
-                // Agent was rebuilt concurrently; keep the image for the next one
-                QueuePendingImage(data, mimeType);
-            }
+            sent = _realtimeAgent != null && await _realtimeAgent.TryAddImageAsync(data, mimeType);
         }
-        else
+        catch (ObjectDisposedException)
         {
-            QueuePendingImage(data, mimeType);
+            // Agent was rebuilt concurrently; the queue outlives it
+        }
+
+        if (!sent)
+        {
+            _pendingImages.Enqueue(data, mimeType);
+            _logger.LogDebug($"[Image queued ({_pendingImages.Count} pending)]");
         }
 
         // Wake the agent into listening mode if it is idle waiting for a wake word. A live
@@ -172,16 +161,6 @@ public class SystemService : BackgroundService, ISystemService
                 CancelHangupToken();
             }
         });
-    }
-
-    private void QueuePendingImage(byte[] data, string mimeType)
-    {
-        lock (_pendingImages)
-        {
-            _pendingImages.Add((data, mimeType));
-            while (_pendingImages.Count > MaxPendingImages)
-                _pendingImages.RemoveAt(0);
-        }
     }
 
     protected override Task ExecuteAsync(CancellationToken cancellationToken)
@@ -260,6 +239,7 @@ public class SystemService : BackgroundService, ISystemService
                                     _bus.Publish<TalkLevelEvent>(new TalkLevelEvent(this, null, false));
                             },
                             meterAction: level => _bus.Publish<TalkLevelEvent>(new TalkLevelEvent(this, level, true)),
+                            pendingImages: _pendingImages,
                             cancellationToken: hangupToken);
                     }
                     finally
@@ -299,7 +279,7 @@ public class SystemService : BackgroundService, ISystemService
                     {
                         using var speakCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                         speakCts.CancelAfter(TimeSpan.FromSeconds(20));
-                        await _localTtsService.SpeakAsync(ex.Message, maxLength: 60, cancellationToken: speakCts.Token);
+                        await _localTtsService.SpeakAsync(ex.Message, maxLength: 100, cancellationToken: speakCts.Token);
                         _logger.LogDebug("Error recovery: error spoken.");
                     }
                     catch (Exception speakEx)

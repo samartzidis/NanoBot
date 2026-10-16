@@ -10,17 +10,19 @@ namespace NanoBot.Util;
 public class PendingImageQueue
 {
     private const int MaxImages = 3;
-    private readonly ConcurrentQueue<(byte[] Data, string MimeType)> _queue = new();
+    private readonly ConcurrentQueue<StoredImage> _queue = new();
 
-    public void Enqueue(byte[] data, string mimeType)
+    public void Enqueue(StoredImage image)
     {
-        _queue.Enqueue((data, mimeType));
+        _queue.Enqueue(image);
         while (_queue.Count > MaxImages && _queue.TryDequeue(out _)) { }
     }
 
-    public bool TryPeek(out (byte[] Data, string MimeType) image) => _queue.TryPeek(out image);
+    public bool TryPeek(out StoredImage image) => _queue.TryPeek(out image);
 
     public void RemoveFirst() => _queue.TryDequeue(out _);
+
+    public StoredImage[] Snapshot() => _queue.ToArray();
 
     public int Count => _queue.Count;
 }

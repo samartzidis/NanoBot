@@ -32,6 +32,9 @@ public class SystemService : BackgroundService, ISystemService
     // Images uploaded while no live session can take them; the agent drains this once its session is up.
     private readonly PendingImageQueue _pendingImages = new();
 
+    // Images of the current session, addressable by label (e.g. by PowerAI); cleared when the agent is disposed.
+    private readonly IUploadedImageStore _imageStore;
+
     // True while the main loop is idle waiting for a wake word; an image upload may then wake the agent.
     private volatile bool _waitingForWakeWord;
 
@@ -47,8 +50,10 @@ public class SystemService : BackgroundService, ISystemService
         IAlsaControllerService alsaControllerService,
         IHostApplicationLifetime applicationLifetime,
         IRealtimeAgentFactory realtimeAgentFactory,
-        ILocalTtsService localTtsService)
+        ILocalTtsService localTtsService,
+        IUploadedImageStore imageStore)
     {
+        _imageStore = imageStore;
         _logger = logger;
         _appConfigMonitor = appConfigMonitor;
         _wakeWordService = wakeWordService;
@@ -128,10 +133,11 @@ public class SystemService : BackgroundService, ISystemService
 
         // Send straight into a live session; otherwise queue it for the agent to deliver once
         // its session is up (the wake-up below starts one if the agent is idle).
+        var image = _imageStore.Add(data, mimeType);
         var sent = false;
         try
         {
-            sent = _realtimeAgent != null && await _realtimeAgent.TryAddImageAsync(data, mimeType);
+            sent = _realtimeAgent != null && await _realtimeAgent.TryAddImageAsync(image);
         }
         catch (ObjectDisposedException)
         {
@@ -140,8 +146,8 @@ public class SystemService : BackgroundService, ISystemService
 
         if (!sent)
         {
-            _pendingImages.Enqueue(data, mimeType);
-            _logger.LogDebug($"[Image queued ({_pendingImages.Count} pending)]");
+            _pendingImages.Enqueue(image);
+            _logger.LogDebug($"[Image {image.Label} queued ({_pendingImages.Count} pending)]");
         }
 
         // Wake the agent into listening mode if it is idle waiting for a wake word. A live
@@ -372,6 +378,10 @@ public class SystemService : BackgroundService, ISystemService
         _realtimeAgent?.Dispose();
         _realtimeAgent = null;
         _realtimeAgentCreatedAt = null;
+
+        // Images already in the disposed session are gone from the model's context; keep only
+        // those still queued for delivery to the next session.
+        _imageStore.Clear(keep: _pendingImages.Snapshot());
     }
 
     private CancellationToken GetOrCreateHangupToken(CancellationToken baseToken)

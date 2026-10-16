@@ -30,4 +30,8 @@ PowerAIPluginInstructions: |
     other tools (e.g. date/time, weather, location) and include them in the question you send.
     Treat its answer as an expert opinion to weigh into your response, not as a source of truth
     for facts it could not have verified itself.
+    It cannot see uploaded pictures unless you attach them: pass their labels (e.g. img-1) in
+    imageIds when the question needs close visual reasoning - a maths problem, handwriting, a
+    diagram, dense text, or fault-finding in a photo. Do not attach images for simple "what is
+    this?" questions you can answer yourself, and attach only the images that are needed.
 

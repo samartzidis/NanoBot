@@ -109,6 +109,7 @@ public class Program
                 });
 
                 services.AddSingleton<AudioOutputEngine>();
+                services.AddSingleton<IUploadedImageStore, UploadedImageStore>();
                 services.AddSingleton<IRealtimeAgentFactory, RealtimeAgentFactory>();
                 services.AddSingleton<ILocalTtsService, LocalTtsService>();
             })

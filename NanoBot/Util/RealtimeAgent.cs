@@ -258,7 +258,7 @@ public sealed class RealtimeAgent : IDisposable
     /// </summary>
     /// <returns>True if the image was added to the live session; false if there is no live
     /// session (or the send failed), in which case the caller should queue the image.</returns>
-    public async Task<bool> TryAddImageAsync(byte[] data, string mimeType, CancellationToken cancellationToken = default)
+    public async Task<bool> TryAddImageAsync(StoredImage image, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -269,7 +269,7 @@ public sealed class RealtimeAgent : IDisposable
 
         try
         {
-            await SendImageAsync(session!, data, mimeType, cancellationToken);
+            await SendImageAsync(session!, image, cancellationToken);
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -286,13 +286,15 @@ public sealed class RealtimeAgent : IDisposable
 
         while (pendingImages.TryPeek(out var image))
         {
-            await SendImageAsync(session, image.Data, image.MimeType, cancellationToken);
+            await SendImageAsync(session, image, cancellationToken);
             pendingImages.RemoveFirst();
         }
     }
 
-    private async Task SendImageAsync(RealtimeSessionClient session, byte[] data, string mimeType, CancellationToken cancellationToken)
+    private async Task SendImageAsync(RealtimeSessionClient session, StoredImage image, CancellationToken cancellationToken)
     {
+        var (label, data, mimeType) = image;
+
         // System.Uri rejects strings over ~65K chars on .NET 8, far below a base64 photo, and the SDK
         // part only takes a Uri. Build it with a short placeholder and overwrite image_url as a raw
         // string through the part's JsonPatch.
@@ -301,9 +303,11 @@ public sealed class RealtimeAgent : IDisposable
 #pragma warning disable SCME0001 // JsonPatch is an evaluation-only SDK API
         imagePart.Patch.Set("$.image_url"u8, dataUrl);
 #pragma warning restore SCME0001
-        var item = RealtimeItem.CreateUserMessageItem(new RealtimeMessageContentPart[] { imagePart });
+        // The label tells the model how to refer to this image in tool calls (e.g. PowerAI imageIds)
+        var labelPart = new RealtimeInputTextMessageContentPart($"[Uploaded image {label}]");
+        var item = RealtimeItem.CreateUserMessageItem(new RealtimeMessageContentPart[] { labelPart, imagePart });
         await session.AddItemAsync(item, cancellationToken);
-        _logger.LogDebug($"[Image added to conversation: {mimeType}, {data.Length} bytes]");
+        _logger.LogDebug($"[Image {label} added to conversation: {mimeType}, {data.Length} bytes]");
     }
 
     /// <summary>

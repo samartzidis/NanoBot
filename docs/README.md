@@ -41,7 +41,6 @@ It self-controls its 2 RGB LEDs for changing eye colours via the Raspberry Pi *G
 
 Optional plugin-based capabilities such as: 
 - Persistent memory (RAG memory plugin).
-- Live weather and GeoIP-based location awareness plugin.
 - A scientific calculator plugin (for math operations).
 
 Controls its eyes colour and responds to various user commands such as: "turn off", "restart", "volume up/down", "volume 8" (ranging from 0-10), etc.

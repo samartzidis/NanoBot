@@ -27,7 +27,7 @@ PowerAIPluginInstructions: |
       - the user asks you to use 'Power AI'
     The PowerAIPlugin has no tools of its own and cannot look anything up - it only reasons
     over what you tell it. Before calling it, gather any relevant facts yourself with your
-    other tools (e.g. date/time, weather, location) and include them in the question you send.
+    other tools (e.g. date/time, web search) and include them in the question you send.
     Treat its answer as an expert opinion to weigh into your response, not as a source of truth
     for facts it could not have verified itself.
     It cannot see uploaded pictures unless you attach them: pass their labels (e.g. img-1) in

@@ -101,16 +101,6 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             tools.AddRange(CreateToolsFromType<CalculatorPlugin>(nameof(CalculatorPlugin)));
         }
 
-        if (agentConfig.GeoIpPluginEnabled)
-        {
-            logger.LogInformation($"Adding {nameof(GeoIpPlugin)}");
-
-            instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine($"ALWAYS use the {nameof(GeoIpPlugin)} for date and time information.");
-
-            tools.AddRange(CreateToolsFromType<GeoIpPlugin>(nameof(GeoIpPlugin)));
-        }
-
         if (agentConfig.DateTimePluginEnabled)
         {
             logger.LogInformation($"Adding {nameof(DateTimePlugin)}");
@@ -119,16 +109,6 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             instructionsBuilder.AppendLine($"ALWAYS use the {nameof(DateTimePlugin)} when the user asks for the current date or time. Defaults to the system's local time zone.");
 
             tools.AddRange(CreateToolsFromType<DateTimePlugin>(nameof(DateTimePlugin)));
-        }
-
-        if (agentConfig.WeatherPluginEnabled)
-        {
-            logger.LogInformation($"Adding {nameof(WeatherPlugin)}");
-
-            instructionsBuilder.AppendLine();
-            instructionsBuilder.AppendLine($"ALWAYS Use the {nameof(WeatherPlugin)} for weather information.");
-
-            tools.AddRange(CreateToolsFromType<WeatherPlugin>(nameof(WeatherPlugin)));
         }
 
         if (agentConfig.WebSearchPluginEnabled)

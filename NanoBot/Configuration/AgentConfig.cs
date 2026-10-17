@@ -49,17 +49,9 @@ public class AgentConfig
     [Description("Provides a set of calculator functions for accurate mathematical operations.")]
     public bool CalculatorPluginEnabled { get; set; }
 
-    [DisplayName("GeoIP Plug-in")]
-    [Description("Provides functions to retrieve current location details based on IP address.")]
-    public bool GeoIpPluginEnabled { get; set; }
-
     [DisplayName("Date/Time Plug-in")]
     [Description("Provides functions to retrieve the current date and time, defaulting to the system's local time zone.")]
     public bool DateTimePluginEnabled { get; set; }
-
-    [DisplayName("Weather Plug-in")]
-    [Description("Provides functions to retrieve weather information and forecasts for specific coordinates.")]
-    public bool WeatherPluginEnabled { get; set; }
 
     [DisplayName("Memory Plug-in")]
     [Description("Provides functions to save, retrieve, search, and manage persistent memories for the agent.")]

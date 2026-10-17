@@ -85,6 +85,12 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             tools.AddRange(CreateToolsFromType<MemoryPlugin>(nameof(MemoryPlugin)));
         }
 
+        if (PlatformUtil.IsLinuxPlatform())
+        {
+            logger.LogInformation($"Adding {nameof(SystemInfoPlugin)}");
+            tools.AddRange(CreateToolsFromType<SystemInfoPlugin>(nameof(SystemInfoPlugin)));
+        }
+
         if (PlatformUtil.IsRaspberryPi())
         {
             logger.LogInformation($"Adding {nameof(EyesPlugin)}");

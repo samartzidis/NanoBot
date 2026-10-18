@@ -128,6 +128,9 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     ```
     [Unit]
     Description=NanoBot service
+    After=network-online.target
+    Wants=network-online.target
+    StartLimitIntervalSec=0
 
     [Service]
     Environment=DOTNET_ROOT=/opt/dotnet8
@@ -136,6 +139,8 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
     WorkingDirectory=/home/pi/NanoBot/
     User=pi
     AmbientCapabilities=CAP_NET_BIND_SERVICE
+    Restart=on-failure
+    RestartSec=5
 
     [Install]
     WantedBy=default.target
@@ -183,11 +188,10 @@ You can optionally install Captive Portal Device software so that whenever NanoB
    User=root
    WorkingDirectory=/home/pi/wifi-connect
 
-   # Only start portal when Wi-Fi is NOT already connected
+   # Only start portal when there is still no network after waiting up to 30s for NetworkManager
    ExecStart=/bin/bash -lc '\
-   if nmcli -t -f WIFI general | grep -q enabled && \
-       nmcli -t -f DEVICE,TYPE,STATE dev status | grep -q ":wifi:connected$"; then \
-       echo "WiFi already connected; not starting wifi-connect"; \
+   if nm-online -q -t 30; then \
+       echo "Network already up; not starting wifi-connect"; \
        exit 0; \
    fi; \
    exec ./wifi-connect -a 300 -s "NanoBot WiFi Connect" \

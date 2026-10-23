@@ -1,20 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import { apiBaseUrl } from '../config';
 
 const MAX_DIMENSION = 1024;
 const JPEG_QUALITY = 0.8;
+const MIN_CROP_PX = 10;
 
-// Downscale to MAX_DIMENSION and re-encode as JPEG. Decoding through createImageBitmap applies the
-// EXIF orientation, so phone photos come out upright.
-async function downscale(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+// Draw the cropped region of the rendered <img> onto a canvas, downscaled to MAX_DIMENSION, and
+// re-encode as JPEG. Modern browsers auto-rotate <img> per EXIF, so naturalWidth/naturalHeight and
+// the crop (reported in rendered-image pixels) already agree on orientation.
+function getCroppedBlob(image: HTMLImageElement, crop: PixelCrop): Promise<Blob> {
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  const cropWidth = crop.width * scaleX;
+  const cropHeight = crop.height * scaleY;
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(cropWidth, cropHeight));
+
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
+  canvas.width = Math.round(cropWidth * scale);
+  canvas.height = Math.round(cropHeight * scale);
+  canvas
+    .getContext('2d')!
+    .drawImage(image, crop.x * scaleX, crop.y * scaleY, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
 
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Could not encode image.'))), 'image/jpeg', JPEG_QUALITY));
@@ -23,55 +32,60 @@ async function downscale(file: File): Promise<Blob> {
 const ImageUpload: React.FC = () => {
   const cameraInput = useRef<HTMLInputElement>(null);
   const libraryInput = useRef<HTMLInputElement>(null);
-  const [image, setImage] = useState<Blob | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (!image) {
-      setPreviewUrl(null);
+    if (!sourceFile) {
+      setSourceUrl(null);
       return;
     }
-    const url = URL.createObjectURL(image);
-    setPreviewUrl(url);
+    const url = URL.createObjectURL(sourceFile);
+    setSourceUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [image]);
+  }, [sourceFile]);
 
-  const onFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // allow selecting the same file again
     if (!file) return;
 
     setError(null);
     setSent(false);
-    setBusy(true);
-    try {
-      setImage(await downscale(file));
-    } catch (err) {
-      setImage(null);
-      setError(err instanceof Error ? err.message : 'Could not read the image.');
-    } finally {
-      setBusy(false);
-    }
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+    setSourceFile(file);
+  };
+
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
+    setCompletedCrop({ unit: 'px', x: 0, y: 0, width, height });
   };
 
   const send = async () => {
-    if (!image) return;
+    const image = imgRef.current;
+    if (!image || !completedCrop || !completedCrop.width || !completedCrop.height) return;
 
     setError(null);
     setBusy(true);
     try {
+      const blob = await getCroppedBlob(image, completedCrop);
       const form = new FormData();
-      form.append('file', image, 'picture.jpg');
+      form.append('file', blob, 'picture.jpg');
       const response = await fetch(`${apiBaseUrl}/api/Conversation/Image`, { method: 'POST', body: form });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? `Upload failed (${response.status}).`);
       }
       setSent(true);
-      setImage(null);
+      setSourceFile(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
@@ -83,7 +97,7 @@ const ImageUpload: React.FC = () => {
     <Stack spacing={2} sx={{ maxWidth: 480, mx: 'auto', alignItems: 'stretch' }}>
       <Typography variant="h5">Send a picture</Typography>
       <Typography variant="body2" color="text.secondary">
-        Take or choose a picture.
+        Take or choose a picture, then drag the crop handles to send only part of it.
       </Typography>
 
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={onFileSelected} />
@@ -96,14 +110,24 @@ const ImageUpload: React.FC = () => {
         Choose from library
       </Button>
 
-      {image && (
+      {sourceUrl && (
         <Button variant="contained" color="success" size="large" disabled={busy} onClick={send}>
           Send
         </Button>
       )}
 
-      {previewUrl && (
-        <Box component="img" src={previewUrl} alt="Preview" sx={{ width: '100%', borderRadius: 1 }} />
+      {sourceUrl && (
+        <Box sx={{ width: '100%' }}>
+          <ReactCrop
+            crop={crop}
+            onChange={(_, percentCrop) => setCrop(percentCrop)}
+            onComplete={c => setCompletedCrop(c)}
+            minWidth={MIN_CROP_PX}
+            minHeight={MIN_CROP_PX}
+          >
+            <img ref={imgRef} src={sourceUrl} alt="Selected" onLoad={onImageLoad} style={{ width: '100%' }} />
+          </ReactCrop>
+        </Box>
       )}
 
       {busy && <CircularProgress sx={{ alignSelf: 'center' }} />}

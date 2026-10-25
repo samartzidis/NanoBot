@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Container, Box } from '@mui/material';
 import logo from './assets/logo.png';
 import AgentsConfig from './pages/AgentsConfig';
@@ -7,6 +7,7 @@ import SystemConfig from './pages/SystemConfig';
 import MemoryConfig from './pages/MemoryConfig';
 import LogsConfig from './pages/LogsConfig';
 import ImageUpload from './pages/ImageUpload';
+import SystemStatusCards from './components/SystemStatusCards';
 
 const logoBackgroundStyle: React.CSSProperties = {
   position: 'fixed',
@@ -28,9 +29,6 @@ const logoImageStyle: React.CSSProperties = {
 };
 
 const AppContent: React.FC = () => {
-  const location = useLocation();
-  const isHome = location.pathname === '/';
-
   return (
     <>
       <Box sx={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
@@ -64,7 +62,7 @@ const AppContent: React.FC = () => {
           <Routes>
             <Route path="/" element={
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 24, gap: 24 }}>
-                <img src={logo} alt="NanoBot logo" style={{ maxWidth: '100%', height: 'auto' }} />
+                <SystemStatusCards />
               </div>
             } />
             <Route path="/system" element={<SystemConfig />} />
@@ -75,11 +73,9 @@ const AppContent: React.FC = () => {
           </Routes>
         </Container>
       </Box>
-      {!isHome && (
-        <div style={logoBackgroundStyle}>
-          <img src={logo} alt="" aria-hidden style={logoImageStyle} />
-        </div>
-      )}
+      <div style={logoBackgroundStyle}>
+        <img src={logo} alt="" aria-hidden style={logoImageStyle} />
+      </div>
     </>
   );
 };

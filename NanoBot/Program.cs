@@ -67,7 +67,8 @@ public class Program
                 services.AddSingleton(typeof(IDynamicOptions<>), typeof(DynamicOptions<>));
                 services.AddSingleton<IWakeWordService, WakeWordService>();
                 services.AddSingleton<IAlsaControllerService, AlsaControllerService>();
-                services.AddSingleton<IEventBus, EventBus>();                
+                services.AddSingleton<IEventBus, EventBus>();
+                services.AddSingleton<ISystemInfoService, SystemInfoService>();
                 
                 // Register HttpClient for external API calls
                 services.AddHttpClient();

@@ -1,4 +1,5 @@
 using NanoBot.Configuration;
+using NanoBot.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,13 +12,30 @@ public class SystemController : ControllerBase
 {
     private readonly ILogger<SystemController> _logger;
     private readonly AppConfig _appConfig;
+    private readonly ISystemInfoService _systemInfoService;
 
-    public SystemController(ILogger<SystemController> logger, 
-        IOptions<AppConfig> appConfig 
+    public SystemController(ILogger<SystemController> logger,
+        IOptions<AppConfig> appConfig,
+        ISystemInfoService systemInfoService
         )
     {
         _logger = logger;
         _appConfig = appConfig.Value;
+        _systemInfoService = systemInfoService;
+    }
+
+    [HttpGet("GetStatus")]
+    public async Task<IActionResult> GetStatus(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await _systemInfoService.GetStatusAsync(cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading system status.");
+            return StatusCode(500, new { error = "Failed to read system status" });
+        }
     }
 
     [HttpGet("GetLogs")]

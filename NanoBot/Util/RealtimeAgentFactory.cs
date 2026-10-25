@@ -85,7 +85,7 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             tools.AddRange(CreateToolsFromType<MemoryPlugin>(nameof(MemoryPlugin)));
         }
 
-        if (PlatformUtil.IsLinuxPlatform())
+        if (PlatformUtil.IsLinuxPlatform() || PlatformUtil.IsWindowsPlatform())
         {
             logger.LogInformation($"Adding {nameof(SystemInfoPlugin)}");
             tools.AddRange(CreateToolsFromType<SystemInfoPlugin>(nameof(SystemInfoPlugin)));

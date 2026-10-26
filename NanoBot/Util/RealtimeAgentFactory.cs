@@ -85,7 +85,7 @@ public sealed class RealtimeAgentFactory : IRealtimeAgentFactory
             tools.AddRange(CreateToolsFromType<MemoryPlugin>(nameof(MemoryPlugin)));
         }
 
-        if (PlatformUtil.IsRaspberryPi())
+        if (PlatformUtil.IsSupportedBoard())
         {
             logger.LogInformation($"Adding {nameof(EyesPlugin)}");
             tools.AddRange(CreateToolsFromType<EyesPlugin>(nameof(EyesPlugin)));

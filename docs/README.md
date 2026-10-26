@@ -90,11 +90,23 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
 
 <a href="pi0-pinout.png"><img src="pi0-pinout.png" height="320" title="Pi0 Pinout" /></a>
 
+### Orange Pi Zero 2W
+
+NanoBot also runs on the **Orange Pi Zero 2W** (it is detected automatically from `/proc/device-tree/model`). The wiring is the same as on the Raspberry Pi, except that the red and green LED pins are different (the blue LED and the button are on the same physical pins):
+
+- **Ground** (physical **Pin 34**) ⇒ Push **button** terminal 1 (of 2) and to the 2 RGB LED common cathode pins.
+- **PI11** (physical **Pin 32**) ⇒ **Red** RGB LED pins via resistors. (Hardware `PWM1`)
+- **PI12** (physical **Pin 33**) ⇒ **Green** RGB LED pins via resistors. (Hardware `PWM2`)
+- **PC12** (physical **Pin 36**) ⇒ **Blue** RGB LED pins via resistors. (Simple GPIO output, no PWM)
+- **PI16** (physical **Pin 37**) ⇒ Push **button** terminal 2 (of 2).
+
+<a href="orangepi-zero2w-pinout.png"><img src="orangepi-zero2w-pinout.png" height="320" title="Orange Pi Zero 2W Pinout" /></a>
+
 ## Raspberry Pi OS Platform Preparation
 
 1. Install the latest [Raspberry Pi OS Lite (64-bit)](https://www.raspberrypi.com/software/operating-systems/) Operating System, currently Debian version: 12 (bookworm), on the `Raspberry Pi Zero 2 W` device configuring WiFi network connectivity with internet access. Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. After finishing installation, SSH to the Pi and install the required OS packages via:
-    `sudo apt-get install -y libasound2-dev espeak-ng`
+    `sudo apt-get install -y libasound2-dev espeak-ng iw`
 3. Disable the Raspberry Pi on-board audio functionality and enable the pwm overlay:
     Edit: `/boot/firmware/config.txt`
     Add these lines in the end: 
@@ -119,6 +131,66 @@ A genuinely at least 2A and 5V micro-USB power supply to power the Pi board will
    ```
    The DOTNET_ROOT environment variable is needed when running .NET executables published as a single file, so it is best to set it as well.
 9. Ensure that the `dotnet` command is in the PATH of the `pi` user.
+
+## Orange Pi Zero 2W Platform Preparation
+
+Use this section instead of *Raspberry Pi OS Platform Preparation* when running on an Orange Pi Zero 2W. The steps below assume the user `pi` runs NanoBot (as in the service file in the next section).
+
+1. Install the Orange Pi Ubuntu Minimal (Ubuntu 26.04 or better) image for the Zero 2W and configure WiFi network connectivity with internet access.
+2. Install the required OS packages:
+    `sudo apt-get install -y libasound2-dev espeak-ng gpiod iw`
+    NanoBot talks to the GPIO chip through **libgpiod 2.x** (the library file `libgpiod.so.3`, Debian package `libgpiod3`). Check with: `ldconfig -p | grep gpiod`.
+3. Make sure the hardware PWM outputs for the red and green LEDs (`PWM1` and `PWM2`) are enabled in the Orange Pi device-tree overlay configuration (`/boot/orangepiEnv.txt` or `orangepi-config`). When enabled, the directory `/sys/class/pwm/pwmchip0` exists.
+4. Allow the `pi` user to open the GPIO chip. Create the file `/etc/udev/rules.d/99-gpio.rules` with the content:
+    ```
+    SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
+    ```
+    The `pi` user must be a member of the `gpio` group (check with `groups`). NanoBot uses `/dev/gpiochip1`: on this board `gpiochip0` is the small 32-line PL bank and `gpiochip1` (`300b000.pinctrl`) is the main 288-line controller (check with `gpiodetect`).
+5. Allow the `pi` user to control the PWM outputs. Create the file `/etc/udev/rules.d/99-pwm.rules` with the content:
+    ```
+    SUBSYSTEM=="pwm", ACTION=="add|change", RUN+="/bin/sh -c 'chgrp -R gpio /sys%p && chmod -R g=u /sys%p'"
+    ```
+6. Reload the rules and re-trigger:
+    ```
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger --subsystem-match=gpio
+    sudo udevadm trigger --subsystem-match=pwm --action=add
+    ```
+    Check that `/dev/gpiochip1` and `/sys/class/pwm/pwmchip0/export` are now accessible to the `gpio` group (`ls -l`).
+7. Let NanoBot and the wake-word engine share the microphone. By default the sound card is opened exclusively, so the wake-word recorder fails with `PvRecorder runtime error` as soon as a conversation has opened the microphone. Edit `/etc/asound.conf` and set the content below (the example is for the *Anker PowerConf S330*, whose capture device only supports `S16_LE`, 2 channels, 48000 Hz):
+    ```
+    pcm.s330_in {
+        type dsnoop
+        ipc_key 5978293
+        slave {
+            pcm "hw:S330,0"
+            format S16_LE
+            rate 48000
+            channels 2
+        }
+    }
+
+    pcm.!default {
+        type asym
+        playback.pcm {
+            type hw
+            card S330
+        }
+        capture.pcm {
+            type plug
+            slave.pcm "s330_in"
+        }
+    }
+
+    ctl.!default {
+        type hw
+        card S330
+    }
+    ```
+    For a different USB sound card, find the card name with `aplay -l` and its capture format with `arecord -D hw:<card>,0 --dump-hw-params -d 1 /dev/null`, and adjust the `card` names and the `slave` settings accordingly.
+    Verify that two recordings can run at once: `arecord -D default -f S16_LE -r 16000 -c 1 -d 5 /dev/null & arecord -D default -f S16_LE -r 16000 -c 1 -d 5 /dev/null`
+8. The Orange Pi also has an on-board audio codec and an HDMI audio device that cannot capture from a microphone. ALSA may log `unable to open slave` lines for them. These messages are harmless.
+9. Reboot, then install the .NET 8 platform as in steps 8 and 9 of the Raspberry Pi preparation.
 
 ## Software Installation and Configuration
 

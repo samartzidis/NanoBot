@@ -2,6 +2,7 @@ using NanoBot.Events;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Device.Gpio;
+using System.Device.Gpio.Drivers;
 using System.Device.Pwm;
 using NanoBot.Util;
 
@@ -30,10 +31,19 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 {
     public GpioDeviceLedColor DefaultLedColour { get; set; } = GpioDeviceLedColor.White;
 
-    private const int RedPin = 18;  // GPIO18 (Physical Pin 12) - Hardware PWM0 (default)
-    private const int GreenPin = 19; // GPIO19 (Physical Pin 35) - Hardware PWM1 (default)
-    private const int BluePin = 16; // GPIO16 (Physical Pin 36) - Simple GPIO output (no PWM)
-    private const int ButtonPin = 26; // GPIO26 (Pin 37 on the header)
+    // Per-board wiring: red/green are hardware PWM channels on pwmchip0, blue and the button are GPIO line
+    // offsets on the GPIO chip given by GpioChip (null = the library's default chip).
+    private sealed record BoardPins(int RedPwmChannel, int GreenPwmChannel, int BluePin, int ButtonPin, int? GpioChip = null);
+
+    // GPIO18 (Physical Pin 12) = PWM0, GPIO19 (Physical Pin 35) = PWM1, blue GPIO16 (Pin 36), button GPIO26 (Pin 37).
+    private static readonly BoardPins RaspberryPiPins = new(RedPwmChannel: 0, GreenPwmChannel: 1, BluePin: 16, ButtonPin: 26);
+
+    // Orange Pi Zero 2W (H616): red PWM on Pin 32, green PWM on Pin 33, blue PC12 (Pin 36) = 2*32+12,
+    // button PI16 (Pin 37) = 8*32+16. The main 288-line pinctrl (300b000.pinctrl) is gpiochip1 here; gpiochip0
+    // is the 32-line PL bank (needs libgpiod 2.x, libgpiod.so.3). Line offsets to be confirmed with gpioinfo.
+    private static readonly BoardPins OrangePiPins = new(RedPwmChannel: 1, GreenPwmChannel: 2, BluePin: 76, ButtonPin: 272, GpioChip: 1);
+
+    private readonly BoardPins _pins = PlatformUtil.IsOrangePi() ? OrangePiPins : RaspberryPiPins;
 
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
@@ -62,24 +72,25 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         _logger = logger;
         _bus = bus;
 
-        if (PlatformUtil.IsRaspberryPi())
+        if (PlatformUtil.IsSupportedBoard())
         {
-            _gpioController = new GpioController();
+            _gpioController = _pins.GpioChip is { } chip
+                ? new GpioController(new LibGpiodV2Driver(chip))
+                : new GpioController();
 
             // Initialize PWM channels for Red and Green LEDs
-            // Red and Green use hardware PWM (GPIO 18 & 19) - requires dtoverlay=pwm-2chan in /boot/config.txt
-            // GPIO 18 = PWM0 (channel 0), GPIO 19 = PWM1 (channel 1) - default pins
-            _redPwmChannel = PwmChannel.Create(0, 0, PwmFrequency); // Chip 0, Channel 0 (GPIO 18)
+            // Red and Green use hardware PWM - on the Raspberry Pi this requires dtoverlay=pwm-2chan in /boot/config.txt
+            _redPwmChannel = PwmChannel.Create(0, _pins.RedPwmChannel, PwmFrequency);
             _redPwmChannel.DutyCycle = 0.0;
             _redPwmChannel.Start();
-            
 
-            _greenPwmChannel = PwmChannel.Create(0, 1, PwmFrequency); // Chip 0, Channel 1 (GPIO 19)
+
+            _greenPwmChannel = PwmChannel.Create(0, _pins.GreenPwmChannel, PwmFrequency);
             _greenPwmChannel.DutyCycle = 0.0;
-            _greenPwmChannel.Start();            
+            _greenPwmChannel.Start();
 
-            // Blue LED uses simple GPIO output (GPIO 21) - no PWM
-            _gpioController.OpenPin(BluePin, PinMode.Output);
+            // Blue LED uses simple GPIO output - no PWM
+            _gpioController.OpenPin(_pins.BluePin, PinMode.Output);
         }
 
         WireUpEventHandlers();
@@ -164,17 +175,17 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
-        if (!PlatformUtil.IsRaspberryPi())
+        if (!PlatformUtil.IsSupportedBoard())
         {
-            _logger.LogDebug($"{nameof(ExecuteAsync)} exiting immediately because executing platform is not Raspberry Pi.");
+            _logger.LogDebug($"{nameof(ExecuteAsync)} exiting immediately because executing platform is not a Raspberry Pi or Orange Pi.");
             return;
         }
 
-        _gpioController.OpenPin(ButtonPin, PinMode.InputPullUp);
+        _gpioController.OpenPin(_pins.ButtonPin, PinMode.InputPullUp);
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            var pinValue = _gpioController.Read(ButtonPin);
+            var pinValue = _gpioController.Read(_pins.ButtonPin);
             if (pinValue == PinValue.Low && !_buttonPressed)
             {
                 _logger.LogDebug("Button pressed.");
@@ -239,15 +250,15 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
         if (log)
             _logger.LogDebug($"{nameof(SetLedColor)}: r={red}, g={green}, b={blue}");
 
-        if (PlatformUtil.IsRaspberryPi())
+        if (PlatformUtil.IsSupportedBoard())
         {
             if (_redPwmChannel != null)
                 _redPwmChannel.DutyCycle = (double)red / 255.0;
-            
+
             if (_greenPwmChannel != null)
                 _greenPwmChannel.DutyCycle = (double)green / 255.0;
 
-            _gpioController.Write(BluePin, blue ? PinValue.High : PinValue.Low);
+            _gpioController.Write(_pins.BluePin, blue ? PinValue.High : PinValue.Low);
         }
     }
 
@@ -316,7 +327,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     
     public override void Dispose()
     {
-        if (PlatformUtil.IsRaspberryPi())
+        if (PlatformUtil.IsSupportedBoard())
         {
             // Clean up PWM channels
             if (_redPwmChannel != null)
@@ -331,7 +342,7 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
             }
 
             // Clean up GPIO resources
-            _gpioController.ClosePin(BluePin);
+            _gpioController.ClosePin(_pins.BluePin);
             //_gpioController.ClosePin(SpeakerPin);
             _gpioController.Dispose();
             base.Dispose();

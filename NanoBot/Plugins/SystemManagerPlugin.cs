@@ -104,7 +104,7 @@ public class SystemManagerPlugin
 
     private async void ShellExecute(string cmd, string pars)
     {
-        if (PlatformUtil.IsRaspberryPi())
+        if (PlatformUtil.IsSupportedBoard())
         {
             try
             {

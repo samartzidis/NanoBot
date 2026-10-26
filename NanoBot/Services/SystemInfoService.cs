@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
@@ -11,14 +12,19 @@ public sealed record MemoryStatus(long UsedMb, long TotalMb, long AvailableMb, l
 
 public sealed record DiskStatus(double UsedGb, double TotalGb, double FreeGb);
 
+/// <summary>One thermal zone reading; Name is the kernel's zone type, e.g. "cpu-thermal".</summary>
+public sealed record ThermalReading(string Name, double Celsius);
+
 /// <summary>
 /// Snapshot of the device state. A null member means the value is not available on this system.
+/// Temperatures lists every thermal zone, the CPU one first.
 /// </summary>
 public sealed record SystemStatus(
     bool Supported,
     WifiStatus Wifi,
     MemoryStatus Memory,
     double? CpuTemperatureCelsius,
+    IReadOnlyList<ThermalReading> Temperatures,
     double? UptimeSeconds,
     DiskStatus Disk);
 
@@ -28,7 +34,7 @@ public interface ISystemInfoService
 }
 
 /// <summary>
-/// Read-only system diagnostics (Wi-Fi, memory, uptime, disk, and CPU temperature on a Raspberry Pi only). Linux reads
+/// Read-only system diagnostics (Wi-Fi, memory, uptime, disk, and thermal zones on the supported boards only). Linux reads
 /// /proc and /sys; Windows uses the Native Wifi API and GlobalMemoryStatusEx.
 /// </summary>
 internal sealed class SystemInfoService : ISystemInfoService
@@ -36,13 +42,21 @@ internal sealed class SystemInfoService : ISystemInfoService
     private const string WirelessFile = "/proc/net/wireless";
     private const string MemInfoFile = "/proc/meminfo";
     private const string UptimeFile = "/proc/uptime";
-    private const string ThermalFile = "/sys/class/thermal/thermal_zone0/temp";
+    private const string ThermalDir = "/sys/class/thermal";
+    private const string ThermalZonePrefix = "thermal_zone";
 
     private static readonly bool IsLinux = PlatformUtil.IsLinuxPlatform();
     private static readonly bool IsWindows = PlatformUtil.IsWindowsPlatform();
-    private static readonly bool IsRaspberryPi = PlatformUtil.IsRaspberryPi();
+    private static readonly bool IsSupportedBoard = PlatformUtil.IsSupportedBoard();
+    private static readonly Lazy<IReadOnlyList<ThermalZone>> ThermalZones = new(FindThermalZones);
+
+    // iw is in /usr/sbin, which is not on the PATH of the systemd service, so the absolute path is tried as well.
+    private static readonly string[] IwExecutables = ["iw", "/usr/sbin/iw"];
 
     private readonly ILogger _logger;
+
+    // Set once iw was not found anywhere, so a missing install does not log on every poll.
+    private bool _iwMissing;
 
     public SystemInfoService(ILogger<SystemInfoService> logger)
     {
@@ -52,14 +66,18 @@ internal sealed class SystemInfoService : ISystemInfoService
     public async Task<SystemStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
         if (!IsLinux && !IsWindows)
-            return new SystemStatus(false, null, null, null, null, null);
+            return new SystemStatus(false, null, null, null, null, null, null);
+
+        // The thermal zones are only known to be meaningful on the supported boards (Raspberry Pi, Orange Pi).
+        (double? Cpu, IReadOnlyList<ThermalReading> All) temperatures =
+            IsSupportedBoard ? await GetTemperaturesAsync(cancellationToken) : (null, null);
 
         return new SystemStatus(
             true,
             await GetWifiAsync(cancellationToken),
             await GetMemoryAsync(cancellationToken),
-            // The thermal zone layout is only known to be right on the Raspberry Pi.
-            IsRaspberryPi ? await GetCpuTemperatureAsync(cancellationToken) : null,
+            temperatures.Cpu,
+            temperatures.All,
             await GetUptimeSecondsAsync(cancellationToken),
             GetDisk());
     }
@@ -95,7 +113,7 @@ internal sealed class SystemInfoService : ISystemInfoService
                 return new WifiStatus(iface, null, null, null, null);
 
             var level = cols[2]!.Value;
-            var ssid = await GetSsidAsync(cancellationToken);
+            var ssid = await GetSsidAsync(iface, cancellationToken);
 
             // Negative values are dBm; some drivers report a positive raw level that cannot be rated.
             if (level >= 0)
@@ -159,21 +177,68 @@ internal sealed class SystemInfoService : ISystemInfoService
         }
     }
 
-    private async Task<double?> GetCpuTemperatureAsync(CancellationToken cancellationToken)
+    private sealed record ThermalZone(string Name, string TempFile, bool IsCpu);
+
+    // Boards number their thermal zones differently (zone 0 is "cpu-thermal" on the Raspberry Pi but "gpu-thermal" on
+    // the Orange Pi Zero 2W). The CPU zone is the first whose type names the CPU, else the first zone. It is listed
+    // first so it keeps the same graph colour on every board; the rest follow in kernel order.
+    private static IReadOnlyList<ThermalZone> FindThermalZones()
     {
+        var zones = new List<ThermalZone>();
         try
         {
-            var text = (await File.ReadAllTextAsync(ThermalFile, cancellationToken)).Trim();
-            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var milliCelsius))
-                return null;
+            var dirs = Directory.GetDirectories(ThermalDir, ThermalZonePrefix + "*")
+                .OrderBy(d => int.TryParse(Path.GetFileName(d)[ThermalZonePrefix.Length..], out var n) ? n : int.MaxValue);
 
-            return milliCelsius / 1000.0;
+            foreach (var dir in dirs)
+            {
+                try
+                {
+                    zones.Add(new ThermalZone(File.ReadAllText(Path.Combine(dir, "type")).Trim(), Path.Combine(dir, "temp"), false));
+                }
+                catch
+                {
+                    // A zone without a readable type is skipped.
+                }
+            }
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogWarning(ex, "{Method} failed.", nameof(GetCpuTemperatureAsync));
-            return null;
+            return zones;
         }
+
+        var cpu = zones.FirstOrDefault(z => z.Name.Contains("cpu", StringComparison.OrdinalIgnoreCase)) ?? zones.FirstOrDefault();
+        if (cpu == null)
+            return zones;
+
+        return [cpu with { IsCpu = true }, .. zones.Where(z => z != cpu)];
+    }
+
+    private async Task<(double? Cpu, IReadOnlyList<ThermalReading> All)> GetTemperaturesAsync(CancellationToken cancellationToken)
+    {
+        double? cpu = null;
+        var readings = new List<ThermalReading>();
+
+        foreach (var zone in ThermalZones.Value)
+        {
+            try
+            {
+                var text = (await File.ReadAllTextAsync(zone.TempFile, cancellationToken)).Trim();
+                if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var milliCelsius))
+                    continue;
+
+                var celsius = milliCelsius / 1000.0;
+                readings.Add(new ThermalReading(zone.Name, celsius));
+                if (zone.IsCpu)
+                    cpu = celsius;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reading thermal zone {Zone} failed.", zone.Name);
+            }
+        }
+
+        return (cpu, readings);
     }
 
     private async Task<double?> GetUptimeSecondsAsync(CancellationToken cancellationToken)
@@ -211,34 +276,56 @@ internal sealed class SystemInfoService : ISystemInfoService
         }
     }
 
-    // Best effort: iwgetid is optional, so any failure just means the network name is left out.
-    private async Task<string> GetSsidAsync(CancellationToken cancellationToken)
+    // Best effort: iw is optional, so any failure just means the network name is left out.
+    private async Task<string> GetSsidAsync(string iface, CancellationToken cancellationToken)
     {
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = "iwgetid",
-                Arguments = "-r",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            });
-            if (process == null)
-                return null;
-
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(2));
-
-            var output = (await process.StandardOutput.ReadToEndAsync(cts.Token)).Trim();
-            await process.WaitForExitAsync(cts.Token);
-
-            return process.ExitCode == 0 && output.Length > 0 ? output : null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "SSID lookup via iwgetid failed.");
+        if (_iwMissing)
             return null;
+
+        foreach (var iw in IwExecutables)
+        {
+            try
+            {
+                using var process = Process.Start(new ProcessStartInfo
+                {
+                    FileName = iw,
+                    ArgumentList = { "dev", iface, "link" },
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                });
+                if (process == null)
+                    return null;
+
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(2));
+
+                var output = (await process.StandardOutput.ReadToEndAsync(cts.Token)).Trim();
+                await process.WaitForExitAsync(cts.Token);
+
+                return process.ExitCode == 0 ? ParseIwSsid(output) : null;
+            }
+            catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
+            {
+                // ENOENT: not at this location, try the next one.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "SSID lookup via iw failed.");
+                return null;
+            }
         }
+
+        _iwMissing = true;
+        _logger.LogDebug("iw not found; SSID lookup disabled (install the iw package to show the network name).");
+        return null;
     }
+
+    // "iw dev <iface> link" prints "Not connected." or a block containing a "SSID: <name>" line.
+    private static string ParseIwSsid(string output) => output
+        .Split('\n')
+        .Select(l => l.Trim())
+        .Where(l => l.StartsWith("SSID:", StringComparison.Ordinal))
+        .Select(l => l["SSID:".Length..].Trim())
+        .FirstOrDefault();
 }

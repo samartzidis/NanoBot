@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useState } from 'react';
 import { Card, CardContent, Typography, Box, SvgIcon } from '@mui/material';
+import { LineChart } from '@mui/x-charts/LineChart';
 
 import { apiBaseUrl } from '../config';
 
@@ -35,6 +36,16 @@ interface SystemStatus {
 }
 
 const POLL_INTERVAL_MS = 5000;
+
+// History is kept in the browser only, so it starts empty on page load: one hour of samples.
+const MAX_HISTORY_SAMPLES = (60 * 60 * 1000) / POLL_INTERVAL_MS;
+
+interface HistorySample {
+  time: Date;
+  signalDbm: number | null;
+  memoryUsedPercent: number | null;
+  cpuTemperatureCelsius: number | null;
+}
 
 const formatUptime = (seconds: number): string => {
   const days = Math.floor(seconds / 86400);
@@ -77,8 +88,43 @@ const StatusCard: React.FC<{ title: string; value: string; detail?: string; icon
   </Card>
 );
 
+const HistoryChart: React.FC<{
+  title: string;
+  history: HistorySample[];
+  value: (sample: HistorySample) => number | null;
+  unit: string;
+  min?: number;
+  max?: number;
+}> = ({ title, history, value, unit, min, max }) => (
+  <Card sx={{ minWidth: 300, flex: '1 1 300px' }}>
+    <CardContent>
+      <Typography variant="overline" color="text.secondary">{title}</Typography>
+      <LineChart
+        height={200}
+        xAxis={[{
+          data: history.map(s => s.time),
+          scaleType: 'time',
+          valueFormatter: (d: Date) => d.toLocaleTimeString(),
+        }]}
+        yAxis={[{ min, max, valueFormatter: (v: number) => `${Math.round(v)}` }]}
+        series={[{
+          data: history.map(value),
+          label: title,
+          // A single sample has no line to draw, so show it as a point.
+          showMark: history.length === 1,
+          curve: 'linear',
+          valueFormatter: (v: number | null) => (v == null ? '' : `${Math.round(v)} ${unit}`),
+        }]}
+        slotProps={{ legend: { hidden: true } }}
+        margin={{ top: 10, right: 20, bottom: 30, left: 50 }}
+      />
+    </CardContent>
+  </Card>
+);
+
 const SystemStatusCards: React.FC = () => {
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [history, setHistory] = useState<HistorySample[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +134,14 @@ const SystemStatusCards: React.FC = () => {
         const response = await fetch(`${apiBaseUrl}/api/System/GetStatus`);
         if (!response.ok) return;
         const data: SystemStatus = await response.json();
-        if (!cancelled) setStatus(data);
+        if (cancelled) return;
+        setStatus(data);
+        setHistory(previous => [...previous, {
+          time: new Date(),
+          signalDbm: data.wifi?.signalDbm ?? null,
+          memoryUsedPercent: data.memory ? (100 * data.memory.usedMb) / data.memory.totalMb : null,
+          cpuTemperatureCelsius: data.cpuTemperatureCelsius,
+        }].slice(-MAX_HISTORY_SAMPLES));
       } catch (error) {
         console.error('Error fetching system status:', error);
       }
@@ -135,6 +188,16 @@ const SystemStatusCards: React.FC = () => {
           value={`${Math.round((100 * disk.usedGb) / disk.totalGb)}%`}
           detail={`${disk.usedGb.toFixed(1)} of ${disk.totalGb.toFixed(1)} GB used, ${disk.freeGb.toFixed(1)} GB free`}
         />
+      )}
+      {history.length > 0 && wifi?.signalDbm != null && (
+        <HistoryChart title="Wi-Fi signal" history={history} value={s => s.signalDbm} unit="dBm" min={-100} max={-30} />
+      )}
+      {history.length > 0 && memory && (
+        <HistoryChart title="Memory used" history={history} value={s => s.memoryUsedPercent} unit="%" min={0} max={100} />
+      )}
+      {/* Only reported on a Raspberry Pi, which starts throttling at 80 °C. */}
+      {history.length > 0 && cpuTemperatureCelsius != null && (
+        <HistoryChart title="CPU temperature" history={history} value={s => s.cpuTemperatureCelsius} unit="°C" min={20} max={90} />
       )}
     </Box>
   );

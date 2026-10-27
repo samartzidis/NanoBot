@@ -266,4 +266,4 @@ __pycache__/
 **/build
 **/appsettings.local.yaml
 .claude/settings.local.json
-.memory
+.memento.json

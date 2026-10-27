@@ -234,54 +234,6 @@ Optionally, add permissions to user `pi` to open hidraw devices. Only needed if 
    sudo udevadm trigger
    ```
 
-### Captive Portal Device Software Installation (Optional)
-
-You can optionally install Captive Portal Device software so that whenever NanoBot loses network connectivity or needs to connect to a new WiFi network, you can do it remotely using your mobile phone or PC by connecting to NanoBot directly (NanoBot switches to Access Point mode). The following installation instructions are based on Raspberry Pi OS (64-bit) 13 (trixie):
-
-1. Setup the [WiFi Connect](https://github.com/balena-os/wifi-connect) utility by typing the following commands:
-    ```sh
-    mkdir -p /home/pi/wifi-connect/ui
-    wget https://github.com/balena-os/wifi-connect/releases/download/v4.11.84/wifi-connect-ui.tar.gz
-    wget https://github.com/balena-os/wifi-connect/releases/download/v4.11.84/wifi-connect-aarch64-unknown-linux-gnu.tar.gz
-    tar -xzf wifi-connect-ui.tar.gz -C /home/pi/wifi-connect/ui
-    tar -xzf wifi-connect-aarch64-unknown-linux-gnu.tar.gz -C /home/pi/wifi-connect
-    chmod +x /home/pi/wifi-connect/wifi-connect
-    rm wifi-connect-ui.tar.gz wifi-connect-aarch64-unknown-linux-gnu.tar.gz
-    ```
-2. Create the file: `/etc/systemd/system/wifi-connect.service` with the following content:
-   ```sh
-   [Unit]
-   Description=NanoBot WiFi Connect captive portal
-   After=NetworkManager.service network-online.target
-   Wants=network-online.target
-
-   [Service]
-   Type=simple
-   User=root
-   WorkingDirectory=/home/pi/wifi-connect
-
-   # Only start portal when there is still no network after waiting up to 30s for NetworkManager
-   ExecStart=/bin/bash -lc '\
-   if nm-online -q -t 30; then \
-       echo "Network already up; not starting wifi-connect"; \
-       exit 0; \
-   fi; \
-   exec ./wifi-connect -a 300 -s "NanoBot WiFi Connect" \
-   '
-
-   Restart=on-failure
-   RestartSec=5
-
-   [Install]
-   WantedBy=multi-user.target
-   ```
-3. Enable the wifi-connect service and reboot by typing:
-   ```sh
-   sudo systemctl enable wifi-connect.service    
-   sudo reboot
-   ```
-After reboot, and provided that NanoBot is **not already connected** to a WiFi network, a new WiFi network available named `NanoBot WiFi Connect` will become available. You can connect to this network using a mobile phone or a PC to configure the client-mode WiFi network connection of NanoBot. Once NanoBot connects to the specified WiFi network as a client, it will switch to client mode and the `NanoBot WiFi Connect` access point will dissapear.
-
 ## License and Acknowledgements
 
 NanoBot is licensed under the [MIT license](../LICENSE).

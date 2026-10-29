@@ -6,7 +6,7 @@ namespace NanoBot.Configuration;
 public class AppConfig
 {
     private const string DefaultOpenAiModel = "gpt-realtime-2.1-mini";
-    private const string DefaultPowerOpenAiModel = "gpt-5.6-luna";
+    private const string DefaultPowerOpenAiModel = "gpt-6-luna";
 
     public bool ConsoleDebugMode { get; set; }
 
@@ -88,7 +88,7 @@ public class AppConfig
 
     internal readonly string[] OpenAiVoiceNames = [ "alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar" ];
     internal readonly string[] OpenAiModels = [ "gpt-realtime-mini", "gpt-realtime", "gpt-realtime-1.5", "gpt-realtime-2", "gpt-realtime-2.1", DefaultOpenAiModel ]; // Also see: https://platform.openai.com/docs/pricing
-    internal readonly string[] PowerOpenAiModels = [ "gpt-5.4", "gpt-5.5", "gpt-5.6-sol", "gpt-5.6-terra", DefaultPowerOpenAiModel ];
+    internal readonly string[] PowerOpenAiModels = [ "gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", DefaultPowerOpenAiModel ];
 }
 
 

@@ -25,6 +25,13 @@ public enum GpioDeviceLedColor
 public interface IGpioDeviceService : IHostedService
 {
     public GpioDeviceLedColor DefaultLedColour { get; set; }
+
+    /// <summary>
+    /// Shows <paramref name="colour"/> for <paramref name="duration"/>, overriding every other LED
+    /// state (except shutdown) while it lasts; the LED then returns to whatever it would show anyway.
+    /// A new blink replaces one still in progress. Defaults to red for one second.
+    /// </summary>
+    void Blink(GpioDeviceLedColor colour = GpioDeviceLedColor.Red, TimeSpan? duration = null);
 }
 
 public class GpioDeviceService : BackgroundService, IGpioDeviceService
@@ -56,6 +63,12 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
     private bool _buttonPressed;
     private bool _isShutdown, _isListening, _isFunctionInvoking, _isWakeWordDetected, _isError, _isNoiseDetected, _isNightMode;
     private byte? _talkLevel;
+
+    // Active Blink override (null = none). UpdateLed runs on bus publisher threads and on the blink
+    // timer, so LED decisions and writes are serialised with _ledLock.
+    private GpioDeviceLedColor? _blinkColor;
+    private CancellationTokenSource _blinkCts;
+    private readonly object _ledLock = new();
 
     // Track the last LED state actually applied so we can short-circuit redundant updates.
     // The TalkLevelEvent published by Speaker fires ~10x per second while audio is in the
@@ -118,6 +131,43 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
         _bus.Subscribe<NightModeActivatedEvent>(e => { _isNightMode = true; UpdateLed(); });
         _bus.Subscribe<NightModeDeactivatedEvent>(e => { _isNightMode = false; UpdateLed(); });
+
+        _bus.Subscribe<LedBlinkEvent>(e => Blink(e.Colour ?? GpioDeviceLedColor.Red, e.Duration));
+    }
+
+    public void Blink(GpioDeviceLedColor colour = GpioDeviceLedColor.Red, TimeSpan? duration = null)
+    {
+        var blinkDuration = duration ?? TimeSpan.FromSeconds(1);
+
+        CancellationToken token;
+        lock (_ledLock)
+        {
+            _blinkCts?.Cancel();
+            _blinkCts = new CancellationTokenSource();
+            token = _blinkCts.Token;
+            _blinkColor = colour;
+            UpdateLed();
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(blinkDuration, token);
+            }
+            catch (OperationCanceledException)
+            {
+                return; // replaced by a newer blink, which owns _blinkColor now
+            }
+
+            lock (_ledLock)
+            {
+                if (token.IsCancellationRequested)
+                    return;
+                _blinkColor = null;
+                UpdateLed();
+            }
+        });
     }
 
     private void ResetTransientStates()
@@ -129,6 +179,12 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
     private void UpdateLed()
     {
+        lock (_ledLock)
+            ApplyLed();
+    }
+
+    private void ApplyLed()
+    {
         // First decide what the LED *should* show, then short-circuit if it's already showing
         // exactly that. This avoids redundant log spam and PWM/GPIO writes when an event fires
         // that doesn't actually change the visible state (e.g. TalkLevelEvent ticks while a
@@ -138,6 +194,8 @@ public class GpioDeviceService : BackgroundService, IGpioDeviceService
 
         if (_isShutdown)
             desiredColor = GpioDeviceLedColor.Off;
+        else if (_blinkColor.HasValue)
+            desiredColor = _blinkColor;
         else if (_isError)
             desiredColor = GpioDeviceLedColor.Red;
         else if (_isFunctionInvoking)

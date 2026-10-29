@@ -74,4 +74,20 @@
     <EmbeddedResource Include="Resources\models\hey_anna.onnx" />
   </ItemGroup>
 
+  <!-- Builds the React UI (../ui) into wwwroot. Runs automatically on publish; for a regular build use -p:BuildUI=true. -->
+  <PropertyGroup>
+    <UIDir>$(MSBuildProjectDirectory)\..\ui</UIDir>
+    <BuildUI Condition="'$(BuildUI)' == '' and '$(_IsPublishing)' == 'true'">true</BuildUI>
+  </PropertyGroup>
+
+  <Target Name="BuildUI" BeforeTargets="AssignTargetPaths" Condition="'$(BuildUI)' == 'true' and Exists('$(UIDir)\package.json')">
+    <Exec Command="npm install" WorkingDirectory="$(UIDir)" Condition="!Exists('$(UIDir)\node_modules')" />
+    <Exec Command="npm run build" WorkingDirectory="$(UIDir)" />
+
+    <!-- The wwwroot glob above was evaluated before the UI build, so pick up the freshly generated files here. -->
+    <ItemGroup>
+      <Content Include="wwwroot\**" Exclude="@(Content)" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
 </Project>

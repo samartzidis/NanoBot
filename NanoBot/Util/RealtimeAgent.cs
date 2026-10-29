@@ -105,6 +105,13 @@ public sealed class RealtimeAgent : IDisposable
     private volatile Action<StateUpdate> _stateUpdateAction;
     private long _responseRequestedAtUtcTicks;
 
+    // Liveness check of a kept-alive session (see IsSessionAliveAsync). Traffic from the server
+    // within SessionProbeIdleThreshold proves the connection is up, so only longer idle gaps probe.
+    private static readonly TimeSpan SessionProbeIdleThreshold = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan SessionProbeTimeout = TimeSpan.FromSeconds(2);
+    private long _lastServerUpdateUtcTicks;
+    private volatile TaskCompletionSource _sessionUpdatedAck;
+
     // Long-lived audio devices (created once, reused across RunAsync calls)
     private PvRecorder _recorder;
     private Speaker _speaker;
@@ -149,6 +156,16 @@ public sealed class RealtimeAgent : IDisposable
             _speaker.MeterAction = meterAction;
         _vadDetector ??= new SileroVadDetector(VadSampleRate);
 
+        // A session kept alive since the last conversation may have been dropped by the server or
+        // the network without us noticing. Check it now, before the run is marked active (a failure
+        // here is not a user-visible error) and before the listening state is signalled.
+        if (_session is not null && !await IsSessionAliveAsync(cancellationToken))
+        {
+            _logger.LogWarning("[Session connection lost - reconnecting...]");
+            _bus.Publish<LedBlinkEvent>(this);
+            await ResetSessionAsync();
+        }
+
         // Start a new conversation session
         if (_session is null)
         {
@@ -162,6 +179,7 @@ public sealed class RealtimeAgent : IDisposable
 
             // Configure session with LOCAL VAD (server VAD disabled)
             await ConfigureSessionAsync(_session, cancellationToken);
+            Interlocked.Exchange(ref _lastServerUpdateUtcTicks, DateTime.UtcNow.Ticks);
 
             _logger.LogDebug("Session configured.");
         }
@@ -175,23 +193,6 @@ public sealed class RealtimeAgent : IDisposable
         }
 
         _logger.LogDebug($"Using microphone: {_recorder.SelectedDevice}");
-
-        // Check if the receive task completed unexpectedly (WebSocket closed)
-        // If so, the session is dead and we need to reconnect
-        if (_receiveTask is not null && _receiveTask.IsCompleted)
-        {
-            _logger.LogDebug("[Session connection lost - reconnecting...]");
-            await ResetSessionAsync();
-
-            // Recreate session
-            _sessionCts = new CancellationTokenSource();
-            _session = await _realtimeClient.StartConversationSessionAsync(
-                _options.Model,
-                cancellationToken: cancellationToken);
-
-            // Reconfigure session
-            await ConfigureSessionAsync(_session, cancellationToken);
-        }
 
         // Deliver any images uploaded while there was no live session
         await FlushPendingImagesAsync(pendingImages, _session, cancellationToken);
@@ -311,6 +312,54 @@ public sealed class RealtimeAgent : IDisposable
     }
 
     /// <summary>
+    /// Checks that a kept-alive session still has a working connection. The receive task only
+    /// learns of a dropped connection when it next does I/O, and a half-open connection (network
+    /// stall, NAT mapping gone) may not be noticed until we send speech into it. So after an idle
+    /// gap we re-send the (idempotent) session configuration and wait for the server's
+    /// <c>session.updated</c> reply.
+    /// </summary>
+    /// <returns>False if the connection is dead or does not answer in time.</returns>
+    private async Task<bool> IsSessionAliveAsync(CancellationToken cancellationToken)
+    {
+        // Never ran (no receive task to hear a reply): nothing to check against
+        if (_receiveTask is null)
+            return true;
+
+        if (_receiveTask.IsCompleted)
+            return false;
+
+        var sinceLastUpdate = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastServerUpdateUtcTicks));
+        if (sinceLastUpdate < SessionProbeIdleThreshold)
+            return true;
+
+        var ack = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _sessionUpdatedAck = ack;
+        try
+        {
+            _logger.LogDebug($"[Checking session connection (idle {sinceLastUpdate.TotalSeconds.ToString("F0")}s)...]");
+            await ConfigureSessionAsync(_session, cancellationToken);
+
+            // A receive task that ends (WebSocket closed) answers the question sooner than the timeout
+            var finished = await Task.WhenAny(ack.Task, _receiveTask).WaitAsync(SessionProbeTimeout, cancellationToken);
+            return finished == ack.Task;
+        }
+        catch (TimeoutException)
+        {
+            _logger.LogWarning($"[Session did not answer within {SessionProbeTimeout.TotalSeconds.ToString("F0")}s.]");
+            return false;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning($"[Session check failed: {ex.Message}]");
+            return false;
+        }
+        finally
+        {
+            _sessionUpdatedAck = null;
+        }
+    }
+
+    /// <summary>
     /// Resets the session state asynchronously, cleaning up the old session.
     /// </summary>
     private async Task ResetSessionAsync()
@@ -394,6 +443,8 @@ public sealed class RealtimeAgent : IDisposable
                 if (sessionToken.IsCancellationRequested)
                     break;
 
+                Interlocked.Exchange(ref _lastServerUpdateUtcTicks, DateTime.UtcNow.Ticks);
+
                 // Each update is exactly one runtime type, so the branches below are mutually
                 // exclusive - chained as else-if so we stop at the first match per iteration.
 
@@ -401,6 +452,11 @@ public sealed class RealtimeAgent : IDisposable
                 if (update is RealtimeServerUpdateSessionCreated sessionCreatedUpdate)
                 {
                     _logger.LogDebug($"[Session started: {sessionCreatedUpdate.EventId}]");
+                }
+                // Reply to a session.update (acknowledges the liveness probe)
+                else if (update is RealtimeServerUpdateSessionUpdated)
+                {
+                    _sessionUpdatedAck?.TrySetResult();
                 }
                 // Model started generating a response output item
                 else if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
@@ -916,6 +972,7 @@ public sealed class RealtimeAgent : IDisposable
                 if (_waitingForResponse && (DateTime.UtcNow.Ticks - Interlocked.Read(ref _responseRequestedAtUtcTicks)) > TimeSpan.TicksPerSecond * 30)
                 {
                     _logger.LogWarning("[Response wait timeout - model did not respond within 30s]");
+                    _bus.Publish<LedBlinkEvent>(this);
                     _waitingForResponse = false;
                 }
 

@@ -28,6 +28,11 @@ public class SystemService : BackgroundService, ISystemService
     private readonly ILocalTtsService _localTtsService;
     private RealtimeAgent _realtimeAgent;
     private DateTime? _realtimeAgentCreatedAt;
+    private DateTime? _realtimeAgentLastUsedAt;
+
+    // The Realtime API closes a session after a maximum duration (60 minutes), so a session that is
+    // never idle long enough to expire is still recycled before it can be cut off mid-conversation.
+    private static readonly TimeSpan MaxRealtimeAgentAge = TimeSpan.FromMinutes(50);
 
     // Images uploaded while no live session can take them; the agent drains this once its session is up.
     private readonly PendingImageQueue _pendingImages = new();
@@ -94,15 +99,19 @@ public class SystemService : BackgroundService, ISystemService
 
     private bool IsRealtimeAgentSessionExpired()
     {
-        if (_realtimeAgent == null || _realtimeAgentCreatedAt == null)
+        if (_realtimeAgent == null || _realtimeAgentCreatedAt == null || _realtimeAgentLastUsedAt == null)
             return false;
+
+        if (DateTime.UtcNow - _realtimeAgentCreatedAt.Value >= MaxRealtimeAgentAge)
+            return true;
 
         var sessionTimeoutMinutes = _appConfigMonitor.CurrentValue.SessionTimeoutMinutes;
         if (sessionTimeoutMinutes <= 0)
             return false;
 
-        var elapsed = DateTime.UtcNow - _realtimeAgentCreatedAt.Value;
-        return elapsed.TotalMinutes >= sessionTimeoutMinutes;
+        // Idle time since the last conversation ended (or since the agent was created)
+        var idle = DateTime.UtcNow - _realtimeAgentLastUsedAt.Value;
+        return idle.TotalMinutes >= sessionTimeoutMinutes;
     }
 
     private RealtimeAgent GetOrCreateRealtimeAgent(AgentConfig agentConfig)
@@ -110,8 +119,9 @@ public class SystemService : BackgroundService, ISystemService
         // Check if existing agent has exceeded session timeout
         if (IsRealtimeAgentSessionExpired())
         {
-            var elapsed = DateTime.UtcNow - _realtimeAgentCreatedAt!.Value;
-            _logger.LogInformation($"Session timeout exceeded ({elapsed.TotalMinutes.ToString("F1")} minutes). Disposing and recreating realtime agent.");
+            var idle = DateTime.UtcNow - _realtimeAgentLastUsedAt!.Value;
+            var age = DateTime.UtcNow - _realtimeAgentCreatedAt!.Value;
+            _logger.LogInformation($"Session timeout exceeded (idle {idle.TotalMinutes.ToString("F1")} minutes, age {age.TotalMinutes.ToString("F1")} minutes). Disposing and recreating realtime agent.");
             
             DisposeRealtimeAgent();
         }
@@ -121,6 +131,7 @@ public class SystemService : BackgroundService, ISystemService
         {
             _realtimeAgent = _realtimeAgentFactory.Create(agentConfig);
             _realtimeAgentCreatedAt = DateTime.UtcNow;
+            _realtimeAgentLastUsedAt = _realtimeAgentCreatedAt;
             _logger.LogDebug($"Created new realtime agent at {_realtimeAgentCreatedAt.Value.ToString("O")}");
         }
 
@@ -250,6 +261,7 @@ public class SystemService : BackgroundService, ISystemService
                     }
                     finally
                     {
+                        _realtimeAgentLastUsedAt = DateTime.UtcNow;
                         _bus.Publish<StopListeningEvent>(this);
                     }
                     
@@ -378,6 +390,7 @@ public class SystemService : BackgroundService, ISystemService
         _realtimeAgent?.Dispose();
         _realtimeAgent = null;
         _realtimeAgentCreatedAt = null;
+        _realtimeAgentLastUsedAt = null;
 
         // Images already in the disposed session are gone from the model's context; keep only
         // those still queued for delivery to the next session.

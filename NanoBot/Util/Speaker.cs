@@ -334,7 +334,10 @@ public class Speaker : IDisposable
 
         try
         {
-            while (_dataProvider.SamplesAvailable > 0)
+            // Stop() halts playback without draining the queue, so a flush still waiting then would
+            // never finish. Give up as soon as the speaker is stopped.
+            var dataProvider = _dataProvider;
+            while (_isStarted && !_disposed && dataProvider.SamplesAvailable > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await Task.Delay(pollIntervalMs, cancellationToken);

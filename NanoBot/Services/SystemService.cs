@@ -30,6 +30,13 @@ public class SystemService : BackgroundService, ISystemService
     private DateTime? _realtimeAgentCreatedAt;
     private DateTime? _realtimeAgentLastUsedAt;
 
+    // A config change arrives on a web request thread. Disposing the agent while it runs tears its
+    // microphone, speaker and VAD model down under the capture loop (NullReferenceException in the
+    // VAD), so a change during a run only asks the run to end and the agent is rebuilt afterwards.
+    private readonly object _agentRunLock = new();
+    private bool _agentRunning;
+    private bool _agentRebuildPending;
+
     // The Realtime API closes a session after a maximum duration (60 minutes), so a session that is
     // never idle long enough to expire is still recycled before it can be cut off mid-conversation.
     private static readonly TimeSpan MaxRealtimeAgentAge = TimeSpan.FromMinutes(50);
@@ -93,7 +100,16 @@ public class SystemService : BackgroundService, ISystemService
             _logger.LogDebug($"Received {e.GetType().Name}");
             
             // Rebuild RealtimeAgent
-            DisposeRealtimeAgent();
+            lock (_agentRunLock)
+            {
+                if (_agentRunning)
+                {
+                    _agentRebuildPending = true;
+                    CancelHangupToken(); // ends the conversation; the main loop then disposes the agent
+                }
+                else
+                    DisposeRealtimeAgent();
+            }
         });
     }
 
@@ -242,9 +258,14 @@ public class SystemService : BackgroundService, ISystemService
 
                     _logger.LogDebug($"Established agent: {agentConfig.Name}");
 
-                    var agent = GetOrCreateRealtimeAgent(agentConfig);
-
                     var hangupToken = GetOrCreateHangupToken(cancellationToken);
+
+                    RealtimeAgent agent;
+                    lock (_agentRunLock)
+                    {
+                        agent = GetOrCreateRealtimeAgent(agentConfig);
+                        _agentRunning = true;
+                    }
 
                     try
                     {
@@ -262,6 +283,17 @@ public class SystemService : BackgroundService, ISystemService
                     finally
                     {
                         _realtimeAgentLastUsedAt = DateTime.UtcNow;
+
+                        lock (_agentRunLock)
+                        {
+                            _agentRunning = false;
+                            if (_agentRebuildPending)
+                            {
+                                _agentRebuildPending = false;
+                                DisposeRealtimeAgent();
+                            }
+                        }
+
                         _bus.Publish<StopListeningEvent>(this);
                     }
                     

@@ -8,6 +8,7 @@ using OpenAI.Realtime;
 using Pv;
 using System.ClientModel;
 using System.Collections.Concurrent;
+using System.Threading.Channels;
 using System.Text;
 
 namespace NanoBot.Util;
@@ -436,14 +437,20 @@ public sealed class RealtimeAgent : IDisposable
         var outputAudioBuffer = new List<byte>();
         const int SpeakerChunkSize = 16384;
 
+        // The socket is read by a separate task and handed over through a channel, so it keeps being
+        // read (server pings answered, session.updated seen) while a handler below waits for playback
+        // to drain or for a tool to finish. Handlers still run one at a time, in arrival order.
+        using var readerCts = CancellationTokenSource.CreateLinkedTokenSource(sessionToken);
+        var updates = Channel.CreateUnbounded<RealtimeServerUpdate>(
+            new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+        _ = ReadUpdatesAsync(session, updates.Writer, readerCts.Token);
+
         try
         {
-            await foreach (RealtimeServerUpdate update in session.ReceiveUpdatesAsync(sessionToken))
+            await foreach (RealtimeServerUpdate update in updates.Reader.ReadAllAsync(sessionToken))
             {
                 if (sessionToken.IsCancellationRequested)
                     break;
-
-                Interlocked.Exchange(ref _lastServerUpdateUtcTicks, DateTime.UtcNow.Ticks);
 
                 // Each update is exactly one runtime type, so the branches below are mutually
                 // exclusive - chained as else-if so we stop at the first match per iteration.
@@ -452,11 +459,6 @@ public sealed class RealtimeAgent : IDisposable
                 if (update is RealtimeServerUpdateSessionCreated sessionCreatedUpdate)
                 {
                     _logger.LogDebug($"[Session started: {sessionCreatedUpdate.EventId}]");
-                }
-                // Reply to a session.update (acknowledges the liveness probe)
-                else if (update is RealtimeServerUpdateSessionUpdated)
-                {
-                    _sessionUpdatedAck?.TrySetResult();
                 }
                 // Model started generating a response output item
                 else if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
@@ -688,6 +690,38 @@ public sealed class RealtimeAgent : IDisposable
             _logger.LogWarning($"[Receive task: WebSocket closed by remote: {ex.Message}]");
             FaultSession(); // cancels _sessionCts → audio loop gets OperationCanceledException via loopCts
             throw;
+        }
+        finally
+        {
+            // Stop the reader however the handler loop ended (it would otherwise keep reading unobserved)
+            readerCts.Cancel();
+        }
+    }
+
+    /// <summary>
+    /// Reads the session's updates into <paramref name="writer"/> as fast as they arrive. Any read
+    /// failure completes the channel with that exception, which the handler loop then rethrows.
+    /// </summary>
+    private async Task ReadUpdatesAsync(RealtimeSessionClient session, ChannelWriter<RealtimeServerUpdate> writer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (RealtimeServerUpdate update in session.ReceiveUpdatesAsync(cancellationToken))
+            {
+                Interlocked.Exchange(ref _lastServerUpdateUtcTicks, DateTime.UtcNow.Ticks);
+
+                // Reply to a session.update (acknowledges the liveness probe in IsSessionAliveAsync)
+                if (update is RealtimeServerUpdateSessionUpdated)
+                    _sessionUpdatedAck?.TrySetResult();
+
+                writer.TryWrite(update);
+            }
+
+            writer.TryComplete();
+        }
+        catch (Exception ex)
+        {
+            writer.TryComplete(ex);
         }
     }
 

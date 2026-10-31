@@ -136,16 +136,30 @@ NanoBot also runs on the **Orange Pi Zero 2W** (it is detected automatically fro
 
 Use this section instead of *Raspberry Pi OS Platform Preparation* when running on an Orange Pi Zero 2W. The steps below assume the user `pi` runs NanoBot (as in the service file in the next section).
 
-1. Install the Orange Pi Ubuntu Minimal (Ubuntu 26.04 or better) image for the Zero 2W and configure WiFi network connectivity with internet access.
+1. Install one of the two supported **Armbian** images for the Zero 2W and configure WiFi network connectivity with internet access:
+    - **Ubuntu 26.04 "resolute"**, Minimal (CLI), or
+    - **Debian 13 "trixie"**, Minimal (CLI).
+
+    *Hint:* on a fresh Armbian image you can SSH in with the default login `root` / `1234`. The first login forces you to set a new root password and offers to create a regular user, so create `pi` there. Make sure a user named `pi` exists and is allowed to use `sudo` (create it with `sudo adduser pi && sudo usermod -aG sudo pi` if the image has none). The remaining steps are done over SSH.
 2. Install the required OS packages:
-    `sudo apt-get install -y libasound2-dev espeak-ng gpiod iw`
-    NanoBot talks to the GPIO chip through **libgpiod 2.x** (the library file `libgpiod.so.3`, Debian package `libgpiod3`). Check with: `ldconfig -p | grep gpiod`.
-3. Make sure the hardware PWM outputs for the red and green LEDs (`PWM1` and `PWM2`) are enabled in the Orange Pi device-tree overlay configuration (`/boot/orangepiEnv.txt` or `orangepi-config`). When enabled, the directory `/sys/class/pwm/pwmchip0` exists.
-4. Allow the `pi` user to open the GPIO chip. Create the file `/etc/udev/rules.d/99-gpio.rules` with the content:
+    `sudo apt-get update && sudo apt-get install -y libasound2-dev espeak-ng gpiod iw curl ca-certificates`
+    NanoBot talks to the GPIO chip through **libgpiod 2.x** (the library file `libgpiod.so.3`, Debian package `libgpiod3`). Check with: `ldconfig -p | grep gpiod`, and install `libgpiod3` if it is missing.
+3. Make sure the hardware PWM outputs for the red and green LEDs (`PWM1` on PI11 and `PWM2` on PI12) are enabled in the device-tree overlay configuration. When enabled, the directory `/sys/class/pwm/pwmchip0` exists; if it does, skip this step. Otherwise edit `/boot/armbianEnv.txt` and make sure the `overlays=` line lists `pwm1-pi11 pwm2-pi12` (add the line if there is none), for example:
+    ```
+    overlay_prefix=sun50i-h616
+    overlays=pwm1-pi11 pwm2-pi12
+    ```
+    The available overlays are the files `/boot/dtb/allwinner/overlay/sun50i-h616-pwm*.dtbo`. The change takes effect after the reboot in step 10.
+4. Allow the `pi` user to open the GPIO chip. Create the `gpio` group if it does not exist and add `pi` to it:
+    ```
+    getent group gpio || sudo groupadd --system gpio
+    sudo usermod -aG gpio pi
+    ```
+    Then create the file `/etc/udev/rules.d/99-gpio.rules` with the content:
     ```
     SUBSYSTEM=="gpio", KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
     ```
-    The `pi` user must be a member of the `gpio` group (check with `groups`). NanoBot uses `/dev/gpiochip1`: on this board `gpiochip0` is the small 32-line PL bank and `gpiochip1` (`300b000.pinctrl`) is the main 288-line controller (check with `gpiodetect`).
+    NanoBot uses `/dev/gpiochip1`: on this board `gpiochip0` is the small 32-line PL bank and `gpiochip1` (`300b000.pinctrl`) is the main 288-line controller (check with `gpiodetect`). Group membership applies at the next login (check with `groups`).
 5. Allow the `pi` user to control the PWM outputs. Create the file `/etc/udev/rules.d/99-pwm.rules` with the content:
     ```
     SUBSYSTEM=="pwm", ACTION=="add|change", RUN+="/bin/sh -c 'chgrp -R gpio /sys%p && chmod -R g=u /sys%p'"
@@ -156,10 +170,17 @@ Use this section instead of *Raspberry Pi OS Platform Preparation* when running 
     sudo udevadm trigger --subsystem-match=gpio
     sudo udevadm trigger --subsystem-match=pwm --action=add
     ```
-    Check that `/dev/gpiochip1` and `/sys/class/pwm/pwmchip0/export` are now accessible to the `gpio` group (`ls -l`).
-7. Let NanoBot and the wake-word engine share the microphone. By default the sound card is opened exclusively, so the wake-word recorder fails with `PvRecorder runtime error` as soon as a conversation has opened the microphone. Edit `/etc/asound.conf` and set the content below (the example is for the *Anker PowerConf S330*, whose capture device only supports `S16_LE`, 2 channels, 48000 Hz):
+    Check that `/dev/gpiochip1` and `/sys/class/pwm/pwmchip0/export` are now accessible to the `gpio` group (`ls -l`). The PWM check only works once step 3 has taken effect, so repeat it after the reboot.
+7. Disable WiFi power saving, which otherwise causes network drops while the device is idle. If the image uses NetworkManager (`/etc/NetworkManager` exists), create the file `/etc/NetworkManager/conf.d/99-nanobot-wifi.conf` with the content:
     ```
-    pcm.s330_in {
+    [connection]
+    # Values are 0 (use default), 1 (ignore/don't touch), 2 (disable) or 3 (enable).
+    wifi.powersave = 2
+    ```
+    On images without NetworkManager skip this step.
+8. Let NanoBot and the wake-word engine share the microphone. By default the sound card is opened exclusively, so the wake-word recorder fails with `PvRecorder runtime error` as soon as a conversation has opened the microphone. Connect the USB sound card (or speakerphone), find its card name with `aplay -l` (for the *Anker PowerConf S330* it is `S330`) and edit `/etc/asound.conf`, setting the content below (the example is for the S330, whose capture device only supports `S16_LE`, 2 channels, 48000 Hz):
+    ```
+    pcm.nanobot_in {
         type dsnoop
         ipc_key 5978293
         slave {
@@ -178,7 +199,7 @@ Use this section instead of *Raspberry Pi OS Platform Preparation* when running 
         }
         capture.pcm {
             type plug
-            slave.pcm "s330_in"
+            slave.pcm "nanobot_in"
         }
     }
 
@@ -187,10 +208,21 @@ Use this section instead of *Raspberry Pi OS Platform Preparation* when running 
         card S330
     }
     ```
-    For a different USB sound card, find the card name with `aplay -l` and its capture format with `arecord -D hw:<card>,0 --dump-hw-params -d 1 /dev/null`, and adjust the `card` names and the `slave` settings accordingly.
-    Verify that two recordings can run at once: `arecord -D default -f S16_LE -r 16000 -c 1 -d 5 /dev/null & arecord -D default -f S16_LE -r 16000 -c 1 -d 5 /dev/null`
-8. The Orange Pi also has an on-board audio codec and an HDMI audio device that cannot capture from a microphone. ALSA may log `unable to open slave` lines for them. These messages are harmless.
-9. Reboot, then install the .NET 8 platform as in steps 8 and 9 of the Raspberry Pi preparation.
+    For a different USB sound card, find its capture format with `arecord -D hw:<card>,0 --dump-hw-params -d 1 /dev/null` (stop NanoBot first, the card must be free), and adjust the `card` names and the `slave` settings accordingly.    Verify that two recordings can run at once: `arecord -D default -f S16_LE -r 16000 -c 1 -d 5 /dev/null & arecord -D default -f S16_LE -r 16000 -c 1 -d 5 /dev/null`
+    Then run `alsamixer` (press F6 to select the sound card) to check that the card is detected and adjust the microphone sensitivity.
+9. The Orange Pi also has an on-board audio codec and an HDMI audio device that cannot capture from a microphone. ALSA may log `unable to open slave` lines for them. These messages are harmless.
+10. Reboot (`sudo reboot`), then repeat the checks of step 6.
+11. Install the .NET 8 SDK in the `/opt/dotnet8` directory (the SDK includes the .NET and ASP.NET Core runtimes that NanoBot needs):
+    ```
+    curl -sSL https://dot.net/v1/dotnet-install.sh | sudo TMPDIR=/var/tmp bash /dev/stdin --install-dir /opt/dotnet8 --channel 8.0
+    ```
+    The installer downloads about 200 MB into the temporary directory, hence `TMPDIR=/var/tmp` (on disk, since `/tmp` can be a small RAM disk). Also set the following at the bottom of `/etc/profile`, so that `dotnet` is in the `PATH` of the `pi` user:
+    ```
+    export DOTNET_ROOT=/opt/dotnet8
+    export PATH="$DOTNET_ROOT:$PATH"
+    ```
+    The `DOTNET_ROOT` environment variable is needed when running .NET executables published as a single file, so it is best to set it as well. Verify after logging in again with `dotnet --info`.
+12. Optional: to let NanoBot listen on the standard web port 80 when it does not run as `root`, create the file `/etc/sysctl.d/99-nanobot-port80.conf` with the content `net.ipv4.ip_unprivileged_port_start=80` and apply it with `sudo sysctl --system`. (The service file below also grants `CAP_NET_BIND_SERVICE`, so this is only needed when starting NanoBot by hand from the console.)
 
 ## Software Installation and Configuration
 

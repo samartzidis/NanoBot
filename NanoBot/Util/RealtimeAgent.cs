@@ -51,6 +51,7 @@ public sealed class RealtimeAgent : IDisposable
     private const float VadThreshold = 0.7f; // Threshold for VAD to detect speech
     private const int MinSpeechFrames = 3; // Minimum consecutive speech frames to start recording
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
+    private const float BargeInVadThreshold = 0.85f; // Triggering frame must reach this; our own echo peaked at 0.70-0.80, real interruptions at 0.90+
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
     private const int MinSpeechFramesToSend = 6; // ~0.2 s of speech; shorter segments (a click, a cough, our own echo) are dropped
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
@@ -1048,7 +1049,7 @@ public sealed class RealtimeAgent : IDisposable
                 if (_modelIsSpeaking && isSpeech)
                 {
                     speechFrameCount++;
-                    if (speechFrameCount >= MinSpeechFramesForBargeIn)
+                    if (speechFrameCount >= MinSpeechFramesForBargeIn && speechProb >= BargeInVadThreshold)
                     {
                         // Playback position of the current item, taken before clearing: the audio
                         // written to the speaker minus what is still queued (the model streams faster
@@ -1121,7 +1122,9 @@ public sealed class RealtimeAgent : IDisposable
                         vadDetector.Reset();
                         // The triggering frame is counted again by the recording branch below
                         recordedSpeechFrames = speechFrameCount - 1;
-                        cancelledAtRecordingStart = false;
+                        // If this turns out to be a false barge-in (echo), the discarded segment
+                        // asks for the cut-off answer again instead of leaving the user with nothing
+                        cancelledAtRecordingStart = cancelSent || truncateSent;
                         speechFrameCount = 0;
                         silenceFrameCount = 0;
                     }

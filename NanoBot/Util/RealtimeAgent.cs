@@ -52,6 +52,7 @@ public sealed class RealtimeAgent : IDisposable
     private const int MinSpeechFrames = 3; // Minimum consecutive speech frames to start recording
     private const int MinSpeechFramesForBargeIn = 2; // Fewer frames needed for barge-in (faster response)
     private const int SilenceFramesToStop = 50; // ~1.6 seconds of silence to stop recording
+    private const int MinSpeechFramesToSend = 6; // ~0.2 s of speech; shorter segments (a click, a cough, our own echo) are dropped
     private const int PreBufferFrames = 15; // Keep ~0.5s of audio before speech is detected
 
     // Well-known Realtime API error code (RealtimeError.Code). Benign race: we sent
@@ -890,10 +891,11 @@ public sealed class RealtimeAgent : IDisposable
     /// a second response.create while one is active (conversation_already_has_active_response).
     /// Does nothing when no response is pending.
     /// </summary>
-    private async Task CancelPendingResponseAsync(RealtimeSessionClient session, string reason, CancellationToken cancellationToken)
+    /// <returns>True if a pending response was cancelled.</returns>
+    private async Task<bool> CancelPendingResponseAsync(RealtimeSessionClient session, string reason, CancellationToken cancellationToken)
     {
         if (!_responseActive && !_waitingForResponse)
-            return;
+            return false;
 
         string responseId;
         lock (_responseIdLock)
@@ -917,6 +919,8 @@ public sealed class RealtimeAgent : IDisposable
         {
             _logger.LogDebug($"[Cancel response failed: {ex.Message}]");
         }
+
+        return true;
     }
 
     private bool IsCancelledResponse(string responseId)
@@ -994,6 +998,8 @@ public sealed class RealtimeAgent : IDisposable
         bool isRecording = false;
         int speechFrameCount = 0;
         int silenceFrameCount = 0;
+        int recordedSpeechFrames = 0; // speech frames in the current recording
+        bool cancelledAtRecordingStart = false; // the current recording cancelled a pending response
         bool wasModelSpeaking = false;
         var lastActivityUtc = DateTime.UtcNow;
 
@@ -1062,6 +1068,12 @@ public sealed class RealtimeAgent : IDisposable
 
                         int audioEndMs = Math.Max(0, sentMs - queuedPlaybackMs);
 
+                        // The server measures an item's audio before the SpeechSpeed change (seen as
+                        // "audio content of 19750ms is already shorter than 20757ms" at speed 0.9),
+                        // while audioEndMs is in played, slowed-down time
+                        var speechSpeed = _options.SpeechSpeed > 0 ? _options.SpeechSpeed : 1f;
+                        int truncateAtMs = (int)(audioEndMs * speechSpeed);
+
                         var speechProbStr = speechProb.ToString("0.00");
                         var probHistory = string.Join(", ", recentSpeechProbs.Select(p => p.ToString("0.00")));
                         // queuedPlaybackMs ~0 means the speaker had already gone quiet (echo is unlikely)
@@ -1091,7 +1103,7 @@ public sealed class RealtimeAgent : IDisposable
                         {
                             try
                             {
-                                await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
+                                await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(truncateAtMs), cancellationToken);
                             }
                             catch (Exception ex)
                             {
@@ -1099,7 +1111,7 @@ public sealed class RealtimeAgent : IDisposable
                             }
                         }
 
-                        _logger.LogDebug($"[Barge-in: response cancel {(cancelSent ? "sent" : "skipped (response already done)")}, truncate {(truncateSent ? $"sent at {audioEndMs}ms" : "skipped (no audio item)")}]");
+                        _logger.LogDebug($"[Barge-in: response cancel {(cancelSent ? "sent" : "skipped (response already done)")}, truncate {(truncateSent ? $"sent at {truncateAtMs}ms" : "skipped (no audio item)")}]");
 
                         _modelIsSpeaking = false;
                         _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
@@ -1107,6 +1119,9 @@ public sealed class RealtimeAgent : IDisposable
                         audioBuffer.Clear();
                         preBuffer.Clear();
                         vadDetector.Reset();
+                        // The triggering frame is counted again by the recording branch below
+                        recordedSpeechFrames = speechFrameCount - 1;
+                        cancelledAtRecordingStart = false;
                         speechFrameCount = 0;
                         silenceFrameCount = 0;
                     }
@@ -1135,9 +1150,10 @@ public sealed class RealtimeAgent : IDisposable
 
                             // Speaking again before the answer to the last segment started: that
                             // segment was most likely a pause mid-sentence, answer both together
-                            await CancelPendingResponseAsync(session, "User still speaking", cancellationToken);
+                            cancelledAtRecordingStart = await CancelPendingResponseAsync(session, "User still speaking", cancellationToken);
 
                             isRecording = true;
+                            recordedSpeechFrames = speechFrameCount;
                             audioBuffer.Clear();
 
                             while (preBuffer.Count > 0)
@@ -1155,7 +1171,10 @@ public sealed class RealtimeAgent : IDisposable
                     audioBuffer.AddRange(upsampledFrame);
 
                     if (isSpeech)
+                    {
                         silenceFrameCount = 0;
+                        recordedSpeechFrames++;
+                    }
                     else
                     {
                         silenceFrameCount++;
@@ -1163,16 +1182,31 @@ public sealed class RealtimeAgent : IDisposable
                         {
                             // 24 kHz mono samples, including the trailing silence
                             var segmentSeconds = audioBuffer.Count / 24000.0;
-                            _logger.LogDebug($"[Silence detected - sending {segmentSeconds.ToString("F1")}s to model...]");
+                            var speechSeconds = recordedSpeechFrames * FrameLength / (double)recorder.SampleRate;
 
-                            var audioBytes = AudioResampler.ShortsToBytes(audioBuffer.ToArray());
-                            await session.SendInputAudioAsync(new MemoryStream(audioBytes), cancellationToken);
-                            await session.CommitPendingAudioAsync(cancellationToken);
+                            if (recordedSpeechFrames < MinSpeechFramesToSend)
+                            {
+                                // Too little speech to be a turn; the model would answer a near-silent
+                                // input with something made up. Nothing was sent, so nothing to undo.
+                                _logger.LogDebug($"[Silence detected - discarding {segmentSeconds.ToString("F1")}s segment: only {speechSeconds.ToString("F2")}s of speech]");
 
-                            // Only one response may be active at a time; normally already cancelled
-                            // when the speech started (a barge-in recording skips that check)
-                            await CancelPendingResponseAsync(session, "New turn while a response is pending", cancellationToken);
-                            await StartResponseTrackedAsync(session, "user turn", cancellationToken);
+                                // Starting this recording cancelled the answer to the previous turn
+                                if (cancelledAtRecordingStart)
+                                    await StartResponseTrackedAsync(session, "previous turn, after a discarded segment", cancellationToken);
+                            }
+                            else
+                            {
+                                _logger.LogDebug($"[Silence detected - sending {segmentSeconds.ToString("F1")}s ({speechSeconds.ToString("F1")}s of speech) to model...]");
+
+                                var audioBytes = AudioResampler.ShortsToBytes(audioBuffer.ToArray());
+                                await session.SendInputAudioAsync(new MemoryStream(audioBytes), cancellationToken);
+                                await session.CommitPendingAudioAsync(cancellationToken);
+
+                                // Only one response may be active at a time; normally already cancelled
+                                // when the speech started (a barge-in recording skips that check)
+                                await CancelPendingResponseAsync(session, "New turn while a response is pending", cancellationToken);
+                                await StartResponseTrackedAsync(session, "user turn", cancellationToken);
+                            }
 
                             isRecording = false;
                             audioBuffer.Clear();

@@ -71,6 +71,16 @@ public sealed class RealtimeAgent : IDisposable
     private const string ErrCodeInvalidValue = "invalid_value";
     private const string ErrMessageAudioContentAlreadyShorter = "already shorter";
 
+    // Benign: response.create was sent while another response was still active. The server rejects
+    // only that request; the session and the active response carry on. CancelPendingResponseAsync
+    // is meant to prevent this, so seeing it in a log means a path was missed.
+    private const string ErrCodeConversationAlreadyHasActiveResponse = "conversation_already_has_active_response";
+
+    // A cancel requested before the pending response's response.created arrived applies to the next
+    // response.created, but only within this window, so a request the server never answered cannot
+    // make a much later response get dropped.
+    private static readonly TimeSpan PendingCancelMaxAge = TimeSpan.FromSeconds(10);
+
     private readonly IReadOnlyList<AIFunction> _tools;
     private readonly ILogger _logger;
     private readonly IEventBus _bus;
@@ -105,6 +115,14 @@ public sealed class RealtimeAgent : IDisposable
     
     private volatile Action<StateUpdate> _stateUpdateAction;
     private long _responseRequestedAtUtcTicks;
+
+    // Response ids (from response.created), so the output of a response cancelled because the user
+    // kept talking can be dropped (see CancelPendingResponseAsync). Shared between the capture loop
+    // and the receive handler, guarded by _responseIdLock.
+    private readonly object _responseIdLock = new();
+    private string _currentResponseId;
+    private string _cancelledResponseId;
+    private long _cancelNextCreatedResponseAtTicks;
 
     // Liveness check of a kept-alive session (see IsSessionAliveAsync). Traffic from the server
     // within SessionProbeIdleThreshold proves the connection is up, so only longer idle gaps probe.
@@ -394,6 +412,17 @@ public sealed class RealtimeAgent : IDisposable
         _sessionCts = null;
         _receiveTask = null;
         _functionArgumentBuildersById.Clear();
+
+        // Responses of the old session will never finish; stale flags would make the next turn
+        // cancel a response that does not exist.
+        _responseActive = false;
+        _waitingForResponse = false;
+        lock (_responseIdLock)
+        {
+            _currentResponseId = null;
+            _cancelledResponseId = null;
+            _cancelNextCreatedResponseAtTicks = 0;
+        }
     }
 
     /// <summary>
@@ -452,6 +481,16 @@ public sealed class RealtimeAgent : IDisposable
                 if (sessionToken.IsCancellationRequested)
                     break;
 
+                // Output of a response cancelled because the user kept talking (CancelPendingResponseAsync)
+                // is dropped, function calls included; its response.done is still handled below.
+                var updateResponseId = GetResponseId(update);
+                if (IsCancelledResponse(updateResponseId))
+                {
+                    if (update is RealtimeServerUpdateResponseOutputItemAdded)
+                        _logger.LogDebug($"[Dropping output of cancelled response {updateResponseId}]");
+                    continue;
+                }
+
                 // Each update is exactly one runtime type, so the branches below are mutually
                 // exclusive - chained as else-if so we stop at the first match per iteration.
 
@@ -459,6 +498,23 @@ public sealed class RealtimeAgent : IDisposable
                 if (update is RealtimeServerUpdateSessionCreated sessionCreatedUpdate)
                 {
                     _logger.LogDebug($"[Session started: {sessionCreatedUpdate.EventId}]");
+                }
+                // The server accepted a response.create
+                else if (update is RealtimeServerUpdateResponseCreated responseCreated)
+                {
+                    var responseId = responseCreated.Response?.Id;
+                    bool cancelled;
+                    lock (_responseIdLock)
+                    {
+                        _currentResponseId = responseId;
+                        cancelled = _cancelNextCreatedResponseAtTicks != 0
+                            && DateTime.UtcNow.Ticks - _cancelNextCreatedResponseAtTicks < PendingCancelMaxAge.Ticks;
+                        if (cancelled)
+                            _cancelledResponseId = responseId;
+                        _cancelNextCreatedResponseAtTicks = 0;
+                    }
+
+                    _logger.LogDebug($"[ResponseCreated: Id={responseId ?? "null"}{(cancelled ? ", already cancelled - output will be dropped" : "")}]");
                 }
                 // Model started generating a response output item
                 else if (update is RealtimeServerUpdateResponseOutputItemAdded outputItemAdded)
@@ -588,6 +644,44 @@ public sealed class RealtimeAgent : IDisposable
                 // Response finished
                 else if (update is RealtimeServerUpdateResponseDone responseDone)
                 {
+                    var response = responseDone.Response;
+                    var responseId = response?.Id;
+                    var outputItems = response?.OutputItems ?? [];
+
+                    // Logged on arrival: playback of the response's audio may go on for many seconds
+                    var details = response?.StatusDetails;
+                    var detailsText = details?.Reason is { } reason ? $", Reason={reason}" : "";
+                    if (details?.Error is { } detailsError)
+                        detailsText += $", Error={detailsError.Code}: {detailsError.Message}";
+                    _logger.LogDebug($"[ResponseDone: Id={responseId ?? "null"}, Status={response?.Status?.ToString() ?? "null"}{detailsText}, {outputItems.Count} items created]");
+
+                    foreach (var item in outputItems)
+                    {
+                        if (item is RealtimeFunctionCallItem fc)
+                            _logger.LogDebug($"  - FunctionCall: {fc.FunctionName}, CallId={fc.CallId}");
+                        else if (item is RealtimeMessageItem msg)
+                            _logger.LogDebug($"  - Message: Id={msg.Id}");
+                        else
+                            _logger.LogDebug($"  - Item: {item.GetType().Name}");
+                    }
+
+                    bool cancelledByUs;
+                    lock (_responseIdLock)
+                    {
+                        if (_currentResponseId == responseId)
+                            _currentResponseId = null;
+                        cancelledByUs = responseId is not null && responseId == _cancelledResponseId;
+                        if (cancelledByUs)
+                            _cancelledResponseId = null;
+                    }
+
+                    // Its output was dropped, and the response flags already belong to the next turn
+                    if (cancelledByUs)
+                    {
+                        _logger.LogDebug($"[Cancelled response {responseId} finished - output dropped]");
+                        continue;
+                    }
+
                     _waitingForResponse = false;
                     _responseActive = false;
 
@@ -608,28 +702,11 @@ public sealed class RealtimeAgent : IDisposable
                     await FlushSpeakerSafeAsync(sessionToken);
                     _modelIsSpeaking = false;
                     _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
-
-                    var outputItems = responseDone.Response?.OutputItems ?? [];
-
-                    _logger.LogDebug($"[ResponseDone: {outputItems.Count} items created]");
-
-                    foreach (var item in outputItems)
-                    {
-                        if (item is RealtimeFunctionCallItem fc)
-                            _logger.LogDebug($"  - FunctionCall: {fc.FunctionName}, CallId={fc.CallId}");
-                        else if (item is RealtimeMessageItem msg)
-                            _logger.LogDebug($"  - Message: Id={msg.Id}");
-                        else
-                            _logger.LogDebug($"  - Item: {item.GetType().Name}");
-                    }
+                    _logger.LogDebug($"[Playback finished: response {responseId ?? "null"}]");
 
                     if (outputItems.OfType<RealtimeFunctionCallItem>().Any())
                     {
-                        _logger.LogDebug("[Function calls detected - triggering response...]");
-                        _waitingForResponse = true;
-                        _responseActive = true;
-                        Interlocked.Exchange(ref _responseRequestedAtUtcTicks, DateTime.UtcNow.Ticks); // Set the response requested time
-                        await session.StartResponseAsync(sessionToken);
+                        await StartResponseTrackedAsync(session, "function call follow-up", sessionToken);
                     }
                     else
                     {
@@ -647,21 +724,32 @@ public sealed class RealtimeAgent : IDisposable
                     var code = err?.Code;
                     var kind = err?.Kind;
                     var msg = err?.Message ?? "Unknown Realtime API error";
+                    // EventId is the id of the client event the server rejected (when it has one)
+                    var param = err?.ParameterName;
+                    var clientEventId = err?.EventId;
 
                     bool isBenignTruncateRace = code == ErrCodeInvalidValue
                         && msg.Contains(ErrMessageAudioContentAlreadyShorter, StringComparison.OrdinalIgnoreCase);
 
-                    if (code == ErrCodeResponseCancelNotActive || isBenignTruncateRace)
+                    if (code == ErrCodeConversationAlreadyHasActiveResponse)
+                    {
+                        // Only our response.create was rejected; the active response still arrives
+                        _waitingForResponse = false;
+                        _logger.LogWarning(
+                            "[Realtime API benign error - ignored: code={Code} kind={Kind} param={Param} clientEventId={ClientEventId} message={Message}]",
+                            code, kind, param, clientEventId, msg);
+                    }
+                    else if (code == ErrCodeResponseCancelNotActive || isBenignTruncateRace)
                     {
                         _logger.LogWarning(
-                            "[Realtime API benign error - ignored: code={Code} kind={Kind} message={Message}]",
-                            code, kind, msg);
+                            "[Realtime API benign error - ignored: code={Code} kind={Kind} param={Param} clientEventId={ClientEventId} message={Message}]",
+                            code, kind, param, clientEventId, msg);
                     }
                     else
                     {
                         _logger.LogError(
-                            "[Realtime API error: code={Code} kind={Kind} message={Message}]",
-                            code, kind, msg);
+                            "[Realtime API error: code={Code} kind={Kind} param={Param} clientEventId={ClientEventId} message={Message}]",
+                            code, kind, param, clientEventId, msg);
                         FaultSession();
                         throw new InvalidOperationException(
                             $"Realtime session error (code={code ?? "<none>"}): {msg}");
@@ -784,6 +872,76 @@ public sealed class RealtimeAgent : IDisposable
     }
 
     /// <summary>
+    /// Requests a model response and records that one is pending.
+    /// </summary>
+    private async Task StartResponseTrackedAsync(RealtimeSessionClient session, string reason, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug($"[Requesting response ({reason}): responseActive={_responseActive}, waitingForResponse={_waitingForResponse}, modelIsSpeaking={_modelIsSpeaking}]");
+        _waitingForResponse = true;
+        _responseActive = true;
+        Interlocked.Exchange(ref _responseRequestedAtUtcTicks, DateTime.UtcNow.Ticks);
+        await session.StartResponseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Cancels a requested response the user has not started hearing yet, and drops its output.
+    /// Used when the user speaks again before the answer begins: the last segment was most likely a
+    /// pause mid-sentence, and the next commit answers both parts together. The server also rejects
+    /// a second response.create while one is active (conversation_already_has_active_response).
+    /// Does nothing when no response is pending.
+    /// </summary>
+    private async Task CancelPendingResponseAsync(RealtimeSessionClient session, string reason, CancellationToken cancellationToken)
+    {
+        if (!_responseActive && !_waitingForResponse)
+            return;
+
+        string responseId;
+        lock (_responseIdLock)
+        {
+            responseId = _currentResponseId;
+            if (responseId is not null)
+                _cancelledResponseId = responseId;
+            else
+                _cancelNextCreatedResponseAtTicks = DateTime.UtcNow.Ticks; // response.created not handled yet
+        }
+
+        _logger.LogWarning($"[{reason} - cancelling pending response {responseId ?? "(not created yet)"}]");
+        _waitingForResponse = false;
+        _responseActive = false;
+
+        try
+        {
+            await session.CancelResponseAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug($"[Cancel response failed: {ex.Message}]");
+        }
+    }
+
+    private bool IsCancelledResponse(string responseId)
+    {
+        if (responseId is null)
+            return false;
+
+        lock (_responseIdLock)
+        {
+            return responseId == _cancelledResponseId;
+        }
+    }
+
+    private static string GetResponseId(RealtimeServerUpdate update) => update switch
+    {
+        RealtimeServerUpdateResponseOutputItemAdded u => u.ResponseId,
+        RealtimeServerUpdateResponseOutputItemDone u => u.ResponseId,
+        RealtimeServerUpdateResponseOutputAudioDelta u => u.ResponseId,
+        RealtimeServerUpdateResponseOutputAudioTranscriptDelta u => u.ResponseId,
+        RealtimeServerUpdateResponseOutputTextDelta u => u.ResponseId,
+        RealtimeServerUpdateResponseFunctionCallArgumentsDelta u => u.ResponseId,
+        _ => null
+    };
+
+    /// <summary>
     /// Safely write to speaker (may be null during audio device transitions).
     /// </summary>
     private void WriteSpeakerSafe(byte[] data)
@@ -886,25 +1044,36 @@ public sealed class RealtimeAgent : IDisposable
                     speechFrameCount++;
                     if (speechFrameCount >= MinSpeechFramesForBargeIn)
                     {
-                        // Calculate playback position before clearing
-                        // 24kHz mono 16-bit = 48000 bytes/second
+                        // Playback position of the current item, taken before clearing: the audio
+                        // written to the speaker minus what is still queued (the model streams faster
+                        // than real time, so most of an answer is usually still queued).
+                        // 24 kHz mono 16-bit = 48 bytes/ms written; the queue holds 24 samples/ms.
                         string truncateItemId;
-                        int audioEndMs;
-                        
+                        int sentMs;
+                        int queuedPlaybackMs;
+
                         lock (_outputAudioLock)
                         {
                             _bargeInTriggered = true;
                             truncateItemId = _currentStreamingItemId;
-                            audioEndMs = (int)((_audioBytesSentToSpeaker / 48000.0) * 1000);
+                            sentMs = _audioBytesSentToSpeaker / 48;
+                            queuedPlaybackMs = speaker.GetQueuedSampleCount() / 24;
                         }
-                        
+
+                        int audioEndMs = Math.Max(0, sentMs - queuedPlaybackMs);
+
                         var speechProbStr = speechProb.ToString("0.00");
                         var probHistory = string.Join(", ", recentSpeechProbs.Select(p => p.ToString("0.00")));
-                        _logger.LogWarning($"[Barge-in detected - interrupting model at {audioEndMs}ms, ItemId={truncateItemId}, speechProb={speechProbStr}, recentProbs=[{probHistory}]]");
+                        // queuedPlaybackMs ~0 means the speaker had already gone quiet (echo is unlikely)
+                        _logger.LogWarning($"[Barge-in detected - interrupting model at {audioEndMs}ms of {sentMs}ms received, ItemId={truncateItemId}, queuedPlaybackMs={queuedPlaybackMs}, speechProb={speechProbStr}, recentProbs=[{probHistory}]]");
 
                         ClearSpeakerSafe(); // Clear buffered audio immediately
 
-                        if (_responseActive)
+                        // Cancel only while the server is still generating; once response.done has
+                        // arrived the rest of the answer may still be playing, so truncate either way
+                        // to keep the model from assuming the user heard all of it.
+                        bool cancelSent = _responseActive;
+                        if (cancelSent)
                         {
                             try
                             {
@@ -914,19 +1083,23 @@ public sealed class RealtimeAgent : IDisposable
                             {
                                 _logger.LogDebug($"[Cancel response failed: {ex.Message}]");
                             }
+                        }
 
-                            if (truncateItemId is not null)
+                        // No audio written means a function call item: nothing was heard to truncate
+                        bool truncateSent = truncateItemId is not null && sentMs > 0;
+                        if (truncateSent)
+                        {
+                            try
                             {
-                                try
-                                {
-                                    await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning($"[Truncate failed: {ex.Message}]");
-                                }
+                                await session.TruncateItemAsync(truncateItemId, 0, TimeSpan.FromMilliseconds(audioEndMs), cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning($"[Truncate failed: {ex.Message}]");
                             }
                         }
+
+                        _logger.LogDebug($"[Barge-in: response cancel {(cancelSent ? "sent" : "skipped (response already done)")}, truncate {(truncateSent ? $"sent at {audioEndMs}ms" : "skipped (no audio item)")}]");
 
                         _modelIsSpeaking = false;
                         _stateUpdateAction?.Invoke(StateUpdate.SpeakingStopped);
@@ -959,6 +1132,11 @@ public sealed class RealtimeAgent : IDisposable
                         if (speechFrameCount >= MinSpeechFrames)
                         {
                             _logger.LogDebug("[Voice detected - recording...]");
+
+                            // Speaking again before the answer to the last segment started: that
+                            // segment was most likely a pause mid-sentence, answer both together
+                            await CancelPendingResponseAsync(session, "User still speaking", cancellationToken);
+
                             isRecording = true;
                             audioBuffer.Clear();
 
@@ -983,15 +1161,18 @@ public sealed class RealtimeAgent : IDisposable
                         silenceFrameCount++;
                         if (silenceFrameCount >= SilenceFramesToStop)
                         {
-                            _logger.LogDebug("[Silence detected - sending to model...]");
+                            // 24 kHz mono samples, including the trailing silence
+                            var segmentSeconds = audioBuffer.Count / 24000.0;
+                            _logger.LogDebug($"[Silence detected - sending {segmentSeconds.ToString("F1")}s to model...]");
 
                             var audioBytes = AudioResampler.ShortsToBytes(audioBuffer.ToArray());
                             await session.SendInputAudioAsync(new MemoryStream(audioBytes), cancellationToken);
                             await session.CommitPendingAudioAsync(cancellationToken);
-                            await session.StartResponseAsync(cancellationToken);
-                            _waitingForResponse = true;
-                            _responseActive = true;
-                            Interlocked.Exchange(ref _responseRequestedAtUtcTicks, DateTime.UtcNow.Ticks); // Set the response requested time
+
+                            // Only one response may be active at a time; normally already cancelled
+                            // when the speech started (a barge-in recording skips that check)
+                            await CancelPendingResponseAsync(session, "New turn while a response is pending", cancellationToken);
+                            await StartResponseTrackedAsync(session, "user turn", cancellationToken);
 
                             isRecording = false;
                             audioBuffer.Clear();
